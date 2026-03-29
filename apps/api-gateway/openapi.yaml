@@ -1,0 +1,708 @@
+openapi: 3.1.0
+info:
+  title: AGRORED API Gateway
+  version: 0.1.0
+  description: Punto de entrada del ecosistema AGRORED para enrutar peticiones a los microservicios.
+servers:
+  - url: http://localhost:8080
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            correlationId:
+              type: string
+              nullable: true
+    PaginatedResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items: {}
+        meta:
+          type: object
+          properties:
+            total:
+              type: integer
+            page:
+              type: integer
+            limit:
+              type: integer
+    UserRegisterPayload:
+      type: object
+      required: [tenantId, email, fullName, role, password]
+      properties:
+        tenantId:
+          type: string
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+          minLength: 3
+        role:
+          type: string
+          enum: [admin_municipal, producer, supermarket, community_kitchen, logistics_operator, territorial_analyst]
+        password:
+          type: string
+          minLength: 8
+    LoginPayload:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+security:
+  - BearerAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Healthcheck del API Gateway
+      security: []
+      responses:
+        "200":
+          description: Gateway y servicios activos
+        "503":
+          description: Uno o mas servicios degradados
+
+  /api/v1/catalog/services:
+    get:
+      summary: Catalogo de servicios registrados en el gateway
+      security: []
+      responses:
+        "200":
+          description: Lista de microservicios y prefijos disponibles
+
+  /api/v1/users/register:
+    post:
+      summary: Registrar usuario
+      security: []
+      tags: [Users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserRegisterPayload"
+      responses:
+        "201":
+          description: Usuario registrado
+        "400":
+          description: Payload invalido
+        "409":
+          description: Email ya existe
+
+  /api/v1/users/login:
+    post:
+      summary: Iniciar sesion
+      security: []
+      tags: [Users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginPayload"
+      responses:
+        "200":
+          description: JWT token
+        "401":
+          description: Credenciales invalidas
+
+  /api/v1/users:
+    get:
+      summary: Listar usuarios (admin)
+      tags: [Users]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+      responses:
+        "200":
+          description: Lista paginada de usuarios
+        "403":
+          description: Sin permisos
+
+  /api/v1/users/{id}:
+    get:
+      summary: Obtener usuario por ID
+      tags: [Users]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Detalle del usuario
+        "404":
+          description: No encontrado
+
+  /api/v1/producers/register:
+    post:
+      summary: Registrar productor
+      tags: [Producers]
+      responses:
+        "201":
+          description: Productor registrado
+        "400":
+          description: Payload invalido
+        "409":
+          description: Productor ya existe
+
+  /api/v1/producers:
+    get:
+      summary: Listar productores
+      tags: [Producers]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+      responses:
+        "200":
+          description: Lista paginada de productores
+
+  /api/v1/producers/{id}:
+    get:
+      summary: Obtener productor por ID
+      tags: [Producers]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Detalle del productor
+        "404":
+          description: No encontrado
+
+  /api/v1/offers/publish:
+    post:
+      summary: Publicar oferta alimentaria
+      tags: [Offers]
+      responses:
+        "201":
+          description: Oferta publicada
+        "400":
+          description: Payload invalido
+
+  /api/v1/offers:
+    get:
+      summary: Listar ofertas
+      tags: [Offers]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+      responses:
+        "200":
+          description: Lista paginada de ofertas
+
+  /api/v1/offers/{id}:
+    get:
+      summary: Obtener oferta por ID
+      tags: [Offers]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Detalle de la oferta
+        "404":
+          description: No encontrado
+
+  /api/v1/rescues/register:
+    post:
+      summary: Registrar rescate alimentario
+      tags: [Rescues]
+      responses:
+        "201":
+          description: Rescate registrado
+        "400":
+          description: Payload invalido
+
+  /api/v1/rescues:
+    get:
+      summary: Listar rescates
+      tags: [Rescues]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+      responses:
+        "200":
+          description: Lista paginada de rescates
+
+  /api/v1/rescues/{id}:
+    get:
+      summary: Obtener rescate por ID
+      tags: [Rescues]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Detalle del rescate
+        "404":
+          description: No encontrado
+
+  /api/v1/demands/register:
+    post:
+      summary: Registrar demanda institucional
+      tags: [Demands]
+      responses:
+        "201":
+          description: Demanda registrada
+        "400":
+          description: Payload invalido
+
+  /api/v1/demands:
+    get:
+      summary: Listar demandas
+      tags: [Demands]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+      responses:
+        "200":
+          description: Lista paginada de demandas
+
+  /api/v1/demands/{id}:
+    get:
+      summary: Obtener demanda por ID
+      tags: [Demands]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Detalle de la demanda
+        "404":
+          description: No encontrado
+
+  /api/v1/inventory/register:
+    post:
+      summary: Registrar item de inventario
+      tags: [Inventory]
+      responses:
+        "201":
+          description: Inventario registrado
+        "400":
+          description: Payload invalido
+
+  /api/v1/inventory:
+    get:
+      summary: Listar inventario
+      tags: [Inventory]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+      responses:
+        "200":
+          description: Lista paginada de inventario
+
+  /api/v1/inventory/{id}:
+    get:
+      summary: Obtener item de inventario por ID
+      tags: [Inventory]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Detalle del inventario
+        "404":
+          description: No encontrado
+
+  /api/v1/logistics/register:
+    post:
+      summary: Registrar orden logistica
+      tags: [Logistics]
+      responses:
+        "201":
+          description: Orden registrada
+        "400":
+          description: Payload invalido
+
+  /api/v1/logistics:
+    get:
+      summary: Listar ordenes logisticas
+      tags: [Logistics]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+      responses:
+        "200":
+          description: Lista paginada de ordenes
+
+  /api/v1/logistics/{id}:
+    get:
+      summary: Obtener orden logistica por ID
+      tags: [Logistics]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Detalle de la orden
+        "404":
+          description: No encontrado
+
+  /api/v1/logistics/resources/register:
+    post:
+      summary: Registrar recurso de transporte
+      tags: [Logistics Tracking]
+      responses:
+        "201":
+          description: Recurso registrado
+
+  /api/v1/logistics/resources:
+    get:
+      summary: Listar recursos
+      tags: [Logistics Tracking]
+      responses:
+        "200":
+          description: Lista de recursos
+
+  /api/v1/logistics/tracking/position:
+    post:
+      summary: Registrar posicion GPS
+      tags: [Logistics Tracking]
+      responses:
+        "201":
+          description: Posicion registrada
+
+  /api/v1/logistics/tracking/positions/batch:
+    post:
+      summary: Registrar posiciones GPS en lote (max 100)
+      tags: [Logistics Tracking]
+      responses:
+        "201":
+          description: Posiciones registradas
+
+  /api/v1/logistics/tracking/active:
+    get:
+      summary: Recursos activos en mapa
+      tags: [Logistics Tracking]
+      responses:
+        "200":
+          description: Lista de recursos con posicion actual
+
+  /api/v1/logistics/tracking/history/{recursoId}:
+    get:
+      summary: Historial GPS de un recurso
+      tags: [Logistics Tracking]
+      parameters:
+        - name: recursoId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Historial de posiciones
+
+  /api/v1/logistics/deliveries/events:
+    post:
+      summary: Registrar evento de entrega
+      tags: [Logistics Tracking]
+      responses:
+        "201":
+          description: Evento registrado
+
+  /api/v1/logistics/deliveries/{ordenId}/timeline:
+    get:
+      summary: Timeline de una entrega
+      tags: [Logistics Tracking]
+      parameters:
+        - name: ordenId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Timeline de eventos
+
+  /api/v1/incidents/register:
+    post:
+      summary: Registrar incidencia territorial
+      tags: [Incidents]
+      responses:
+        "201":
+          description: Incidencia registrada
+        "400":
+          description: Payload invalido
+
+  /api/v1/incidents:
+    get:
+      summary: Listar incidencias
+      tags: [Incidents]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+      responses:
+        "200":
+          description: Lista paginada de incidencias
+
+  /api/v1/incidents/{id}:
+    get:
+      summary: Obtener incidencia por ID
+      tags: [Incidents]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Detalle de la incidencia
+        "404":
+          description: No encontrado
+
+  /api/v1/analytics/summary:
+    get:
+      summary: Resumen analitico operativo
+      tags: [Analytics]
+      parameters:
+        - name: tenantId
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Dashboard con indicadores
+
+  /api/v1/analytics/territorial-overview:
+    get:
+      summary: Panorama territorial
+      tags: [Analytics]
+      parameters:
+        - name: tenantId
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Resumen territorial
+
+  /api/v1/analytics/map/{layer}:
+    get:
+      summary: Capa geoespacial GeoJSON
+      tags: [Analytics Map]
+      parameters:
+        - name: layer
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [producers, offers, canteens, rescues, incidents, demands, resources]
+        - name: bbox
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: GeoJSON FeatureCollection
+
+  /api/v1/analytics/map/nearby/producers:
+    get:
+      summary: Productores cercanos (PostGIS)
+      tags: [Analytics Map]
+      parameters:
+        - name: lng
+          in: query
+          required: true
+          schema: { type: number }
+        - name: lat
+          in: query
+          required: true
+          schema: { type: number }
+        - name: radiusKm
+          in: query
+          schema: { type: number, default: 10 }
+      responses:
+        "200":
+          description: GeoJSON de productores cercanos
+
+  /api/v1/analytics/map/hierarchy/departamentos:
+    get:
+      summary: Departamentos (poligonos GeoJSON)
+      tags: [Analytics Map]
+      responses:
+        "200":
+          description: GeoJSON FeatureCollection
+
+  /api/v1/analytics/map/hierarchy/municipios:
+    get:
+      summary: Municipios de un departamento
+      tags: [Analytics Map]
+      parameters:
+        - name: departamentoId
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: GeoJSON FeatureCollection
+
+  /api/v1/notifications/register:
+    post:
+      summary: Registrar notificacion operativa
+      tags: [Notifications]
+      responses:
+        "201":
+          description: Notificacion registrada
+        "400":
+          description: Payload invalido
+
+  /api/v1/notifications:
+    get:
+      summary: Listar notificaciones
+      tags: [Notifications]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+      responses:
+        "200":
+          description: Lista paginada de notificaciones
+
+  /api/v1/ml/decision-support:
+    get:
+      summary: Apoyo a decision territorial
+      tags: [ML]
+      parameters:
+        - name: tenantId
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Reporte con clasificacion y recomendaciones
+
+  /api/v1/ml/recommendations:
+    get:
+      summary: Recomendaciones operativas
+      tags: [ML]
+      parameters:
+        - name: tenantId
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Lista de recomendaciones
+
+  /api/v1/automation/execute:
+    post:
+      summary: Ejecutar corrida de automatizacion
+      tags: [Automation]
+      responses:
+        "201":
+          description: Corrida ejecutada
+        "400":
+          description: Payload invalido
+
+  /api/v1/automation:
+    get:
+      summary: Listar corridas de automatizacion
+      tags: [Automation]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+      responses:
+        "200":
+          description: Lista paginada de corridas
+
+  /api/v1/audit:
+    get:
+      summary: Consultar log de auditoria (admin)
+      tags: [Audit]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50, maximum: 200 }
+      responses:
+        "200":
+          description: Log de auditoria paginado
+        "403":
+          description: Sin permisos
+

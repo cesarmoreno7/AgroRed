@@ -1,0 +1,26 @@
+{
+  "name": "@agrored/auction-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx --watch src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsc -p tsconfig.json",
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "test": "jest"
+  },
+  "dependencies": {
+    "cors": "^2",
+    "express": "^4",
+    "helmet": "^7",
+    "pg": "^8.16.3",
+    "zod": "^3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2",
+    "@types/express": "^5",
+    "@types/node": "^22",
+    "typescript": "^5"
+  }
+}

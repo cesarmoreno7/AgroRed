@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: lint
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: "777"
+          POSTGRES_PASSWORD: "777"
+          POSTGRES_DB: agrored
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U 777 -d agrored"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: agrored
+      POSTGRES_USER: "777"
+      POSTGRES_PASSWORD: "777"
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci_test_secret_key_at_least_32_characters_long!!
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Run database migrations
+        run: |
+          PGPASSWORD=777 psql -h localhost -U 777 -d agrored -f infra/postgres/init/001_bootstrap_agrored.sql
+          PGPASSWORD=777 psql -h localhost -U 777 -d agrored -f infra/postgres/init/002_add_auth.sql
+          PGPASSWORD=777 psql -h localhost -U 777 -d agrored -f infra/postgres/init/002b_add_coordinates.sql
+          PGPASSWORD=777 psql -h localhost -U 777 -d agrored -f infra/postgres/init/003_map_spatial_support.sql
+          PGPASSWORD=777 psql -h localhost -U 777 -d agrored -f infra/postgres/init/004_logistics_tracking.sql
+          PGPASSWORD=777 psql -h localhost -U 777 -d agrored -f infra/postgres/init/005_add_foreign_keys.sql
+          PGPASSWORD=777 psql -h localhost -U 777 -d agrored -f infra/postgres/006_auction_module.sql
+          PGPASSWORD=777 psql -h localhost -U 777 -d agrored -f infra/postgres/007_offer_demand_matching.sql
+          PGPASSWORD=777 psql -h localhost -U 777 -d agrored -f infra/postgres/008_modulos_revision.sql
+          PGPASSWORD=777 psql -h localhost -U 777 -d agrored -f infra/postgres/009_sla_tracking.sql
+          PGPASSWORD=777 psql -h localhost -U 777 -d agrored -f infra/postgres/010_remaining_gaps.sql
+          PGPASSWORD=777 psql -h localhost -U 777 -d agrored -f infra/postgres/011_alert_thresholds.sql
+          PGPASSWORD=777 psql -h localhost -U 777 -d agrored -f infra/postgres/012_vrp_spoilage_classification.sql
+          PGPASSWORD=777 psql -h localhost -U 777 -d agrored -f infra/postgres/013_inventory_expiry_csv.sql
+      - run: npm test

@@ -1,0 +1,25 @@
+{
+  "name": "@agrored/__SERVICE_NAME__",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch --experimental-strip-types src/index.ts",
+    "start": "node --experimental-strip-types src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "lint": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "cors": "^2",
+    "express": "^4",
+    "helmet": "^7",
+    "zod": "^3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2",
+    "@types/express": "^5",
+    "@types/node": "^22",
+    "typescript": "^5"
+  }
+}
+

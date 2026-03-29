@@ -1,0 +1,32 @@
+{
+  "name": "@agrored/api-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch --experimental-strip-types src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsc -p tsconfig.json",
+    "lint": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "cors": "^2",
+    "express": "^4",
+    "express-rate-limit": "^8.3.1",
+    "helmet": "^7",
+    "http-proxy-middleware": "^3",
+    "ioredis": "^5.10.1",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.16.3",
+    "rate-limit-redis": "^4.3.1",
+    "zod": "^3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2",
+    "@types/express": "^5",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22",
+    "@types/pg": "^8",
+    "typescript": "^5"
+  }
+}

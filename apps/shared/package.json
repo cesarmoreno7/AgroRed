@@ -1,0 +1,12 @@
+{
+  "name": "@agrored/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./http/response.js": "./http/response.ts"
+  },
+  "peerDependencies": {
+    "express": "^4"
+  }
+}

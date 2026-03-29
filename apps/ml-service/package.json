@@ -1,0 +1,28 @@
+{
+  "name": "@agrored/ml-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch --experimental-strip-types src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsc -p tsconfig.json",
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "test": "jest"
+  },
+  "dependencies": {
+    "cors": "^2",
+    "express": "^4",
+    "helmet": "^7",
+    "ioredis": "^5.10.1",
+    "pg": "^8.16.3",
+    "zod": "^3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2",
+    "@types/express": "^5",
+    "@types/node": "^22",
+    "@types/pg": "^8.15.5",
+    "typescript": "^5"
+  }
+}
