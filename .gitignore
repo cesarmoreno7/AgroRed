@@ -10,3 +10,8 @@ tmp/
 __pycache__/
 *.pyc
 tmp-*.pid
+
+# GeoJSON data files and backups
+data/
+backups/
+.venv-*/

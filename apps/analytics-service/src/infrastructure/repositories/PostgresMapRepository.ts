@@ -183,7 +183,7 @@ export class PostgresMapRepository implements MapRepository {
         WHERE p.deleted_at IS NULL
           AND p.latitude IS NOT NULL
           AND p.longitude IS NOT NULL
-          AND p.geom IS NULL
+          AND NOT EXISTS (SELECT 1 FROM v_mapa_productores v WHERE v.id = p.id)
           ${bboxFilter.sql.replace(/\$(\d+)/g, (_, n) => `$${Number(n) + bboxFilter.params.length}`)}
       `,
       [...bboxFilter.params, ...bboxFilter.params]
@@ -496,7 +496,6 @@ export class PostgresMapRepository implements MapRepository {
   // ── Geographic hierarchy: Departamentos ──
 
   async getDepartamentos(): Promise<GeoJsonFeatureCollection<GeoJsonMultiPolygon, HierarchyProperties>> {
-    // Try ST_AsGeoJSON first (PostGIS available), fallback to empty if not
     try {
       const result = await this.pool.query<HierarchyRow>(
         `
@@ -505,7 +504,7 @@ export class PostgresMapRepository implements MapRepository {
             d.nombre,
             d.pais_id AS parent_id,
             p.nombre AS parent_nombre,
-            ST_AsGeoJSON(d.geom)::text AS geojson
+            CASE WHEN d.geom IS NOT NULL THEN d.geom::text ELSE NULL END AS geojson
           FROM departamento d
           LEFT JOIN pais p ON d.pais_id = p.id
           WHERE d.geom IS NOT NULL
@@ -545,7 +544,7 @@ export class PostgresMapRepository implements MapRepository {
             m.nombre,
             m.departamento_id AS parent_id,
             d.nombre AS parent_nombre,
-            ST_AsGeoJSON(m.geom)::text AS geojson
+            CASE WHEN m.geom IS NOT NULL THEN m.geom::text ELSE NULL END AS geojson
           FROM municipio m
           LEFT JOIN departamento d ON m.departamento_id = d.id
           WHERE m.geom IS NOT NULL ${whereClause}

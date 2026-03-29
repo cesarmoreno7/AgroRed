@@ -31,10 +31,6 @@ export class PostgresOfferRepository implements OfferRepository {
     const tenantId = await this.resolveTenantId(offer.tenantId);
     const producerId = await this.resolveProducerId(offer.producerId, tenantId);
 
-    const geom = offer.latitude != null && offer.longitude != null
-      ? `ST_SetSRID(ST_MakePoint($16, $17), 4326)`
-      : `NULL`;
-
     await this.pool.query(
       `
         INSERT INTO public.offers (
@@ -53,9 +49,10 @@ export class PostgresOfferRepository implements OfferRepository {
           municipality_name,
           notes,
           status,
-          geom
+          latitude,
+          longitude
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, ${geom})
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
       `,
       [
         offer.id,
@@ -73,9 +70,8 @@ export class PostgresOfferRepository implements OfferRepository {
         offer.municipalityName,
         offer.notes,
         offer.status,
-        ...(offer.latitude != null && offer.longitude != null
-          ? [offer.longitude, offer.latitude]
-          : [])
+        offer.latitude ?? null,
+        offer.longitude ?? null,
       ]
     );
   }
@@ -99,8 +95,8 @@ export class PostgresOfferRepository implements OfferRepository {
           municipality_name,
           notes,
           status,
-          ST_Y(geom)::text AS latitude,
-          ST_X(geom)::text AS longitude,
+          latitude::text AS latitude,
+          longitude::text AS longitude,
           created_at
         FROM public.offers
         WHERE id = $1
@@ -123,7 +119,7 @@ export class PostgresOfferRepository implements OfferRepository {
 
     const result = await this.pool.query<OfferRow>(
       `
-        SELECT id, tenant_id, producer_id, title, product_name, category, unit, quantity_available, price_amount, currency, available_from, available_until, municipality_name, notes, status, ST_Y(geom)::text AS latitude, ST_X(geom)::text AS longitude, created_at
+        SELECT id, tenant_id, producer_id, title, product_name, category, unit, quantity_available, price_amount, currency, available_from, available_until, municipality_name, notes, status, latitude::text AS latitude, longitude::text AS longitude, created_at
         FROM public.offers
         WHERE deleted_at IS NULL
           AND ($1::uuid IS NULL OR tenant_id = $1)
