@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { fetchActiveResources } from "../services/dashboard";
 import { ActiveFleet } from "../components/ActiveFleet";
+import { FleetMap } from "../components/FleetMap";
 import type { CurrentPosition } from "../types";
 
 export function FleetPage() {
@@ -28,7 +29,10 @@ export function FleetPage() {
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto" }}>
       <h1 style={{ fontSize: 24, fontWeight: 700, color: "#fff", marginBottom: 24 }}>Flota en tiempo real</h1>
-      <ActiveFleet resources={resources} />
+      <FleetMap resources={resources} />
+      <div style={{ marginTop: 20 }}>
+        <ActiveFleet resources={resources} />
+      </div>
 
       {resources.length > 0 && (
         <div style={{

@@ -170,7 +170,7 @@ WHERE i.deleted_at IS NULL AND i.latitude IS NOT NULL AND i.longitude IS NOT NUL
 
 -- ── Grant permissions to application user ──
 
-GRANT SELECT ON v_mapa_rescates TO "777";
-GRANT SELECT ON v_mapa_incidentes TO "777";
-GRANT SELECT ON v_mapa_demandas TO "777";
-GRANT SELECT ON v_mapa_cadena_completa TO "777";
+DO $$ BEGIN EXECUTE 'GRANT SELECT ON v_mapa_rescates TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT ON v_mapa_incidentes TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT ON v_mapa_demandas TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT ON v_mapa_cadena_completa TO ' || CURRENT_USER; END $$;

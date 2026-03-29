@@ -409,16 +409,16 @@ WHERE rp.status IN ('draft', 'optimized', 'in_progress');
 -- 5. GRANTS
 -- ────────────────────────────────────────────────
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.incident_actions TO "777";
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.incident_alerts TO "777";
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.food_programs TO "777";
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.beneficiaries TO "777";
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.program_deliveries TO "777";
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.institutional_alerts TO "777";
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.coordination_tasks TO "777";
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.route_plans TO "777";
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.route_stops TO "777";
-GRANT SELECT ON public.v_irat_municipal TO "777";
-GRANT SELECT ON public.v_incidents_by_zone TO "777";
-GRANT SELECT ON public.v_program_coverage TO "777";
-GRANT SELECT ON public.v_active_routes TO "777";
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.incident_actions TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.incident_alerts TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.food_programs TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.beneficiaries TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.program_deliveries TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.institutional_alerts TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.coordination_tasks TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.route_plans TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.route_stops TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT ON public.v_irat_municipal TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT ON public.v_incidents_by_zone TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT ON public.v_program_coverage TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT ON public.v_active_routes TO ' || CURRENT_USER; END $$;

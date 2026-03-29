@@ -36,4 +36,4 @@ COMMENT ON TABLE alert_thresholds IS
 --   institutional.supply_shortage → supply/demand ratio % (default 50)
 --   institutional.low_coverage    → program coverage % (default 30)
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON alert_thresholds TO "777";
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON alert_thresholds TO ' || CURRENT_USER; END $$;

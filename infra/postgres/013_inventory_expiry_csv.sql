@@ -31,4 +31,4 @@ CREATE INDEX IF NOT EXISTS idx_inventory_imports_tenant
   ON public.inventory_imports (tenant_id, created_at DESC);
 
 -- 4. Grants
-GRANT SELECT, INSERT, UPDATE ON public.inventory_imports TO "777";
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE ON public.inventory_imports TO ' || CURRENT_USER; END $$;

@@ -17,6 +17,7 @@ import type {
   TrackingEvent,
   DeliveryEvent,
 } from "../../domain/value-objects/TrackingTypes.js";
+import { haversineKm, haversineM } from "@agrored/shared/geo/haversine.js";
 
 // ── Row interfaces ──────────────────────────────────────────
 
@@ -91,16 +92,9 @@ export class PostgresTrackingRepository implements TrackingRepository {
       `
         INSERT INTO public.recursos (
           id, tenant_id, user_id, nombre, tipo, placa, telefono,
-          estado, latitude, longitude, geom, metadata
+          estado, latitude, longitude, metadata
         )
-        VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-          CASE WHEN $9 IS NOT NULL AND $10 IS NOT NULL
-            THEN ST_SetSRID(ST_MakePoint($10::double precision, $9::double precision), 4326)
-            ELSE NULL
-          END,
-          $11
-        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       `,
       [
         resource.id,
@@ -183,21 +177,16 @@ export class PostgresTrackingRepository implements TrackingRepository {
     await this.pool.query(
       `
         INSERT INTO public.tracking_historial (
-          recurso_id, orden_id, latitude, longitude, geom,
+          recurso_id, orden_id, latitude, longitude,
           velocidad, precision_gps, bearing, evento, metadata, registrado_at
         )
-        VALUES (
-          $1, $2, $3, $4,
-          ST_SetSRID(ST_MakePoint($5::double precision, $3::double precision), 4326),
-          $6, $7, $8, $9, $10, $11
-        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       `,
       [
         point.recursoId,
         point.ordenId,
         point.latitude,
         point.longitude,
-        point.longitude, // $5 for MakePoint(lng, lat)
         point.velocidad,
         point.precisionGps,
         point.bearing,
@@ -211,19 +200,14 @@ export class PostgresTrackingRepository implements TrackingRepository {
     await this.pool.query(
       `
         INSERT INTO public.tracking_actual (
-          recurso_id, latitude, longitude, geom,
+          recurso_id, latitude, longitude,
           velocidad, bearing, evento, orden_id, actualizado_at
         )
-        VALUES (
-          $1, $2, $3,
-          ST_SetSRID(ST_MakePoint($4::double precision, $2::double precision), 4326),
-          $5, $6, $7, $8, NOW()
-        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
         ON CONFLICT (recurso_id)
         DO UPDATE SET
           latitude = EXCLUDED.latitude,
           longitude = EXCLUDED.longitude,
-          geom = EXCLUDED.geom,
           velocidad = EXCLUDED.velocidad,
           bearing = EXCLUDED.bearing,
           evento = EXCLUDED.evento,
@@ -234,7 +218,6 @@ export class PostgresTrackingRepository implements TrackingRepository {
         point.recursoId,
         point.latitude,
         point.longitude,
-        point.longitude, // $4 for MakePoint(lng, lat)
         point.velocidad,
         point.bearing,
         point.evento,
@@ -246,9 +229,7 @@ export class PostgresTrackingRepository implements TrackingRepository {
     await this.pool.query(
       `
         UPDATE public.recursos
-        SET latitude = $2, longitude = $3,
-            geom = ST_SetSRID(ST_MakePoint($3::double precision, $2::double precision), 4326),
-            updated_at = NOW()
+        SET latitude = $2, longitude = $3, updated_at = NOW()
         WHERE id = $1
       `,
       [point.recursoId, point.latitude, point.longitude]
@@ -361,17 +342,10 @@ export class PostgresTrackingRepository implements TrackingRepository {
     await this.pool.query(
       `
         INSERT INTO public.delivery_events (
-          orden_id, recurso_id, evento, latitude, longitude, geom,
+          orden_id, recurso_id, evento, latitude, longitude,
           notas, evidencia_url, metadata
         )
-        VALUES (
-          $1, $2, $3, $4, $5,
-          CASE WHEN $4 IS NOT NULL AND $5 IS NOT NULL
-            THEN ST_SetSRID(ST_MakePoint($5::double precision, $4::double precision), 4326)
-            ELSE NULL
-          END,
-          $6, $7, $8
-        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       `,
       [
         event.ordenId,
@@ -444,14 +418,8 @@ export class PostgresTrackingRepository implements TrackingRepository {
   async saveGeofenceZone(zone: { tenantId: string; zoneName: string; zoneType: string; centerLat: number; centerLng: number; radiusM: number; metadata?: Record<string, unknown> }): Promise<GeofenceZone> {
     const tenantId = await this.resolveTenantId(zone.tenantId);
     const result = await this.pool.query<{ id: string; created_at: Date; updated_at: Date }>(
-      `INSERT INTO public.geofence_zones (tenant_id, zone_name, zone_type, center_lat, center_lng, radius_m,
-        geom, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6,
-        ST_Buffer(
-          ST_Transform(ST_SetSRID(ST_MakePoint($5::double precision, $4::double precision), 4326), 3116),
-          $6::double precision
-        )::geometry(Polygon, 3116),
-        $7)
+      `INSERT INTO public.geofence_zones (tenant_id, zone_name, zone_type, center_lat, center_lng, radius_m, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, created_at, updated_at`,
       [tenantId, zone.zoneName, zone.zoneType, zone.centerLat, zone.centerLng, zone.radiusM, JSON.stringify(zone.metadata ?? {})]
     );
@@ -498,22 +466,19 @@ export class PostgresTrackingRepository implements TrackingRepository {
   async checkPositionInZones(tenantId: string, lat: number, lng: number): Promise<GeofenceCheckResult[]> {
     const tid = await this.resolveTenantId(tenantId);
     const result = await this.pool.query<{
-      id: string; zone_name: string; zone_type: string; is_inside: boolean;
+      id: string; zone_name: string; zone_type: string; center_lat: string; center_lng: string; radius_m: string;
     }>(
       `SELECT gz.id, gz.zone_name, gz.zone_type,
-              ST_Contains(
-                gz.geom,
-                ST_Transform(ST_SetSRID(ST_MakePoint($2::double precision, $3::double precision), 4326), 3116)
-              ) AS is_inside
+              gz.center_lat::text, gz.center_lng::text, gz.radius_m::text
        FROM public.geofence_zones gz
        WHERE gz.tenant_id = $1 AND gz.is_active = TRUE`,
-      [tid, lng, lat]
+      [tid]
     );
     return result.rows.map(r => ({
       zoneId: r.id,
       zoneName: r.zone_name,
       zoneType: r.zone_type,
-      isInside: r.is_inside,
+      isInside: haversineM(lat, lng, Number(r.center_lat), Number(r.center_lng)) <= Number(r.radius_m),
     }));
   }
 
@@ -538,16 +503,8 @@ export class PostgresTrackingRepository implements TrackingRepository {
     const curLat = Number(posResult.rows[0].latitude);
     const curLng = Number(posResult.rows[0].longitude);
 
-    // Calculate straight-line distance using PostGIS (meters, then km)
-    const distResult = await this.pool.query<{ distance_km: string }>(
-      `SELECT ROUND(
-        (ST_Distance(
-          ST_Transform(ST_SetSRID(ST_MakePoint($1::double precision, $2::double precision), 4326), 3116),
-          ST_Transform(ST_SetSRID(ST_MakePoint($3::double precision, $4::double precision), 4326), 3116)
-        ) * 1.3 / 1000)::numeric, 2)::text AS distance_km`,
-      [curLng, curLat, destLng, destLat]
-    );
-    const distanceKm = Number(distResult.rows[0].distance_km);
+    // Calculate straight-line distance using haversine, apply road factor 1.3
+    const distanceKm = Math.round(haversineKm(curLat, curLng, destLat, destLng) * 1.3 * 100) / 100;
 
     // Get average speed from recent history (last 7 days)
     const speedResult = await this.pool.query<{ avg_speed: string | null; total_points: string }>(

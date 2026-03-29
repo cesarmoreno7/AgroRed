@@ -163,12 +163,12 @@ GROUP BY recurso_id;
 -- GRANTS
 -- ──────────────────────────────────────────────────────
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.geofence_zones   TO "777";
-GRANT SELECT, INSERT ON public.geofence_events                  TO "777";
-GRANT USAGE, SELECT ON SEQUENCE public.geofence_events_id_seq   TO "777";
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.allocation_scenarios TO "777";
-GRANT SELECT ON public.v_incident_clusters    TO "777";
-GRANT SELECT ON public.v_incident_trends      TO "777";
-GRANT SELECT ON public.v_incident_trends_daily TO "777";
-GRANT SELECT ON public.v_supervision_operativa TO "777";
-GRANT SELECT ON public.v_resource_avg_speed   TO "777";
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.geofence_zones TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT ON public.geofence_events TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT USAGE, SELECT ON SEQUENCE public.geofence_events_id_seq TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.allocation_scenarios TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT ON public.v_incident_clusters TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT ON public.v_incident_trends TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT ON public.v_incident_trends_daily TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT ON public.v_supervision_operativa TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT ON public.v_resource_avg_speed TO ' || CURRENT_USER; END $$;

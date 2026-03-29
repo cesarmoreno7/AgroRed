@@ -190,13 +190,13 @@ WHERE r.deleted_at IS NULL
 
 -- ── Grants ──
 
-GRANT SELECT, INSERT, UPDATE ON public.recursos TO "777";
-GRANT USAGE, SELECT ON SEQUENCE recursos_id_seq TO "777";
-GRANT SELECT, INSERT ON public.tracking_historial TO "777";
-GRANT USAGE, SELECT ON SEQUENCE tracking_historial_id_seq TO "777";
-GRANT SELECT, INSERT, UPDATE ON public.tracking_actual TO "777";
-GRANT SELECT, INSERT ON public.delivery_events TO "777";
-GRANT USAGE, SELECT ON SEQUENCE delivery_events_id_seq TO "777";
-GRANT SELECT ON v_recursos_en_ruta TO "777";
-GRANT SELECT ON v_orden_timeline TO "777";
-GRANT SELECT ON v_mapa_recursos TO "777";
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE ON public.recursos TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT USAGE, SELECT ON SEQUENCE recursos_id_seq TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT ON public.tracking_historial TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT USAGE, SELECT ON SEQUENCE tracking_historial_id_seq TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE ON public.tracking_actual TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT ON public.delivery_events TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT USAGE, SELECT ON SEQUENCE delivery_events_id_seq TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT ON v_recursos_en_ruta TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT ON v_orden_timeline TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT ON v_mapa_recursos TO ' || CURRENT_USER; END $$;

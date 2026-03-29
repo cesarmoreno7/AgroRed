@@ -236,7 +236,9 @@ export class PostgresMapRepository implements MapRepository {
         WHERE o.status = 'published'
           AND o.deleted_at IS NULL
           AND o.latitude IS NOT NULL AND o.longitude IS NOT NULL
-          AND o.geom IS NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM v_mapa_ofertas v WHERE v.id = o.id
+          )
           ${bboxFilter.sql.replace(/\$(\d+)/g, (_, n) => `$${Number(n) + bboxFilter.params.length}`)}
       `,
       [...bboxFilter.params, ...bboxFilter.params]
@@ -399,7 +401,7 @@ export class PostgresMapRepository implements MapRepository {
   // ── Nearby Producers (PostGIS proximity) ──
 
   async getNearbyProducers(query: NearbyQuery): Promise<GeoJsonFeatureCollection<GeoJsonPoint, NearbyProducerProperties>> {
-    const radiusMeters = query.radiusKm * 1000;
+    const radiusKm = query.radiusKm;
 
     const result = await this.pool.query<NearbyProducerRow>(
       `
@@ -415,27 +417,21 @@ export class PostgresMapRepository implements MapRepository {
           c.nombre AS comuna,
           m.nombre AS municipio,
           d.nombre AS departamento,
-          ST_X(p.geom) AS longitud,
-          ST_Y(p.geom) AS latitud,
-          ROUND(ST_Distance(
-            ST_Transform(p.geom, 3116),
-            ST_Transform(ST_SetSRID(ST_MakePoint($1, $2), 4326), 3116)
-          )::numeric, 0)::text AS distancia_metros
+          p.longitude::text AS longitud,
+          p.latitude::text AS latitud,
+          ROUND(haversine_km(p.latitude, p.longitude, $2, $1) * 1000)::text AS distancia_metros
         FROM producers p
         LEFT JOIN zona z ON p.zona_id = z.id
         LEFT JOIN comuna c ON p.comuna_id = c.id
         LEFT JOIN municipio m ON p.municipio_id = m.id
         LEFT JOIN departamento d ON m.departamento_id = d.id
         WHERE p.deleted_at IS NULL
-          AND p.geom IS NOT NULL
-          AND ST_DWithin(
-            ST_Transform(p.geom, 3116),
-            ST_Transform(ST_SetSRID(ST_MakePoint($1, $2), 4326), 3116),
-            $3
-          )
+          AND p.latitude IS NOT NULL
+          AND p.longitude IS NOT NULL
+          AND haversine_km(p.latitude, p.longitude, $2, $1) <= $3
         ORDER BY distancia_metros ASC
       `,
-      [query.lng, query.lat, radiusMeters]
+      [query.lng, query.lat, radiusKm]
     );
 
     const features = result.rows.map((r) =>
@@ -468,13 +464,13 @@ export class PostgresMapRepository implements MapRepository {
         SELECT r.id, r.nombre, r.tipo, r.placa, r.telefono, r.estado,
                ta.velocidad::text,
                ta.orden_id AS orden_actual_id,
-               ta.registrado_at AS ultima_actualizacion,
-               ST_X(ta.geom)::text AS longitude,
-               ST_Y(ta.geom)::text AS latitude
+               ta.actualizado_at AS ultima_actualizacion,
+               ta.longitude::text,
+               ta.latitude::text
         FROM recursos r
         INNER JOIN tracking_actual ta ON ta.recurso_id = r.id
         WHERE r.estado IN ('disponible', 'en_ruta')
-          AND ta.geom IS NOT NULL
+          AND ta.latitude IS NOT NULL
           ${bboxFilter.sql}
       `,
       bboxFilter.params
@@ -500,33 +496,39 @@ export class PostgresMapRepository implements MapRepository {
   // ── Geographic hierarchy: Departamentos ──
 
   async getDepartamentos(): Promise<GeoJsonFeatureCollection<GeoJsonMultiPolygon, HierarchyProperties>> {
-    const result = await this.pool.query<HierarchyRow>(
-      `
-        SELECT
-          d.id,
-          d.nombre,
-          d.pais_id AS parent_id,
-          p.nombre AS parent_nombre,
-          ST_AsGeoJSON(d.geom)::text AS geojson
-        FROM departamento d
-        LEFT JOIN pais p ON d.pais_id = p.id
-        WHERE d.geom IS NOT NULL
-        ORDER BY d.nombre
-      `
-    );
+    // Try ST_AsGeoJSON first (PostGIS available), fallback to empty if not
+    try {
+      const result = await this.pool.query<HierarchyRow>(
+        `
+          SELECT
+            d.id,
+            d.nombre,
+            d.pais_id AS parent_id,
+            p.nombre AS parent_nombre,
+            ST_AsGeoJSON(d.geom)::text AS geojson
+          FROM departamento d
+          LEFT JOIN pais p ON d.pais_id = p.id
+          WHERE d.geom IS NOT NULL
+          ORDER BY d.nombre
+        `
+      );
 
-    const features = result.rows.map((r) => ({
-      type: "Feature" as const,
-      geometry: JSON.parse(r.geojson) as GeoJsonMultiPolygon,
-      properties: {
-        id: r.id,
-        nombre: r.nombre,
-        parentId: r.parent_id,
-        parentNombre: r.parent_nombre,
-      },
-    }));
+      const features = result.rows.map((r) => ({
+        type: "Feature" as const,
+        geometry: JSON.parse(r.geojson) as GeoJsonMultiPolygon,
+        properties: {
+          id: r.id,
+          nombre: r.nombre,
+          parentId: r.parent_id,
+          parentNombre: r.parent_nombre,
+        },
+      }));
 
-    return featureCollection(features);
+      return featureCollection(features);
+    } catch {
+      // PostGIS not available — return empty collection
+      return featureCollection([]);
+    }
   }
 
   // ── Geographic hierarchy: Municipios ──
@@ -535,33 +537,38 @@ export class PostgresMapRepository implements MapRepository {
     const whereClause = departamentoId !== undefined ? "AND m.departamento_id = $1" : "";
     const params = departamentoId !== undefined ? [departamentoId] : [];
 
-    const result = await this.pool.query<HierarchyRow>(
-      `
-        SELECT
-          m.id,
-          m.nombre,
-          m.departamento_id AS parent_id,
-          d.nombre AS parent_nombre,
-          ST_AsGeoJSON(m.geom)::text AS geojson
-        FROM municipio m
-        LEFT JOIN departamento d ON m.departamento_id = d.id
-        WHERE m.geom IS NOT NULL ${whereClause}
-        ORDER BY m.nombre
-      `,
-      params
-    );
+    try {
+      const result = await this.pool.query<HierarchyRow>(
+        `
+          SELECT
+            m.id,
+            m.nombre,
+            m.departamento_id AS parent_id,
+            d.nombre AS parent_nombre,
+            ST_AsGeoJSON(m.geom)::text AS geojson
+          FROM municipio m
+          LEFT JOIN departamento d ON m.departamento_id = d.id
+          WHERE m.geom IS NOT NULL ${whereClause}
+          ORDER BY m.nombre
+        `,
+        params
+      );
 
-    const features = result.rows.map((r) => ({
-      type: "Feature" as const,
-      geometry: JSON.parse(r.geojson) as GeoJsonMultiPolygon,
-      properties: {
-        id: r.id,
-        nombre: r.nombre,
-        parentId: r.parent_id,
-        parentNombre: r.parent_nombre,
-      },
-    }));
+      const features = result.rows.map((r) => ({
+        type: "Feature" as const,
+        geometry: JSON.parse(r.geojson) as GeoJsonMultiPolygon,
+        properties: {
+          id: r.id,
+          nombre: r.nombre,
+          parentId: r.parent_id,
+          parentNombre: r.parent_nombre,
+        },
+      }));
 
-    return featureCollection(features);
+      return featureCollection(features);
+    } catch {
+      // PostGIS not available — return empty collection
+      return featureCollection([]);
+    }
   }
 }

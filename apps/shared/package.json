@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./http/response.js": "./http/response.ts"
+    "./http/response.js": "./http/response.ts",
+    "./geo/haversine.js": "./geo/haversine.ts"
   },
   "peerDependencies": {
     "express": "^4"

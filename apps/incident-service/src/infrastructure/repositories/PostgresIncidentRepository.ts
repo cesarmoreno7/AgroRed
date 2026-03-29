@@ -1,5 +1,6 @@
 import type { Pool } from "pg";
 import { Incident } from "../../domain/entities/Incident.js";
+import { clusterPoints } from "@agrored/shared/geo/haversine.js";
 import type {
   IncidentRepository,
   PaginationParams,
@@ -361,69 +362,51 @@ export class PostgresIncidentRepository implements IncidentRepository {
     return Number(res.rows[0].count);
   }
 
-  // ── Spatial Clustering (PostGIS) ──
+  // ── Spatial Clustering (Haversine) ──
 
   async getIncidentClusters(tenantId: string, radiusM = 500, minPoints = 2): Promise<IncidentCluster[]> {
     const tid = await this.resolveTenantId(tenantId);
     const severityMap: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
 
     const result = await this.pool.query<{
-      cluster_id: number;
-      centroid_lat: string;
-      centroid_lng: string;
-      incident_count: string;
-      dominant_type: string;
-      affected_pop: string;
-      incident_ids: string[];
-      severities: string[];
+      id: string; incident_type: string; severity: string;
+      affected_population: string; lat: string; lng: string;
     }>(
-      `WITH clustered AS (
-        SELECT
-          i.id,
-          i.incident_type,
-          i.severity,
-          i.affected_population,
-          i.latitude::double precision AS lat,
-          i.longitude::double precision AS lng,
-          ST_ClusterDBSCAN(
-            ST_Transform(ST_SetSRID(ST_MakePoint(i.longitude::double precision, i.latitude::double precision), 4326), 3116),
-            eps := $2::double precision,
-            minpoints := $3
-          ) OVER () AS cluster_id
-        FROM public.incidents i
-        WHERE i.tenant_id = $1
-          AND i.deleted_at IS NULL
-          AND i.latitude IS NOT NULL
-          AND i.longitude IS NOT NULL
-      )
-      SELECT
-        cluster_id,
-        AVG(lat)::text AS centroid_lat,
-        AVG(lng)::text AS centroid_lng,
-        COUNT(*)::text AS incident_count,
-        MODE() WITHIN GROUP (ORDER BY incident_type) AS dominant_type,
-        SUM(affected_population)::text AS affected_pop,
-        ARRAY_AGG(id) AS incident_ids,
-        ARRAY_AGG(severity) AS severities
-      FROM clustered
-      WHERE cluster_id IS NOT NULL
-      GROUP BY cluster_id
-      ORDER BY incident_count DESC`,
-      [tid, radiusM, minPoints]
+      `SELECT i.id, i.incident_type, i.severity, i.affected_population::text,
+              i.latitude::text AS lat, i.longitude::text AS lng
+       FROM public.incidents i
+       WHERE i.tenant_id = $1 AND i.deleted_at IS NULL
+         AND i.latitude IS NOT NULL AND i.longitude IS NOT NULL`,
+      [tid]
     );
 
-    return result.rows.map(r => {
-      const severities = r.severities || [];
-      const avgSev = severities.reduce((sum, s) => sum + (severityMap[s] ?? 1), 0) / Math.max(severities.length, 1);
+    if (result.rows.length === 0) return [];
+
+    const items = result.rows.map(r => ({
+      lat: Number(r.lat),
+      lng: Number(r.lng),
+      data: { id: r.id, type: r.incident_type, severity: r.severity, affectedPop: Number(r.affected_population) },
+    }));
+
+    const clusters = clusterPoints(items, radiusM, minPoints);
+
+    return clusters.map((c, idx) => {
+      const severities = c.points.map(p => p.data.severity);
+      const avgSev = severities.reduce((sum, s) => sum + (severityMap[s] ?? 1), 0) / severities.length;
+      const types = c.points.map(p => p.data.type);
+      const dominantType = types.sort((a, b) =>
+        types.filter(t => t === b).length - types.filter(t => t === a).length
+      )[0];
+
       return {
-        clusterId: r.cluster_id,
-        centroidLat: Number(r.centroid_lat),
-        centroidLng: Number(r.centroid_lng),
-        incidentCount: Number(r.incident_count),
+        clusterId: idx,
+        centroidLat: c.centroidLat,
+        centroidLng: c.centroidLng,
+        incidentCount: c.points.length,
         avgSeverityScore: Math.round(avgSev * 10) / 10,
-        dominantType: r.dominant_type,
-        affectedPopulation: Number(r.affected_pop),
-        incidentIds: r.incident_ids,
+        dominantType,
+        affectedPopulation: c.points.reduce((sum, p) => sum + p.data.affectedPop, 0),
+        incidentIds: c.points.map(p => p.data.id),
       };
     });
   }
