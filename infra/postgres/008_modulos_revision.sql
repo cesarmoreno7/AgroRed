@@ -409,16 +409,16 @@ WHERE rp.status IN ('draft', 'optimized', 'in_progress');
 -- 5. GRANTS
 -- ────────────────────────────────────────────────
 
-DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.incident_actions TO ' || CURRENT_USER; END $$;
-DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.incident_alerts TO ' || CURRENT_USER; END $$;
-DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.food_programs TO ' || CURRENT_USER; END $$;
-DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.beneficiaries TO ' || CURRENT_USER; END $$;
-DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.program_deliveries TO ' || CURRENT_USER; END $$;
-DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.institutional_alerts TO ' || CURRENT_USER; END $$;
-DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.coordination_tasks TO ' || CURRENT_USER; END $$;
-DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.route_plans TO ' || CURRENT_USER; END $$;
-DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.route_stops TO ' || CURRENT_USER; END $$;
-DO $$ BEGIN EXECUTE 'GRANT SELECT ON public.v_irat_municipal TO ' || CURRENT_USER; END $$;
-DO $$ BEGIN EXECUTE 'GRANT SELECT ON public.v_incidents_by_zone TO ' || CURRENT_USER; END $$;
-DO $$ BEGIN EXECUTE 'GRANT SELECT ON public.v_program_coverage TO ' || CURRENT_USER; END $$;
-DO $$ BEGIN EXECUTE 'GRANT SELECT ON public.v_active_routes TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.incident_actions TO ' || quote_ident(CURRENT_USER); END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.incident_alerts TO ' || quote_ident(CURRENT_USER); END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.food_programs TO ' || quote_ident(CURRENT_USER); END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.beneficiaries TO ' || quote_ident(CURRENT_USER); END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.program_deliveries TO ' || quote_ident(CURRENT_USER); END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.institutional_alerts TO ' || quote_ident(CURRENT_USER); END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.coordination_tasks TO ' || quote_ident(CURRENT_USER); END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.route_plans TO ' || quote_ident(CURRENT_USER); END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.route_stops TO ' || quote_ident(CURRENT_USER); END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT ON public.v_irat_municipal TO ' || quote_ident(CURRENT_USER); END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT ON public.v_incidents_by_zone TO ' || quote_ident(CURRENT_USER); END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT ON public.v_program_coverage TO ' || quote_ident(CURRENT_USER); END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT ON public.v_active_routes TO ' || quote_ident(CURRENT_USER); END $$;

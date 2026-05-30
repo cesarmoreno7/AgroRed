@@ -201,6 +201,21 @@ export class PostgresNotificationRepository implements NotificationRepository {
     return result.rows.map((row: NotificationRow) => this.mapRow(row));
   }
 
+  async patch(id: string, fields: Record<string, unknown>): Promise<Notification | null> {
+    const COLS: Record<string, string> = {
+      notificationChannel: "notification_channel", recipientLabel: "recipient_label",
+      title: "title", message: "message", scheduledFor: "scheduled_for", status: "status",
+    };
+    const sets: string[] = []; const vals: unknown[] = []; let i = 1;
+    for (const [k, v] of Object.entries(fields)) {
+      if (COLS[k] !== undefined) { sets.push(`${COLS[k]} = $${i++}`); vals.push(v ?? null); }
+    }
+    if (sets.length === 0) return this.findById(id);
+    sets.push(`updated_at = NOW()`); vals.push(id);
+    await this.pool.query(`UPDATE public.notifications SET ${sets.join(", ")} WHERE id = $${i}`, vals);
+    return this.findById(id);
+  }
+
   private mapRow(row: NotificationRow): Notification {
     return new Notification({
       id: row.id,

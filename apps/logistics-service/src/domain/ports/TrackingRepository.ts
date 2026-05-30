@@ -101,6 +101,7 @@ export interface TrackingRepository {
 
   // Geofencing
   saveGeofenceZone(zone: { tenantId: string; zoneName: string; zoneType: string; centerLat: number; centerLng: number; radiusM: number; metadata?: Record<string, unknown> }): Promise<GeofenceZone>;
+  updateGeofenceZone(id: string, updates: Partial<Omit<GeofenceZone, "id" | "tenantId" | "createdAt">>): Promise<GeofenceZone | null>;
   listGeofenceZones(tenantId: string): Promise<GeofenceZone[]>;
   checkPositionInZones(tenantId: string, lat: number, lng: number): Promise<GeofenceCheckResult[]>;
   logGeofenceEvent(zoneId: string, recursoId: string, eventType: string, lat: number, lng: number): Promise<void>;

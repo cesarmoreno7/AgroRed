@@ -2,7 +2,7 @@
   "name": "@agrored/mobile",
   "version": "0.1.0",
   "private": true,
-  "main": "expo-router/entry",
+  "main": "expo/AppEntry",
   "scripts": {
     "start": "npx expo start",
     "android": "npx expo start --android",

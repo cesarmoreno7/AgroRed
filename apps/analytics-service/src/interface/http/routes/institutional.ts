@@ -102,7 +102,9 @@ export function createInstitutionalRouter(repository: InstitutionalRepository): 
   // ═══════════════════════════════════════
 
   router.get("/api/v1/analytics/institutional/irat", asyncHandler(async (req, res) => {
-    const tenantId = req.query.tenantId ? String(req.query.tenantId) : undefined;
+    const tenantId = req.query.tenantId
+      ? String(req.query.tenantId)
+      : (req.headers["x-tenant-id"] as string | undefined);
     const format = String(req.query.format ?? "json").toLowerCase();
     try {
       const scores = await repository.getIratScores(tenantId);
@@ -295,8 +297,8 @@ export function createInstitutionalRouter(repository: InstitutionalRepository): 
   // ═══════════════════════════════════════
 
   router.get("/api/v1/analytics/institutional/alerts", asyncHandler(async (req, res) => {
-    const tenantId = String(req.query.tenantId ?? "");
-    if (!tenantId) return sendError(res, 400, "MISSING_TENANT", "Se requiere tenantId.");
+    const tenantId = String(req.query.tenantId ?? req.headers["x-tenant-id"] ?? "");
+    if (!tenantId) return sendError(res, 400, "MISSING_TENANT", "Se requiere tenantId o autenticación.");
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "20"), 10) || 20));
     try {

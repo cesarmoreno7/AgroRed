@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Response as ExpressResponse } from "express";
 import { z } from "zod";
 import { RegisterResource } from "../../../application/use-cases/RegisterResource.js";
 import { RecordPosition } from "../../../application/use-cases/RecordPosition.js";
@@ -7,6 +7,7 @@ import { AssignResource } from "../../../application/use-cases/AssignResource.js
 import type { Resource } from "../../../domain/entities/Resource.js";
 import type { TrackingPoint } from "../../../domain/entities/TrackingPoint.js";
 import type { TrackingRepository, CurrentPosition, DeliveryEventRecord, GeofenceZone, GeofenceCheckResult, EtaEstimate } from "../../../domain/ports/TrackingRepository.js";
+import type { AuditLogger } from "../../../shared/audit.js";
 import { RESOURCE_TYPES } from "../../../domain/value-objects/TrackingTypes.js";
 import { DELIVERY_EVENTS, TRACKING_EVENTS } from "../../../domain/value-objects/TrackingTypes.js";
 import { asyncHandler, sendError, sendPaginatedSuccess, sendSuccess } from "../response.js";
@@ -63,6 +64,16 @@ const createGeofenceSchema = z.object({
   radiusM: z.coerce.number().min(10).max(50000),
   metadata: z.record(z.unknown()).optional(),
 });
+
+const updateGeofenceSchema = z.object({
+  zoneName: z.string().min(2).optional(),
+  zoneType: z.enum(["delivery", "restricted", "warehouse", "critical"]).optional(),
+  centerLat: z.coerce.number().min(-90).max(90).optional(),
+  centerLng: z.coerce.number().min(-180).max(180).optional(),
+  radiusM: z.coerce.number().min(10).max(50000).optional(),
+  isActive: z.boolean().optional(),
+  metadata: z.record(z.unknown()).optional(),
+}).refine(d => Object.keys(d).length > 0, { message: "Al menos un campo requerido." });
 
 const checkGeofenceSchema = z.object({
   tenantId: z.string().min(1),
@@ -141,14 +152,32 @@ function toDeliveryEventResponse(de: DeliveryEventRecord) {
   };
 }
 
+// ── SSE fleet broadcast ──
+
+// Per-tenant set of SSE clients
+const sseClients = new Map<string, Set<ExpressResponse>>();
+
+function broadcastPosition(tenantId: string, data: object): void {
+  const clients = sseClients.get(tenantId);
+  if (!clients || clients.size === 0) return;
+  const payload = `data: ${JSON.stringify(data)}\n\n`;
+  for (const client of clients) {
+    try { client.write(payload); } catch { clients.delete(client); }
+  }
+}
+
 // ── Router ──
 
-export function createTrackingRouter(repository: TrackingRepository): Router {
+export function createTrackingRouter(repository: TrackingRepository, auditLogger?: AuditLogger): Router {
   const router = Router();
   const registerResource = new RegisterResource(repository);
-  const recordPosition = new RecordPosition(repository);
   const recordDeliveryEvent = new RecordDeliveryEventUseCase(repository);
   const assignResource = new AssignResource(repository);
+
+  // RecordPosition broadcasts to SSE clients after saving
+  const recordPosition = new RecordPosition(repository, (tenantId, position) => {
+    broadcastPosition(tenantId, toPositionResponse(position));
+  });
 
   // ═══════════════════════════════════════════
   // RESOURCES (vehículos / domiciliarios)
@@ -163,6 +192,26 @@ export function createTrackingRouter(repository: TrackingRepository): Router {
 
     try {
       const resource = await registerResource.execute(parsed.data);
+
+      if (auditLogger) {
+        await auditLogger({
+          tenantId: resource.tenantId,
+          serviceName: "logistics-service",
+          entityName: "logistics_resources",
+          entityId: resource.id,
+          actionName: "logistics.resource_registered",
+          actorId: typeof req.headers["x-user-id"] === "string" ? req.headers["x-user-id"] : resource.userId,
+          correlationId: typeof req.headers["x-correlation-id"] === "string" ? req.headers["x-correlation-id"] : undefined,
+          payload: {
+            userId: resource.userId,
+            nombre: resource.nombre,
+            tipo: resource.tipo,
+            estado: resource.estado,
+            tenantId: resource.tenantId
+          }
+        });
+      }
+
       return sendSuccess(res, toResourceResponse(resource), 201);
     } catch (error) {
       if (error instanceof Error && error.message === "TENANT_NOT_FOUND") {
@@ -214,6 +263,26 @@ export function createTrackingRouter(repository: TrackingRepository): Router {
 
     try {
       const position = await recordPosition.execute(parsed.data);
+
+      if (auditLogger) {
+        await auditLogger({
+          tenantId: typeof req.body?.tenantId === "string" ? req.body.tenantId : undefined,
+          serviceName: "logistics-service",
+          entityName: "logistics_tracking_positions",
+          entityId: position.recursoId,
+          actionName: "logistics.position_recorded",
+          actorId: typeof req.headers["x-user-id"] === "string" ? req.headers["x-user-id"] : null,
+          correlationId: typeof req.headers["x-correlation-id"] === "string" ? req.headers["x-correlation-id"] : undefined,
+          payload: {
+            recursoId: position.recursoId,
+            latitude: position.latitude,
+            longitude: position.longitude,
+            evento: position.evento,
+            actualizadoAt: position.actualizadoAt
+          }
+        });
+      }
+
       return sendSuccess(res, toPositionResponse(position), 201);
     } catch (error) {
       if (error instanceof Error && error.message === "RESOURCE_NOT_FOUND") {
@@ -302,6 +371,28 @@ export function createTrackingRouter(repository: TrackingRepository): Router {
 
     try {
       const timeline = await recordDeliveryEvent.execute(parsed.data);
+
+      if (auditLogger && timeline.length > 0) {
+        const event = timeline[timeline.length - 1];
+        await auditLogger({
+          tenantId: (event as any).tenantId ?? undefined,
+          serviceName: "logistics-service",
+          entityName: "logistics_delivery_events",
+          entityId: event.id ? String(event.id) : `${event.ordenId}:${event.recursoId}:${event.evento}`,
+          actionName: "logistics.delivery_event_recorded",
+          actorId: typeof req.headers["x-user-id"] === "string" ? req.headers["x-user-id"] : null,
+          correlationId: typeof req.headers["x-correlation-id"] === "string" ? req.headers["x-correlation-id"] : undefined,
+          payload: {
+            ordenId: event.ordenId,
+            recursoId: event.recursoId,
+            evento: event.evento,
+            latitude: event.latitude,
+            longitude: event.longitude,
+            registradoAt: event.registradoAt
+          }
+        });
+      }
+
       return sendSuccess(res, timeline.map(toDeliveryEventResponse), 201);
     } catch (error) {
       if (error instanceof Error && error.message === "RESOURCE_NOT_FOUND") {
@@ -330,6 +421,23 @@ export function createTrackingRouter(repository: TrackingRepository): Router {
 
     try {
       await assignResource.execute(String(req.params.ordenId), parsed.data.recursoId);
+
+      if (auditLogger) {
+        await auditLogger({
+          tenantId: typeof req.body?.tenantId === "string" ? req.body.tenantId : null,
+          serviceName: "logistics-service",
+          entityName: "logistics_assignments",
+          entityId: `${String(req.params.ordenId)}:${parsed.data.recursoId}`,
+          actionName: "logistics.resource_assigned",
+          actorId: typeof req.headers["x-user-id"] === "string" ? req.headers["x-user-id"] : null,
+          correlationId: typeof req.headers["x-correlation-id"] === "string" ? req.headers["x-correlation-id"] : undefined,
+          payload: {
+            ordenId: String(req.params.ordenId),
+            recursoId: parsed.data.recursoId
+          }
+        });
+      }
+
       return sendSuccess(res, { message: "Recurso asignado exitosamente." });
     } catch (error) {
       if (error instanceof Error && error.message === "RESOURCE_NOT_FOUND") {
@@ -366,10 +474,10 @@ export function createTrackingRouter(repository: TrackingRepository): Router {
     }
   }));
 
-  // GET /api/v1/logistics/geofences — list geofence zones
+  // GET /api/v1/logistics/geofences — list geofence zones (tenantId from query or x-tenant-id header)
   router.get("/api/v1/logistics/geofences", asyncHandler(async (req, res) => {
-    const tenantId = String(req.query.tenantId ?? "");
-    if (!tenantId) return sendError(res, 400, "MISSING_TENANT", "Se requiere tenantId.");
+    const tenantId = String(req.query.tenantId ?? req.headers["x-tenant-id"] ?? "");
+    if (!tenantId) return sendError(res, 400, "MISSING_TENANT", "Se requiere tenantId o autenticación.");
     try {
       const zones = await repository.listGeofenceZones(tenantId);
       return sendSuccess(res, zones);
@@ -378,6 +486,21 @@ export function createTrackingRouter(repository: TrackingRepository): Router {
         return sendError(res, 404, "TENANT_NOT_FOUND", "Municipio o tenant no encontrado.");
       }
       return sendError(res, 500, "GEOFENCE_LIST_FAILED", "No fue posible listar geocercas.");
+    }
+  }));
+
+  // PATCH /api/v1/logistics/geofences/:id — update geofence zone
+  router.patch("/api/v1/logistics/geofences/:id", asyncHandler(async (req, res) => {
+    const parsed = updateGeofenceSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return sendError(res, 400, "INVALID_GEOFENCE_PAYLOAD", "Payload inválido para actualizar geocerca.");
+    }
+    try {
+      const zone = await repository.updateGeofenceZone(String(req.params.id), parsed.data);
+      if (!zone) return sendError(res, 404, "GEOFENCE_NOT_FOUND", "Geocerca no encontrada.");
+      return sendSuccess(res, zone);
+    } catch (error) {
+      return sendError(res, 500, "GEOFENCE_UPDATE_FAILED", "No fue posible actualizar la geocerca.");
     }
   }));
 
@@ -398,6 +521,38 @@ export function createTrackingRouter(repository: TrackingRepository): Router {
       return sendError(res, 500, "GEOFENCE_CHECK_FAILED", "No fue posible verificar la geocerca.");
     }
   }));
+
+  // ═══════════════════════════════════════════
+  // SSE FLEET STREAM (posiciones en tiempo real)
+  // ═══════════════════════════════════════════
+
+  // GET /api/v1/logistics/tracking/stream — SSE stream de posiciones del tenant
+  router.get("/api/v1/logistics/tracking/stream", (req, res) => {
+    const tenantId = String(req.headers["x-tenant-id"] ?? "");
+    if (!tenantId) { res.status(400).json({ error: "x-tenant-id header required" }); return; }
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders();
+
+    if (!sseClients.has(tenantId)) sseClients.set(tenantId, new Set());
+    sseClients.get(tenantId)!.add(res);
+
+    // Send immediate heartbeat so the browser knows the connection is alive
+    res.write(": connected\n\n");
+
+    // Periodic heartbeat every 20s to keep connection through proxies
+    const heartbeat = setInterval(() => {
+      try { res.write(": heartbeat\n\n"); } catch { clearInterval(heartbeat); }
+    }, 20_000);
+
+    req.on("close", () => {
+      clearInterval(heartbeat);
+      sseClients.get(tenantId)?.delete(res);
+    });
+  });
 
   // ═══════════════════════════════════════════
   // ETA ESTIMATION (estimación de llegada)

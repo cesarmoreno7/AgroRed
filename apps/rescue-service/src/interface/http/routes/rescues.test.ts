@@ -3,6 +3,7 @@ import request from "supertest";
 import { createRescuesRouter } from "./rescues.js";
 import { Rescue } from "../../../domain/entities/Rescue.js";
 import type { RescueRepository, PaginationParams, PaginatedResult } from "../../../domain/ports/RescueRepository.js";
+import type { AuditLogger } from "../../../shared/audit.js";
 
 class InMemoryRescueRepository implements RescueRepository {
   private readonly store = new Map<string, Rescue>();
@@ -23,10 +24,10 @@ class InMemoryRescueRepository implements RescueRepository {
   }
 }
 
-function buildApp(repo: RescueRepository) {
+function buildApp(repo: RescueRepository, auditLogger?: AuditLogger) {
   const app = express();
   app.use(express.json());
-  app.use(createRescuesRouter(repo));
+  app.use(createRescuesRouter(repo, null, auditLogger));
   return app;
 }
 
@@ -80,6 +81,28 @@ describe("Rescue routes", () => {
 
       expect(saved).not.toBeNull();
       expect(saved!.quantityRescued).toBe(200);
+    });
+
+    it("writes an audit event after rescue registration", async () => {
+      const auditLogger = jest.fn(async () => undefined);
+      app = buildApp(repo, auditLogger);
+
+      const res = await request(app)
+        .post("/api/v1/rescues/register")
+        .set("x-user-id", "actor-rescue-1")
+        .set("x-correlation-id", "corr-rescue-1")
+        .send(validPayload);
+
+      expect(res.status).toBe(201);
+      expect(auditLogger).toHaveBeenCalledTimes(1);
+      expect(auditLogger).toHaveBeenCalledWith(expect.objectContaining({
+        tenantId: "t-1",
+        serviceName: "rescue-service",
+        entityName: "rescues",
+        actionName: "rescue.registered",
+        actorId: "actor-rescue-1",
+        correlationId: "corr-rescue-1"
+      }));
     });
   });
 

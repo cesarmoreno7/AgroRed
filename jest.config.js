@@ -15,7 +15,22 @@ module.exports = {
     "<rootDir>/apps/ml-service",
     "<rootDir>/apps/automation-service",
     "<rootDir>/apps/auction-service",
+    "<rootDir>/apps/institution-service",
     "<rootDir>/apps/shared",
     "<rootDir>/tests/integration"
+  ],
+  coverageThreshold: {
+    global: {
+      branches: 50,
+      functions: 60,
+      lines: 60,
+      statements: 60
+    }
+  },
+  collectCoverageFrom: [
+    "apps/*/src/**/*.ts",
+    "!apps/*/src/index.ts",
+    "!apps/*/src/**/*.d.ts",
+    "!apps/web-dashboard/**"
   ]
 };

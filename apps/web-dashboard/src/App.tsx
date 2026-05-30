@@ -1,10 +1,25 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { Layout } from "./components/Layout";
+import { ModuleGuard } from "./components/ModuleGuard";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { TerritorialPage } from "./pages/TerritorialPage";
 import { FleetPage } from "./pages/FleetPage";
+import { UsersPage } from "./pages/UsersPage";
+import { ProducersPage } from "./pages/ProducersPage";
+import { OffersPage } from "./pages/OffersPage";
+import { RescuesPage } from "./pages/RescuesPage";
+import { DemandsPage } from "./pages/DemandsPage";
+import { InventoryPage } from "./pages/InventoryPage";
+import { LogisticsPage } from "./pages/LogisticsPage";
+import { IncidentsPage } from "./pages/IncidentsPage";
+import { NotificationsPage } from "./pages/NotificationsPage";
+import { AuctionsPage } from "./pages/AuctionsPage";
+import { MLPage } from "./pages/MLPage";
+import { AIChatPage } from "./pages/AIChatPage";
+import { InstitutionsPage } from "./pages/InstitutionsPage";
+import { AlertsPage } from "./pages/AlertsPage";
 import type { ReactNode } from "react";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -28,8 +43,22 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
           <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-          <Route path="/territorial" element={<ProtectedRoute><TerritorialPage /></ProtectedRoute>} />
-          <Route path="/fleet" element={<ProtectedRoute><FleetPage /></ProtectedRoute>} />
+          <Route path="/territorial" element={<ProtectedRoute><ModuleGuard module="logistics-service"><TerritorialPage /></ModuleGuard></ProtectedRoute>} />
+          <Route path="/fleet" element={<ProtectedRoute><ModuleGuard module="logistics-service"><FleetPage /></ModuleGuard></ProtectedRoute>} />
+          <Route path="/users" element={<ProtectedRoute><ModuleGuard module="user-service"><UsersPage /></ModuleGuard></ProtectedRoute>} />
+          <Route path="/producers" element={<ProtectedRoute><ModuleGuard module="producer-service"><ProducersPage /></ModuleGuard></ProtectedRoute>} />
+          <Route path="/offers" element={<ProtectedRoute><ModuleGuard module="offer-service"><OffersPage /></ModuleGuard></ProtectedRoute>} />
+          <Route path="/rescues" element={<ProtectedRoute><ModuleGuard module="rescue-service"><RescuesPage /></ModuleGuard></ProtectedRoute>} />
+          <Route path="/demands" element={<ProtectedRoute><ModuleGuard module="demand-service"><DemandsPage /></ModuleGuard></ProtectedRoute>} />
+          <Route path="/inventory" element={<ProtectedRoute><ModuleGuard module="inventory-service"><InventoryPage /></ModuleGuard></ProtectedRoute>} />
+          <Route path="/logistics" element={<ProtectedRoute><ModuleGuard module="logistics-service"><LogisticsPage /></ModuleGuard></ProtectedRoute>} />
+          <Route path="/incidents" element={<ProtectedRoute><ModuleGuard module="incident-service"><IncidentsPage /></ModuleGuard></ProtectedRoute>} />
+          <Route path="/notifications" element={<ProtectedRoute><ModuleGuard module="notification-service"><NotificationsPage /></ModuleGuard></ProtectedRoute>} />
+          <Route path="/auctions" element={<ProtectedRoute><ModuleGuard module="auction-service"><AuctionsPage /></ModuleGuard></ProtectedRoute>} />
+          <Route path="/ml" element={<ProtectedRoute><ModuleGuard module="ml-service"><MLPage /></ModuleGuard></ProtectedRoute>} />
+          <Route path="/institutions" element={<ProtectedRoute><ModuleGuard module="institution-service"><InstitutionsPage /></ModuleGuard></ProtectedRoute>} />
+          <Route path="/alerts" element={<ProtectedRoute><ModuleGuard module="analytics-service"><AlertsPage /></ModuleGuard></ProtectedRoute>} />
+          <Route path="/ai-copilot" element={<ProtectedRoute><ModuleGuard module="user-service"><AIChatPage /></ModuleGuard></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

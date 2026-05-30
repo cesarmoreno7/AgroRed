@@ -16,4 +16,5 @@ export interface OfferRepository {
   save(offer: Offer): Promise<void>;
   findById(id: string): Promise<Offer | null>;
   list(params: PaginationParams, tenantId?: string | null): Promise<PaginatedResult<Offer>>;
+  patch(id: string, fields: Record<string, unknown>): Promise<Offer | null>;
 }

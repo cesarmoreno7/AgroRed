@@ -1,5 +1,10 @@
 import type { Producer } from "../../domain/entities/Producer.js";
-import type { ProducerRepository, PaginationParams, PaginatedResult } from "../../domain/ports/ProducerRepository.js";
+import type {
+  ProducerRepository,
+  PaginationParams,
+  PaginatedResult,
+  ProducerStats
+} from "../../domain/ports/ProducerRepository.js";
 
 function buildKey(tenantId: string, organizationName: string): string {
   return `${tenantId}::${organizationName.trim().toLowerCase()}`;
@@ -24,6 +29,23 @@ export class InMemoryProducerRepository implements ProducerRepository {
     }
   }
 
+  async update(producer: Producer): Promise<void> {
+    const existing = this.producersById.get(producer.id);
+    if (existing) {
+      this.producersByOrganization.delete(buildKey(existing.tenantId, existing.organizationName));
+    }
+    this.producersById.set(producer.id, producer);
+    this.producersByOrganization.set(buildKey(producer.tenantId, producer.organizationName), producer);
+  }
+
+  async softDelete(id: string): Promise<boolean> {
+    const producer = this.producersById.get(id);
+    if (!producer) return false;
+    this.producersById.delete(id);
+    this.producersByOrganization.delete(buildKey(producer.tenantId, producer.organizationName));
+    return true;
+  }
+
   async findById(id: string): Promise<Producer | null> {
     return this.producersById.get(id) ?? null;
   }
@@ -44,5 +66,19 @@ export class InMemoryProducerRepository implements ProducerRepository {
     organizationName: string
   ): Promise<Producer | null> {
     return this.producersByOrganization.get(buildKey(tenantId, organizationName)) ?? null;
+  }
+
+  async findStats(producerId: string): Promise<ProducerStats | null> {
+    const producer = this.producersById.get(producerId);
+    if (!producer) return null;
+    return {
+      producer,
+      totalOffers: 0,
+      activeOffers: 0,
+      totalRescues: 0,
+      totalKgRescued: 0,
+      lastActivityAt: null,
+      historicalProduction: []
+    };
   }
 }

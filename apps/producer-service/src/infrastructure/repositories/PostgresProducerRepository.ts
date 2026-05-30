@@ -1,6 +1,11 @@
 import type { Pool } from "pg";
 import { Producer } from "../../domain/entities/Producer.js";
-import type { ProducerRepository, PaginationParams, PaginatedResult } from "../../domain/ports/ProducerRepository.js";
+import type {
+  ProducerRepository,
+  PaginationParams,
+  PaginatedResult,
+  ProducerStats
+} from "../../domain/ports/ProducerRepository.js";
 import type {
   ProducerStatus,
   ProducerType,
@@ -96,6 +101,42 @@ export class PostgresProducerRepository implements ProducerRepository {
     }
   }
 
+  async update(producer: Producer): Promise<void> {
+    await this.pool.query(
+      `UPDATE public.producers SET
+         producer_type     = $2,
+         organization_name = $3,
+         contact_name      = $4,
+         contact_phone     = $5,
+         zone_type         = $6,
+         product_categories = $7,
+         latitude          = $8,
+         longitude         = $9,
+         status            = $10
+       WHERE id = $1 AND deleted_at IS NULL`,
+      [
+        producer.id,
+        producer.producerType,
+        producer.organizationName,
+        producer.contactName,
+        producer.contactPhone,
+        producer.zoneType,
+        producer.productCategories,
+        producer.latitude,
+        producer.longitude,
+        producer.status
+      ]
+    );
+  }
+
+  async softDelete(id: string): Promise<boolean> {
+    const result = await this.pool.query(
+      `UPDATE public.producers SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`,
+      [id]
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
   async findById(id: string): Promise<Producer | null> {
     const result = await this.pool.query<ProducerRow>(
       `
@@ -184,6 +225,61 @@ export class PostgresProducerRepository implements ProducerRepository {
     );
 
     return result.rows[0] ? this.mapRow(result.rows[0]) : null;
+  }
+
+  async findStats(producerId: string): Promise<ProducerStats | null> {
+    const producer = await this.findById(producerId);
+    if (!producer) return null;
+
+    const [offersResult, rescuesResult, histResult] = await Promise.all([
+      this.pool.query<{ total: string; active: string }>(
+        `SELECT COUNT(*)                                       AS total,
+                COUNT(*) FILTER (WHERE status = 'published') AS active
+         FROM public.offers
+         WHERE producer_id = $1 AND deleted_at IS NULL`,
+        [producerId]
+      ),
+      this.pool.query<{ total: string; total_kg: string; last_at: Date | null }>(
+        `SELECT COUNT(*)                          AS total,
+                COALESCE(SUM(quantity_rescued),0) AS total_kg,
+                MAX(created_at)                   AS last_at
+         FROM public.rescues
+         WHERE producer_id = $1 AND deleted_at IS NULL`,
+        [producerId]
+      ),
+      this.pool.query<{
+        temporada: string; cultivo: string; hectareas: string;
+        toneladas: string; ingresos: string; costos: string; fecha_corte: Date;
+      }>(
+        `SELECT temporada, cultivo, hectareas, toneladas, ingresos, costos, fecha_corte
+         FROM public.estadisticas_productor
+         WHERE producer_id = $1
+         ORDER BY fecha_corte DESC
+         LIMIT 24`,
+        [producerId]
+      )
+    ]);
+
+    const o = offersResult.rows[0];
+    const r = rescuesResult.rows[0];
+
+    return {
+      producer,
+      totalOffers: parseInt(o.total, 10),
+      activeOffers: parseInt(o.active, 10),
+      totalRescues: parseInt(r.total, 10),
+      totalKgRescued: Number(r.total_kg),
+      lastActivityAt: r.last_at ? r.last_at.toISOString() : null,
+      historicalProduction: histResult.rows.map((row) => ({
+        temporada: row.temporada,
+        cultivo: row.cultivo,
+        hectareas: Number(row.hectareas),
+        toneladas: Number(row.toneladas),
+        ingresos: Number(row.ingresos),
+        costos: Number(row.costos),
+        fechaCorte: row.fecha_corte.toISOString().slice(0, 10)
+      }))
+    };
   }
 
   private async resolveTenantId(tenantKey: string): Promise<string> {

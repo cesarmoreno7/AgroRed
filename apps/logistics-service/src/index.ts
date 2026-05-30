@@ -11,13 +11,16 @@ import { createHealthRouter } from "./interface/http/routes/health.js";
 import { createLogisticsRouter } from "./interface/http/routes/logistics.js";
 import { createTrackingRouter } from "./interface/http/routes/tracking.js";
 import { createRoutePlanningRouter } from "./interface/http/routes/routePlanning.js";
+import { createAuditLogger } from "./shared/audit.js";
 import { logError, logInfo } from "./shared/logger.js";
 import { notFoundHandler, globalErrorHandler } from "./interface/http/response.js";
 import { traceabilityMiddleware } from "./shared/traceability.js";
+import { internalAuthMiddleware } from "../../shared/middleware/internalAuth.js";
 
 async function main(): Promise<void> {
   const env = loadEnv();
   const pool = createPostgresPool(env);
+  const auditLogger = createAuditLogger(pool);
   const repository = new PostgresLogisticsOrderRepository(pool);
   const trackingRepository = new PostgresTrackingRepository(pool);
   const routePlanRepository = new PostgresRoutePlanRepository(pool);
@@ -29,6 +32,7 @@ async function main(): Promise<void> {
   app.use(cors({ origin: process.env.API_GATEWAY_ORIGIN || "http://localhost:8080" }));
   app.use(express.json({ limit: "1mb" }));
   app.use(traceabilityMiddleware);
+  app.use(internalAuthMiddleware);
   app.use(
     createHealthRouter({
       check: async () => {
@@ -37,8 +41,8 @@ async function main(): Promise<void> {
       }
     })
   );
-  app.use(createLogisticsRouter(repository));
-  app.use(createTrackingRouter(trackingRepository));
+  app.use(createLogisticsRouter(repository, auditLogger));
+  app.use(createTrackingRouter(trackingRepository, auditLogger));
   app.use(createRoutePlanningRouter(routePlanRepository, osrmRouting));
   app.use(notFoundHandler);
   app.use(globalErrorHandler);

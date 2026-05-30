@@ -6,6 +6,7 @@ export interface RescueProps {
   tenantId: string;
   producerId: string;
   offerId: string | null;
+  originId?: string | null;
   rescueChannel: RescueChannel;
   destinationOrganizationName: string;
   productName: string;
@@ -27,6 +28,7 @@ export class Rescue {
   public readonly tenantId: string;
   public readonly producerId: string;
   public readonly offerId: string | null;
+  public readonly originId: string | null;
   public readonly rescueChannel: RescueChannel;
   public readonly destinationOrganizationName: string;
   public readonly productName: string;
@@ -47,6 +49,7 @@ export class Rescue {
     this.tenantId = props.tenantId;
     this.producerId = props.producerId;
     this.offerId = props.offerId;
+    this.originId = props.originId ?? null;
     this.rescueChannel = props.rescueChannel;
     this.destinationOrganizationName = props.destinationOrganizationName.trim();
     this.productName = props.productName.trim();

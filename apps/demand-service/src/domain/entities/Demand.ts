@@ -5,6 +5,7 @@ export interface DemandProps {
   id: string;
   tenantId: string;
   responsibleUserId: string | null;
+  institutionId?: string | null;
   demandChannel: DemandChannel;
   organizationName: string;
   productName: string;
@@ -25,6 +26,7 @@ export class Demand {
   public readonly id: string;
   public readonly tenantId: string;
   public readonly responsibleUserId: string | null;
+  public readonly institutionId: string | null;
   public readonly demandChannel: DemandChannel;
   public readonly organizationName: string;
   public readonly productName: string;
@@ -44,6 +46,7 @@ export class Demand {
     this.id = props.id;
     this.tenantId = props.tenantId;
     this.responsibleUserId = props.responsibleUserId;
+    this.institutionId = props.institutionId ?? null;
     this.demandChannel = props.demandChannel;
     this.organizationName = props.organizationName.trim();
     this.productName = props.productName.trim();

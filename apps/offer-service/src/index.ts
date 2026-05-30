@@ -8,16 +8,21 @@ import { PostgresDemandQueryAdapter } from "./infrastructure/adapters/PostgresDe
 import { HttpNotificationAdapter } from "./infrastructure/adapters/HttpNotificationAdapter.js";
 import { createHealthRouter } from "./interface/http/routes/health.js";
 import { createOffersRouter } from "./interface/http/routes/offers.js";
+import { createAuditLogger } from "./shared/audit.js";
 import { logError, logInfo } from "./shared/logger.js";
 import { notFoundHandler, globalErrorHandler } from "./interface/http/response.js";
 import { traceabilityMiddleware } from "./shared/traceability.js";
+import { internalAuthMiddleware } from "../../shared/middleware/internalAuth.js";
+import { EventBus } from "../../shared/redis/EventBus.js";
 
 async function main(): Promise<void> {
   const env = loadEnv();
   const pool = createPostgresPool(env);
   const repository = new PostgresOfferRepository(pool);
+  const auditLogger = createAuditLogger(pool);
   const demandQuery = new PostgresDemandQueryAdapter(pool);
   const notificationAdapter = new HttpNotificationAdapter(env.NOTIFICATION_SERVICE_URL);
+  const eventBus = new EventBus(process.env.REDIS_URL);
   const app = express();
 
   app.disable("x-powered-by");
@@ -25,6 +30,7 @@ async function main(): Promise<void> {
   app.use(cors({ origin: process.env.API_GATEWAY_ORIGIN || "http://localhost:8080" }));
   app.use(express.json({ limit: "1mb" }));
   app.use(traceabilityMiddleware);
+  app.use(internalAuthMiddleware);
   app.use(
     createHealthRouter({
       check: async () => {
@@ -33,7 +39,7 @@ async function main(): Promise<void> {
       }
     })
   );
-  app.use(createOffersRouter(repository, demandQuery, notificationAdapter));
+  app.use(createOffersRouter(repository, demandQuery, notificationAdapter, eventBus, auditLogger));
   app.use(notFoundHandler);
   app.use(globalErrorHandler);
 
@@ -47,6 +53,7 @@ async function main(): Promise<void> {
     logInfo("service.stopping", { signal });
 
     server.close(async () => {
+      await eventBus.close();
       await pool.end();
       process.exit(0);
     });

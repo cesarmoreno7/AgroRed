@@ -1,5 +1,5 @@
 import type { UserRole } from "../value-objects/UserRole.js";
-import { ROLE_PERMISSIONS, PERMISSIONS } from "../value-objects/UserRole";
+import { ROLE_PERMISSIONS, PERMISSIONS } from "../value-objects/UserRole.js";
 
 export interface UserProps {
   id: string;
@@ -8,6 +8,7 @@ export interface UserProps {
   fullName: string;
   role: UserRole;
   passwordHash: string;
+  contactPhone?: string | null;
   createdAt?: Date;
 }
 
@@ -18,6 +19,7 @@ export class User {
   public readonly fullName: string;
   public readonly role: UserRole;
   public readonly passwordHash: string;
+  public readonly contactPhone: string | null;
   public readonly createdAt: Date;
 
   constructor(props: UserProps) {
@@ -27,6 +29,7 @@ export class User {
     this.fullName = props.fullName.trim();
     this.role = props.role;
     this.passwordHash = props.passwordHash;
+    this.contactPhone = props.contactPhone?.trim() || null;
     this.createdAt = props.createdAt ?? new Date();
   }
 

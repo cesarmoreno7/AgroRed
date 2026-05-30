@@ -16,4 +16,5 @@ export interface DemandRepository {
   save(demand: Demand): Promise<void>;
   findById(id: string): Promise<Demand | null>;
   list(params: PaginationParams, tenantId?: string | null): Promise<PaginatedResult<Demand>>;
+  patch(id: string, fields: Record<string, unknown>): Promise<Demand | null>;
 }

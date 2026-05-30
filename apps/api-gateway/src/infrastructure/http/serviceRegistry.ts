@@ -14,7 +14,8 @@ export interface ServiceRouteDefinition {
     | "notifications"
     | "ml"
     | "automation"
-    | "auctions";
+    | "auctions"
+    | "institutions";
   name: string;
   description: string;
   pathPrefix: string;
@@ -113,6 +114,13 @@ export function buildServiceRegistry(env: AppEnv): ServiceRouteDefinition[] {
       description: "Subastas de excedentes alimentarios con cierre suave y modelo holandes.",
       pathPrefix: "/api/v1/auctions",
       target: env.AUCTION_SERVICE_URL
+    },
+    {
+      key: "institutions",
+      name: "institution-service",
+      description: "Gestión de instituciones que demandan productos: educativas, hospitales, cárceles, comedores y más.",
+      pathPrefix: "/api/v1/institutions",
+      target: env.INSTITUTION_SERVICE_URL
     }
   ];
 }

@@ -6,6 +6,7 @@ import type { DemandChannel } from "../../domain/value-objects/DemandChannel.js"
 export interface RegisterDemandCommand {
   tenantId: string;
   responsibleUserId?: string | null;
+  institutionId?: string | null;
   demandChannel: DemandChannel;
   organizationName: string;
   productName: string;
@@ -34,6 +35,7 @@ export class RegisterDemand {
       id: randomUUID(),
       tenantId: command.tenantId,
       responsibleUserId: command.responsibleUserId ?? null,
+      institutionId: command.institutionId ?? null,
       demandChannel: command.demandChannel,
       organizationName: command.organizationName,
       productName: command.productName,

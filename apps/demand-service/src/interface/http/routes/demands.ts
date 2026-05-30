@@ -3,12 +3,14 @@ import { z } from "zod";
 import { RegisterDemand } from "../../../application/use-cases/RegisterDemand.js";
 import type { Demand } from "../../../domain/entities/Demand.js";
 import type { DemandRepository } from "../../../domain/ports/DemandRepository.js";
+import type { AuditLogger } from "../../../shared/audit.js";
 import { DEMAND_CHANNELS } from "../../../domain/value-objects/DemandChannel.js";
 import { asyncHandler, sendError, sendPaginatedSuccess, sendSuccess } from "../response.js";
 
 const registerDemandSchema = z.object({
   tenantId: z.string().min(1),
   responsibleUserId: z.string().uuid().optional().nullable(),
+  institutionId: z.string().uuid().optional().nullable(),
   demandChannel: z.enum(DEMAND_CHANNELS),
   organizationName: z.string().min(3),
   productName: z.string().min(2),
@@ -28,6 +30,7 @@ function toDemandResponse(demand: Demand) {
     id: demand.id,
     tenantId: demand.tenantId,
     responsibleUserId: demand.responsibleUserId,
+    institutionId: demand.institutionId,
     demandChannel: demand.demandChannel,
     organizationName: demand.organizationName,
     productName: demand.productName,
@@ -45,7 +48,7 @@ function toDemandResponse(demand: Demand) {
   };
 }
 
-export function createDemandsRouter(repository: DemandRepository): Router {
+export function createDemandsRouter(repository: DemandRepository, auditLogger?: AuditLogger): Router {
   const router = Router();
   const registerDemand = new RegisterDemand(repository);
 
@@ -58,6 +61,28 @@ export function createDemandsRouter(repository: DemandRepository): Router {
 
     try {
       const demand = await registerDemand.execute(parsed.data);
+
+      if (auditLogger) {
+        await auditLogger({
+          tenantId: demand.tenantId,
+          serviceName: "demand-service",
+          entityName: "demands",
+          entityId: demand.id,
+          actionName: "demand.registered",
+          actorId: typeof req.headers["x-user-id"] === "string" ? req.headers["x-user-id"] : demand.responsibleUserId,
+          correlationId: typeof req.headers["x-correlation-id"] === "string" ? req.headers["x-correlation-id"] : undefined,
+          payload: {
+            responsibleUserId: demand.responsibleUserId,
+            productName: demand.productName,
+            quantityRequired: demand.quantityRequired,
+            unit: demand.unit,
+            municipalityName: demand.municipalityName,
+            status: demand.status,
+            beneficiaryCount: demand.beneficiaryCount
+          }
+        });
+      }
+
       return sendSuccess(res, toDemandResponse(demand), 201);
     } catch (error) {
       if (error instanceof Error && error.message === "TENANT_NOT_FOUND") {
@@ -112,6 +137,14 @@ export function createDemandsRouter(repository: DemandRepository): Router {
     }
 
     return sendSuccess(res, toDemandResponse(demand));
+  }));
+
+  router.patch("/api/v1/demands/:id", asyncHandler(async (req, res) => {
+    const existing = await repository.findById(String(req.params.id));
+    if (!existing) return sendError(res, 404, "DEMAND_NOT_FOUND", "Demanda no encontrada.");
+    const updated = await repository.patch(String(req.params.id), req.body as Record<string, unknown>);
+    if (!updated) return sendError(res, 404, "DEMAND_NOT_FOUND", "Demanda no encontrada.");
+    return sendSuccess(res, toDemandResponse(updated));
   }));
 
   return router;

@@ -10,6 +10,7 @@ interface UserRow {
   full_name: string;
   role: UserRole;
   password_hash: string;
+  contact_phone: string | null;
   created_at: Date;
 }
 
@@ -20,39 +21,29 @@ export class PostgresUserRepository implements UserRepository {
     const tenantId = await this.resolveTenantId(user.tenantId);
 
     await this.pool.query(
-      `
-        INSERT INTO public.users (id, tenant_id, email, full_name, role, password_hash)
-        VALUES ($1, $2, $3, $4, $5, $6)
-      `,
-      [user.id, tenantId, user.email, user.fullName, user.role, user.passwordHash]
+      `INSERT INTO public.users (id, tenant_id, email, full_name, role, password_hash, contact_phone)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [user.id, tenantId, user.email, user.fullName, user.role, user.passwordHash, user.contactPhone]
     );
   }
 
   async findById(id: string): Promise<User | null> {
     const result = await this.pool.query<UserRow>(
-      `
-        SELECT id, tenant_id, email, full_name, role, password_hash, created_at
-        FROM public.users
-        WHERE id = $1
-          AND deleted_at IS NULL
-      `,
+      `SELECT id, tenant_id, email, full_name, role, password_hash, contact_phone, created_at
+       FROM public.users
+       WHERE id = $1 AND deleted_at IS NULL`,
       [id]
     );
-
     return result.rows[0] ? this.mapRow(result.rows[0]) : null;
   }
 
   async findByEmail(email: string): Promise<User | null> {
     const result = await this.pool.query<UserRow>(
-      `
-        SELECT id, tenant_id, email, full_name, role, password_hash, created_at
-        FROM public.users
-        WHERE LOWER(email) = LOWER($1)
-          AND deleted_at IS NULL
-      `,
+      `SELECT id, tenant_id, email, full_name, role, password_hash, contact_phone, created_at
+       FROM public.users
+       WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL`,
       [email.trim().toLowerCase()]
     );
-
     return result.rows[0] ? this.mapRow(result.rows[0]) : null;
   }
 
@@ -66,14 +57,11 @@ export class PostgresUserRepository implements UserRepository {
     const total = parseInt(countResult.rows[0].count, 10);
 
     const result = await this.pool.query<UserRow>(
-      `
-        SELECT id, tenant_id, email, full_name, role, password_hash, created_at
-        FROM public.users
-        WHERE deleted_at IS NULL
-          AND ($1::uuid IS NULL OR tenant_id = $1)
-        ORDER BY created_at DESC
-        LIMIT $2 OFFSET $3
-      `,
+      `SELECT id, tenant_id, email, full_name, role, password_hash, contact_phone, created_at
+       FROM public.users
+       WHERE deleted_at IS NULL AND ($1::uuid IS NULL OR tenant_id = $1)
+       ORDER BY created_at DESC
+       LIMIT $2 OFFSET $3`,
       [tenantId ?? null, params.limit, offset]
     );
 
@@ -103,6 +91,20 @@ export class PostgresUserRepository implements UserRepository {
     return result.rows[0].id;
   }
 
+  async patch(id: string, fields: Record<string, unknown>): Promise<User | null> {
+    const COLS: Record<string, string> = {
+      fullName: "full_name", role: "role", status: "status", contactPhone: "contact_phone"
+    };
+    const sets: string[] = []; const vals: unknown[] = []; let i = 1;
+    for (const [k, v] of Object.entries(fields)) {
+      if (COLS[k] !== undefined) { sets.push(`${COLS[k]} = $${i++}`); vals.push(v ?? null); }
+    }
+    if (sets.length === 0) return this.findById(id);
+    sets.push(`updated_at = NOW()`); vals.push(id);
+    await this.pool.query(`UPDATE public.users SET ${sets.join(", ")} WHERE id = $${i} AND deleted_at IS NULL`, vals);
+    return this.findById(id);
+  }
+
   private mapRow(row: UserRow): User {
     return new User({
       id: row.id,
@@ -111,6 +113,7 @@ export class PostgresUserRepository implements UserRepository {
       fullName: row.full_name,
       role: row.role,
       passwordHash: row.password_hash,
+      contactPhone: row.contact_phone,
       createdAt: row.created_at
     });
   }

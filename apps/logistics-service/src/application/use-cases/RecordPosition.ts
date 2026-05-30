@@ -15,32 +15,33 @@ export interface RecordPositionCommand {
 }
 
 export class RecordPosition {
-  constructor(private readonly repository: TrackingRepository) {}
+  constructor(
+    private readonly repository: TrackingRepository,
+    private readonly onBroadcast?: (tenantId: string, position: CurrentPosition) => void
+  ) {}
 
   async execute(command: RecordPositionCommand): Promise<CurrentPosition> {
     const resource = await this.repository.findResourceById(command.recursoId);
-    if (!resource) {
-      throw new Error("RESOURCE_NOT_FOUND");
-    }
+    if (!resource) throw new Error("RESOURCE_NOT_FOUND");
 
     const point = new TrackingPoint({
-      recursoId: command.recursoId,
-      ordenId: command.ordenId ?? null,
-      latitude: command.latitude,
-      longitude: command.longitude,
-      velocidad: command.velocidad ?? null,
+      recursoId:    command.recursoId,
+      ordenId:      command.ordenId ?? null,
+      latitude:     command.latitude,
+      longitude:    command.longitude,
+      velocidad:    command.velocidad ?? null,
       precisionGps: command.precisionGps ?? null,
-      bearing: command.bearing ?? null,
-      evento: command.evento ?? "posicion",
-      metadata: command.metadata ?? {},
+      bearing:      command.bearing ?? null,
+      evento:       command.evento ?? "posicion",
+      metadata:     command.metadata ?? {},
     });
 
     await this.repository.recordPosition(point);
 
     const position = await this.repository.getCurrentPosition(command.recursoId);
-    if (!position) {
-      throw new Error("POSITION_NOT_FOUND");
-    }
+    if (!position) throw new Error("POSITION_NOT_FOUND");
+
+    this.onBroadcast?.(resource.tenantId, position);
 
     return position;
   }

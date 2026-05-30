@@ -94,11 +94,14 @@ export interface MapIncidentProperties {
 
 export interface MapDemandProperties {
   id: string;
+  organizationName: string;
   productName: string;
   quantityRequired: number;
   unit: string;
   status: string;
   requiredBy: string | null;
+  beneficiaryCount: number;
+  municipio: string | null;
 }
 
 export interface MapResourceProperties {

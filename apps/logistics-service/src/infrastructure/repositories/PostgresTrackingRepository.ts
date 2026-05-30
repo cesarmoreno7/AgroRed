@@ -227,13 +227,53 @@ export class PostgresTrackingRepository implements TrackingRepository {
 
     // 3. Update resource's lat/lon
     await this.pool.query(
-      `
-        UPDATE public.recursos
-        SET latitude = $2, longitude = $3, updated_at = NOW()
-        WHERE id = $1
-      `,
+      `UPDATE public.recursos SET latitude = $2, longitude = $3, updated_at = NOW() WHERE id = $1`,
       [point.recursoId, point.latitude, point.longitude]
     );
+
+    // 4. Detect geofence enter/exit events (fire-and-forget, no await to avoid blocking position recording)
+    this.detectAndLogGeofenceEvents(point.recursoId, point.latitude, point.longitude).catch(() => undefined);
+  }
+
+  private async detectAndLogGeofenceEvents(recursoId: string, lat: number, lng: number): Promise<void> {
+    // Get resource tenant
+    const resResult = await this.pool.query<{ tenant_id: string }>(
+      `SELECT tenant_id FROM public.recursos WHERE id = $1 AND deleted_at IS NULL`,
+      [recursoId]
+    );
+    if (!resResult.rows[0]) return;
+    const tenantId = resResult.rows[0].tenant_id;
+
+    // Get previous zone IDs and new zones in a single query
+    const [prevResult, currentResult] = await Promise.all([
+      this.pool.query<{ last_zone_ids: string[] }>(
+        `SELECT last_zone_ids FROM public.tracking_actual WHERE recurso_id = $1`,
+        [recursoId]
+      ),
+      this.pool.query<{ id: string; is_inside: boolean }>(
+        `SELECT gz.id,
+                (haversine_km(gz.center_lat::float8, gz.center_lng::float8, $2, $3) * 1000.0 <= gz.radius_m) AS is_inside
+         FROM public.geofence_zones gz
+         WHERE gz.tenant_id = $1 AND gz.is_active = TRUE`,
+        [tenantId, lat, lng]
+      ),
+    ]);
+
+    const prevIds = new Set<string>(prevResult.rows[0]?.last_zone_ids ?? []);
+    const nowInsideIds = new Set<string>(currentResult.rows.filter(r => r.is_inside).map(r => r.id));
+    const allZoneIds = currentResult.rows.map(r => r.id);
+
+    const enters = allZoneIds.filter(id => nowInsideIds.has(id) && !prevIds.has(id));
+    const exits  = allZoneIds.filter(id => !nowInsideIds.has(id) && prevIds.has(id));
+
+    await Promise.all([
+      ...enters.map(zoneId => this.logGeofenceEvent(zoneId, recursoId, "enter", lat, lng)),
+      ...exits.map(zoneId  => this.logGeofenceEvent(zoneId, recursoId, "exit",  lat, lng)),
+      this.pool.query(
+        `UPDATE public.tracking_actual SET last_zone_ids = $1 WHERE recurso_id = $2`,
+        [Array.from(nowInsideIds), recursoId]
+      ),
+    ]);
   }
 
   async getCurrentPosition(recursoId: string): Promise<CurrentPosition | null> {
@@ -463,22 +503,68 @@ export class PostgresTrackingRepository implements TrackingRepository {
     }));
   }
 
+  async updateGeofenceZone(
+    id: string,
+    updates: Partial<Omit<GeofenceZone, "id" | "tenantId" | "createdAt">>
+  ): Promise<GeofenceZone | null> {
+    const COLS: Record<string, string> = {
+      zoneName: "zone_name", zoneType: "zone_type",
+      centerLat: "center_lat", centerLng: "center_lng",
+      radiusM: "radius_m", isActive: "is_active", metadata: "metadata",
+    };
+    const sets: string[] = [];
+    const vals: unknown[] = [];
+    let i = 1;
+    for (const [k, v] of Object.entries(updates)) {
+      if (COLS[k] !== undefined) {
+        sets.push(`${COLS[k]} = $${i++}`);
+        vals.push(k === "metadata" ? JSON.stringify(v) : v);
+      }
+    }
+    if (sets.length === 0) return null;
+    sets.push(`updated_at = NOW()`);
+    vals.push(id);
+    await this.pool.query(
+      `UPDATE public.geofence_zones SET ${sets.join(", ")} WHERE id = $${i}`,
+      vals
+    );
+    const result = await this.pool.query<{
+      id: string; tenant_id: string; zone_name: string; zone_type: string;
+      center_lat: string | null; center_lng: string | null; radius_m: string;
+      is_active: boolean; metadata: Record<string, unknown>; created_at: Date;
+    }>(
+      `SELECT id, tenant_id, zone_name, zone_type, center_lat, center_lng, radius_m, is_active, metadata, created_at
+       FROM public.geofence_zones WHERE id = $1`,
+      [id]
+    );
+    if (!result.rows[0]) return null;
+    const r = result.rows[0];
+    return {
+      id: r.id, tenantId: r.tenant_id, zoneName: r.zone_name, zoneType: r.zone_type,
+      centerLat: r.center_lat ? Number(r.center_lat) : null,
+      centerLng: r.center_lng ? Number(r.center_lng) : null,
+      radiusM: Number(r.radius_m), isActive: r.is_active,
+      metadata: r.metadata ?? {}, createdAt: r.created_at,
+    };
+  }
+
+  // Brecha 4: haversine movida a SQL — usa haversine_km() definida en la BD
   async checkPositionInZones(tenantId: string, lat: number, lng: number): Promise<GeofenceCheckResult[]> {
     const tid = await this.resolveTenantId(tenantId);
     const result = await this.pool.query<{
-      id: string; zone_name: string; zone_type: string; center_lat: string; center_lng: string; radius_m: string;
+      id: string; zone_name: string; zone_type: string; is_inside: boolean;
     }>(
       `SELECT gz.id, gz.zone_name, gz.zone_type,
-              gz.center_lat::text, gz.center_lng::text, gz.radius_m::text
+              (haversine_km(gz.center_lat::float8, gz.center_lng::float8, $2, $3) * 1000.0 <= gz.radius_m) AS is_inside
        FROM public.geofence_zones gz
        WHERE gz.tenant_id = $1 AND gz.is_active = TRUE`,
-      [tid]
+      [tid, lat, lng]
     );
     return result.rows.map(r => ({
       zoneId: r.id,
       zoneName: r.zone_name,
       zoneType: r.zone_type,
-      isInside: haversineM(lat, lng, Number(r.center_lat), Number(r.center_lng)) <= Number(r.radius_m),
+      isInside: r.is_inside,
     }));
   }
 

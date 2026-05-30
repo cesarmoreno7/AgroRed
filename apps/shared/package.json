@@ -5,9 +5,17 @@
   "type": "module",
   "exports": {
     "./http/response.js": "./http/response.ts",
-    "./geo/haversine.js": "./geo/haversine.ts"
+    "./geo/haversine.js": "./geo/haversine.ts",
+    "./types.js": "./types/index.ts",
+    "./middleware/internalAuth.js": "./middleware/internalAuth.ts",
+    "./logger.js": "./logger/index.ts",
+    "./redis/RedisClient.js": "./redis/RedisClient.js",
+    "./redis/RedisCache.js": "./redis/RedisCache.js",
+    "./redis/EventBus.js": "./redis/EventBus.ts",
+    "./redis/EVENT_CHANNELS.js": "./redis/EVENT_CHANNELS.ts"
   },
   "peerDependencies": {
-    "express": "^4"
+    "express": "^4",
+    "ioredis": "^5"
   }
 }

@@ -1,13 +1,29 @@
 import { buildApp } from "./app.js";
 import { loadEnv } from "./config/env.js";
 import { createPostgresPool } from "./infrastructure/persistence/postgres.js";
-import { getRedisClient, closeRedis } from "../../../apps/shared/redis/RedisClient.js";
-import { logError, logInfo } from "./shared/logger.js";
+import type { Redis } from "ioredis";
+import { getRedisClient, closeRedis, checkRedis } from "../../../apps/shared/redis/RedisClient.js";
+import { logError, logInfo, logWarn } from "./shared/logger.js";
 
 const env = loadEnv();
 const pool = createPostgresPool(env);
-const redis = getRedisClient({ url: env.REDIS_URL });
-const app = buildApp(env, pool, redis);
+let redis: Redis | undefined;
+let redisStatus: "ok" | "degraded" = "degraded";
+
+try {
+  const redisClient = getRedisClient({ url: env.REDIS_URL });
+  await checkRedis(redisClient);
+  redis = redisClient;
+  redisStatus = "ok";
+  logInfo("gateway.redis.enabled", {});
+} catch (error) {
+  await closeRedis().catch(() => undefined);
+  logWarn("gateway.redis.degraded", {
+    message: error instanceof Error ? error.message : String(error)
+  });
+}
+
+const app = buildApp(env, pool, redis, { redis: redisStatus });
 
 process.on("uncaughtException", (error) => {
   logError("process.uncaught_exception", {

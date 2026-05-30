@@ -3,6 +3,10 @@
     "name": "AgroRed",
     "slug": "agrored-mobile",
     "version": "0.1.0",
+    "extra": {
+      "apiBaseUrl": "",
+      "apiGatewayPort": "8080"
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

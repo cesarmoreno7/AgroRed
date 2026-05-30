@@ -120,11 +120,14 @@ interface IncidentMapRow {
 
 interface DemandMapRow {
   id: string;
+  organization_name: string;
   product_name: string;
   quantity_required: string;
   unit: string;
   status: string;
   required_by: Date | null;
+  beneficiary_count: number;
+  municipality_name: string | null;
   latitude: string;
   longitude: string;
 }
@@ -374,8 +377,9 @@ export class PostgresMapRepository implements MapRepository {
 
     const result = await this.pool.query<DemandMapRow>(
       `
-        SELECT id, product_name, quantity_required::text, unit, status,
-               required_by, latitude::text, longitude::text
+        SELECT id, organization_name, product_name, quantity_required::text, unit, status,
+               needed_by AS required_by, beneficiary_count, municipality_name,
+               latitude::text, longitude::text
         FROM demands
         WHERE deleted_at IS NULL
           AND latitude IS NOT NULL AND longitude IS NOT NULL
@@ -387,11 +391,14 @@ export class PostgresMapRepository implements MapRepository {
     const features = result.rows.map((r) =>
       pointFeature<MapDemandProperties>(Number(r.longitude), Number(r.latitude), {
         id: r.id,
+        organizationName: r.organization_name,
         productName: r.product_name,
         quantityRequired: Number(r.quantity_required),
         unit: r.unit,
         status: r.status,
         requiredBy: r.required_by?.toISOString() ?? null,
+        beneficiaryCount: r.beneficiary_count,
+        municipio: r.municipality_name,
       })
     );
 

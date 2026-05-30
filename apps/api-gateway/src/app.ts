@@ -8,8 +8,10 @@ import { loadEnv } from "./config/env.js";
 import { buildServiceRegistry } from "./infrastructure/http/serviceRegistry.js";
 import { TokenBlacklist } from "./infrastructure/redis/TokenBlacklist.js";
 import { correlationIdMiddleware } from "./interface/http/middlewares/correlationId.js";
+import { createAuditTrailMiddleware } from "./interface/http/middlewares/auditTrail.js";
 import { requestLoggerMiddleware } from "./interface/http/middlewares/requestLogger.js";
 import { createAuditRouter } from "./interface/http/routes/audit.js";
+import { createAiChatRouter } from "./interface/http/routes/aiChat.js";
 import { createCatalogRouter } from "./interface/http/routes/catalog.js";
 import { createHealthRouter } from "./interface/http/routes/health.js";
 import { createLogoutRouter } from "./interface/http/routes/logout.js";
@@ -20,6 +22,7 @@ import { traceabilityMiddleware } from "./shared/traceability.js";
 import { createAuthMiddleware } from "./interface/http/middlewares/auth.js";
 import { createRateLimiters } from "./interface/http/middlewares/rateLimiter.js";
 import { rbacMiddleware } from "./interface/http/middlewares/rbac.js";
+import type { GatewayHealthDependencies } from "./interface/http/routes/health.js";
 
 function parseAllowedOrigins(value: string): string[] {
   return value
@@ -28,7 +31,12 @@ function parseAllowedOrigins(value: string): string[] {
     .filter(Boolean);
 }
 
-export function buildApp(env: AppEnv = loadEnv(), pool?: Pool, redis?: Redis): Express {
+export function buildApp(
+  env: AppEnv = loadEnv(),
+  pool?: Pool,
+  redis?: Redis,
+  gatewayDependencies: GatewayHealthDependencies = {}
+): Express {
   const app = express();
   const services = buildServiceRegistry(env);
   const allowedOrigins = parseAllowedOrigins(env.API_GATEWAY_CORS_ORIGIN);
@@ -54,9 +62,11 @@ export function buildApp(env: AppEnv = loadEnv(), pool?: Pool, redis?: Redis): E
   app.use(traceabilityMiddleware);
   app.use(createAuthMiddleware(env.JWT_SECRET, blacklist));
   app.use(rbacMiddleware);
+  app.use(createAuditTrailMiddleware(pool));
 
-  app.use(createHealthRouter(services));
+  app.use(createHealthRouter(services, gatewayDependencies));
   app.use(createCatalogRouter(services));
+  app.use(createAiChatRouter(env));
   if (blacklist) {
     app.use(createLogoutRouter(env.JWT_SECRET, blacklist));
   }

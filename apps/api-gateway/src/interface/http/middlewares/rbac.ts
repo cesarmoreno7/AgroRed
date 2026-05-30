@@ -53,8 +53,14 @@ const ROUTE_POLICIES: RoutePolicy[] = [
   { method: "POST", pathPrefix: "/api/v1/incidents", allowedRoles: ["admin_municipal", "logistics_operator", "territorial_analyst"] },
   { method: "GET",  pathPrefix: "/api/v1/incidents",  allowedRoles: ["admin_municipal", "logistics_operator", "territorial_analyst"] },
 
-  // --- Analytics (read-only) ---
+  // --- Analytics map: capas GeoJSON abiertas a roles que usan el mapa ---
+  { method: "GET",  pathPrefix: "/api/v1/analytics/map", allowedRoles: ["admin_municipal", "territorial_analyst", "producer", "logistics_operator", "community_kitchen"] },
+
+  // --- Analytics (summary, overview, reports) ---
   { method: "GET",  pathPrefix: "/api/v1/analytics", allowedRoles: ["admin_municipal", "territorial_analyst"] },
+
+  // --- AI chat bridge ---
+  { method: "POST", pathPrefix: "/api/v1/ai-chat", allowedRoles: ["admin_municipal", "territorial_analyst", "ADMIN", "TERRITORIAL_MANAGER"] },
 
   // --- Notifications ---
   { method: "POST", pathPrefix: "/api/v1/notifications", allowedRoles: ["admin_municipal"] },
@@ -67,16 +73,80 @@ const ROUTE_POLICIES: RoutePolicy[] = [
   { method: "POST", pathPrefix: "/api/v1/automation", allowedRoles: ["admin_municipal"] },
   { method: "GET",  pathPrefix: "/api/v1/automation",  allowedRoles: ["admin_municipal", "territorial_analyst"] },
 
+  // --- Auctions ---
+  { method: "POST", pathPrefix: "/api/v1/auctions/publish",      allowedRoles: ["admin_municipal", "producer"] },
+  { method: "POST", pathPrefix: "/api/v1/auctions",              allowedRoles: ["admin_municipal", "producer"] },
+  { method: "POST", pathPrefix: "/api/v1/auctions/:id/bid",      allowedRoles: ["admin_municipal", "community_kitchen", "logistics_operator"] },
+  { method: "POST", pathPrefix: "/api/v1/auctions/:id/accept-dutch", allowedRoles: ["admin_municipal", "community_kitchen", "logistics_operator"] },
+  { method: "POST", pathPrefix: "/api/v1/auctions/:id/close",   allowedRoles: ["admin_municipal"] },
+  { method: "GET",  pathPrefix: "/api/v1/auctions",              allowedRoles: ["admin_municipal", "producer", "community_kitchen", "logistics_operator", "territorial_analyst"] },
+
+  // --- Institutions ---
+  { method: "POST",   pathPrefix: "/api/v1/institutions/register",    allowedRoles: ["admin_municipal"] },
+  { method: "PUT",    pathPrefix: "/api/v1/institutions/:id",          allowedRoles: ["admin_municipal"] },
+  { method: "PATCH",  pathPrefix: "/api/v1/institutions/:id/status",   allowedRoles: ["admin_municipal"] },
+  { method: "DELETE", pathPrefix: "/api/v1/institutions/:id",          allowedRoles: ["admin_municipal"] },
+  { method: "GET",    pathPrefix: "/api/v1/institutions",              allowedRoles: ["admin_municipal", "territorial_analyst", "logistics_operator", "community_kitchen"] },
+
   // --- Audit (admin only) ---
   { method: "GET",  pathPrefix: "/api/v1/audit", allowedRoles: ["admin_municipal"] }
 ];
 
+function normalizePath(path: string): string {
+  const clean = path.split("?")[0]?.replace(/\/+$/, "");
+  return clean && clean.length > 0 ? clean : "/";
+}
+
+function splitSegments(path: string): string[] {
+  return normalizePath(path)
+    .split("/")
+    .filter(Boolean);
+}
+
+function policyMatchesPath(policyPath: string, requestPath: string): boolean {
+  const policySegments = splitSegments(policyPath);
+  const requestSegments = splitSegments(requestPath);
+  const hasDynamicSegment = policySegments.some((segment) => segment.startsWith(":"));
+
+  if (hasDynamicSegment) {
+    if (policySegments.length !== requestSegments.length) {
+      return false;
+    }
+  } else if (requestSegments.length < policySegments.length) {
+    return false;
+  }
+
+  for (let i = 0; i < policySegments.length; i++) {
+    const policySegment = policySegments[i];
+    const requestSegment = requestSegments[i];
+
+    if (policySegment.startsWith(":")) {
+      continue;
+    }
+
+    if (policySegment !== requestSegment) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function policySpecificity(policyPath: string): number {
+  const segments = splitSegments(policyPath);
+  const staticSegments = segments.filter((segment) => !segment.startsWith(":")).length;
+
+  // Prioriza mas segmentos (mas especifico) y luego mayor cantidad de segmentos estaticos.
+  return segments.length * 100 + staticSegments;
+}
+
 function findPolicy(method: string, path: string): RoutePolicy | undefined {
-  return ROUTE_POLICIES.find(
-    (policy) =>
-      policy.method === method &&
-      (path === policy.pathPrefix || path.startsWith(policy.pathPrefix + "/"))
-  );
+  const candidates = ROUTE_POLICIES
+    .filter((policy) => policy.method === method)
+    .filter((policy) => policyMatchesPath(policy.pathPrefix, path))
+    .sort((a, b) => policySpecificity(b.pathPrefix) - policySpecificity(a.pathPrefix));
+
+  return candidates[0];
 }
 
 /**

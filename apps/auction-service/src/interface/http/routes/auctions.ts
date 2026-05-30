@@ -12,6 +12,7 @@ import type { Bid } from "../../../domain/entities/Bid.js";
 import type { AuctionRepository } from "../../../domain/ports/AuctionRepository.js";
 import type { BidRepository } from "../../../domain/ports/BidRepository.js";
 import { AUCTION_TYPES } from "../../../domain/value-objects/AuctionType.js";
+import type { EventBus } from "../../../../../shared/redis/EventBus.js";
 import { asyncHandler, sendError, sendPaginatedSuccess, sendSuccess } from "../response.js";
 
 // ── Zod Schemas ──────────────────────────────────────────────────────────
@@ -120,7 +121,8 @@ function toBidResponse(b: Bid) {
 
 export function createAuctionsRouter(
   auctionRepo: AuctionRepository,
-  bidRepo: BidRepository
+  bidRepo: BidRepository,
+  eventBus: EventBus | null = null
 ): Router {
   const router = Router();
   const publishAuction = new PublishAuction(auctionRepo);
@@ -287,6 +289,18 @@ export function createAuctionsRouter(
   router.post("/api/v1/auctions/:id/close", asyncHandler(async (req, res) => {
     try {
       const result = await closeAuction.execute(String(req.params.id));
+
+      if (eventBus) {
+        const auction = await auctionRepo.findById(String(req.params.id));
+        void eventBus.publish("auction.closed", {
+          type: "auction.closed",
+          tenantId: auction?.tenantId,
+          data: { auctionId: result.auctionId, status: result.status, winnerId: result.winnerId ?? undefined, winnerPrice: result.winnerPrice ?? undefined, totalBids: result.totalBids },
+          timestamp: new Date().toISOString(),
+          source: "auction-service"
+        }).catch(() => { /* non-blocking */ });
+      }
+
       return sendSuccess(res, result);
     } catch (error) {
       const msg = error instanceof Error ? error.message : "";
@@ -294,6 +308,17 @@ export function createAuctionsRouter(
       if (msg === "AUCTION_ALREADY_CLOSED") return sendError(res, 409, msg, "La subasta ya esta cerrada.");
       return sendError(res, 500, "CLOSE_FAILED", "No fue posible cerrar la subasta.");
     }
+  }));
+
+  // ── DELETE /api/v1/auctions/:id ── (soft delete / archive) ────────
+  router.delete("/api/v1/auctions/:id", asyncHandler(async (req, res) => {
+    const auction = await auctionRepo.findById(String(req.params.id));
+    if (!auction) return sendError(res, 404, "AUCTION_NOT_FOUND", "Subasta no encontrada.");
+    if (auction.status === "active" || auction.status === "extended") {
+      return sendError(res, 409, "AUCTION_ACTIVE", "No se puede archivar una subasta activa. Ciérrela primero.");
+    }
+    await auctionRepo.softDelete(String(req.params.id));
+    return sendSuccess(res, { message: "Subasta archivada exitosamente." });
   }));
 
   return router;

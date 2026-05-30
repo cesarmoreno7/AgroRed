@@ -308,6 +308,24 @@ export class PostgresInventoryItemRepository implements InventoryItemRepository 
     return result.rows[0].id;
   }
 
+  async patch(id: string, fields: Record<string, unknown>): Promise<InventoryItem | null> {
+    const COLS: Record<string, string> = {
+      sourceType: "source_type", storageLocationName: "storage_location_name",
+      productName: "product_name", category: "category", unit: "unit",
+      quantityOnHand: "quantity_on_hand", quantityReserved: "quantity_reserved",
+      municipalityName: "municipality_name", notes: "notes", status: "status",
+      expiresAt: "expires_at", latitude: "latitude", longitude: "longitude",
+    };
+    const sets: string[] = []; const vals: unknown[] = []; let i = 1;
+    for (const [k, v] of Object.entries(fields)) {
+      if (COLS[k] !== undefined) { sets.push(`${COLS[k]} = $${i++}`); vals.push(v ?? null); }
+    }
+    if (sets.length === 0) return this.findById(id);
+    sets.push(`updated_at = NOW()`); vals.push(id);
+    await this.pool.query(`UPDATE public.inventory_items SET ${sets.join(", ")} WHERE id = $${i} AND deleted_at IS NULL`, vals);
+    return this.findById(id);
+  }
+
   private mapRow(row: InventoryItemRow): InventoryItem {
     return new InventoryItem({
       id: row.id,

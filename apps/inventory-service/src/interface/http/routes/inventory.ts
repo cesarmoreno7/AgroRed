@@ -183,5 +183,13 @@ export function createInventoryRouter(repository: InventoryItemRepository): Rout
     }
   }));
 
+  router.patch("/api/v1/inventory/:id", asyncHandler(async (req, res) => {
+    const existing = await repository.findById(String(req.params.id));
+    if (!existing) return sendError(res, 404, "INVENTORY_NOT_FOUND", "Ítem no encontrado.");
+    const updated = await repository.patch(String(req.params.id), req.body as Record<string, unknown>);
+    if (!updated) return sendError(res, 404, "INVENTORY_NOT_FOUND", "Ítem no encontrado.");
+    return sendSuccess(res, toInventoryResponse(updated));
+  }));
+
   return router;
 }

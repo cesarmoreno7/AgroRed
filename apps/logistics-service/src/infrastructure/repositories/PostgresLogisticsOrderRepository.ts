@@ -222,6 +222,22 @@ export class PostgresLogisticsOrderRepository implements LogisticsOrderRepositor
     return result.rows[0].id;
   }
 
+  async patch(id: string, fields: Record<string, unknown>): Promise<LogisticsOrder | null> {
+    const COLS: Record<string, string> = {
+      zoneName: "zone_name", zoneType: "zone_type",
+      centerLat: "center_lat", centerLng: "center_lng", radiusM: "radius_m",
+      metadata: "metadata",
+    };
+    const sets: string[] = []; const vals: unknown[] = []; let i = 1;
+    for (const [k, v] of Object.entries(fields)) {
+      if (COLS[k] !== undefined) { sets.push(`${COLS[k]} = $${i++}`); vals.push(v ?? null); }
+    }
+    if (sets.length === 0) return this.findById(id);
+    sets.push(`updated_at = NOW()`); vals.push(id);
+    await this.pool.query(`UPDATE public.logistics_zones SET ${sets.join(", ")} WHERE id = $${i}`, vals);
+    return this.findById(id);
+  }
+
   private mapRow(row: LogisticsOrderRow): LogisticsOrder {
     return new LogisticsOrder({
       id: row.id,

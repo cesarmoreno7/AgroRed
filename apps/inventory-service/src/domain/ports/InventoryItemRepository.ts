@@ -18,4 +18,5 @@ export interface InventoryItemRepository {
   findById(id: string): Promise<InventoryItem | null>;
   list(params: PaginationParams, tenantId?: string | null): Promise<PaginatedResult<InventoryItem>>;
   listNearExpiry(tenantId: string, daysAhead: number, params: PaginationParams): Promise<PaginatedResult<InventoryItem>>;
+  patch(id: string, fields: Record<string, unknown>): Promise<InventoryItem | null>;
 }

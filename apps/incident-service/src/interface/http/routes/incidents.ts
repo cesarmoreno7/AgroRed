@@ -8,6 +8,7 @@ import { GenerateIncidentAlerts } from "../../../application/use-cases/GenerateI
 import { classifyIncident } from "../../../application/use-cases/ClassifyIncident.js";
 import type { Incident } from "../../../domain/entities/Incident.js";
 import type { IncidentRepository, IncidentAction, IncidentAlert } from "../../../domain/ports/IncidentRepository.js";
+import type { AuditLogger } from "../../../shared/audit.js";
 import { INCIDENT_SEVERITIES } from "../../../domain/value-objects/IncidentSeverity.js";
 import { INCIDENT_TYPES } from "../../../domain/value-objects/IncidentType.js";
 import { INCIDENT_STATUSES } from "../../../domain/value-objects/IncidentStatus.js";
@@ -115,7 +116,7 @@ function toAlertResponse(a: IncidentAlert) {
   };
 }
 
-export function createIncidentsRouter(repository: IncidentRepository): Router {
+export function createIncidentsRouter(repository: IncidentRepository, auditLogger?: AuditLogger): Router {
   const router = Router();
   const registerIncident = new RegisterIncident(repository);
   const updateIncidentStatus = new UpdateIncidentStatus(repository);
@@ -132,6 +133,26 @@ export function createIncidentsRouter(repository: IncidentRepository): Router {
 
     try {
       const incident = await registerIncident.execute(parsed.data);
+
+      if (auditLogger) {
+        await auditLogger({
+          tenantId: incident.tenantId,
+          serviceName: "incident-service",
+          entityName: "incidents",
+          entityId: incident.id,
+          actionName: "incident.registered",
+          actorId: typeof req.headers["x-user-id"] === "string" ? req.headers["x-user-id"] : incident.reportedBy,
+          correlationId: typeof req.headers["x-correlation-id"] === "string" ? req.headers["x-correlation-id"] : undefined,
+          payload: {
+            incidentType: incident.incidentType,
+            severity: incident.severity,
+            municipalityName: incident.municipalityName,
+            affectedPopulation: incident.affectedPopulation,
+            status: incident.status
+          }
+        });
+      }
+
       return sendSuccess(res, toIncidentResponse(incident), 201);
     } catch (error) {
       if (error instanceof Error && error.message === "TENANT_NOT_FOUND") {
@@ -198,6 +219,22 @@ export function createIncidentsRouter(repository: IncidentRepository): Router {
         incidentId: String(req.params.id),
         ...parsed.data,
       });
+      if (auditLogger) {
+        await auditLogger({
+          tenantId: incident.tenantId,
+          serviceName: "incident-service",
+          entityName: "incidents",
+          entityId: incident.id,
+          actionName: "incident.status_updated",
+          actorId: typeof req.headers["x-user-id"] === "string" ? req.headers["x-user-id"] : parsed.data.performedBy,
+          correlationId: typeof req.headers["x-correlation-id"] === "string" ? req.headers["x-correlation-id"] : undefined,
+          payload: {
+            status: incident.status,
+            assignedTo: incident.assignedTo,
+            resolutionNotes: incident.resolutionNotes
+          }
+        });
+      }
       return sendSuccess(res, toIncidentResponse(incident));
     } catch (error) {
       if (error instanceof Error && error.message === "INCIDENT_NOT_FOUND") {
@@ -214,6 +251,20 @@ export function createIncidentsRouter(repository: IncidentRepository): Router {
   router.post("/api/v1/incidents/:id/prioritize", asyncHandler(async (req, res) => {
     try {
       const score = await prioritizeIncident.execute(String(req.params.id));
+      if (auditLogger) {
+        await auditLogger({
+          tenantId: req.body?.tenantId ?? undefined,
+          serviceName: "incident-service",
+          entityName: "incidents",
+          entityId: req.params.id,
+          actionName: "incident.prioritized",
+          actorId: typeof req.headers["x-user-id"] === "string" ? req.headers["x-user-id"] : undefined,
+          correlationId: typeof req.headers["x-correlation-id"] === "string" ? req.headers["x-correlation-id"] : undefined,
+          payload: {
+            priorityScore: score
+          }
+        });
+      }
       return sendSuccess(res, { incidentId: req.params.id, priorityScore: score });
     } catch (error) {
       if (error instanceof Error && error.message === "INCIDENT_NOT_FOUND") {
@@ -235,6 +286,23 @@ export function createIncidentsRouter(repository: IncidentRepository): Router {
         incidentId: String(req.params.id),
         ...parsed.data,
       });
+      if (auditLogger) {
+        await auditLogger({
+          tenantId: req.body?.tenantId ?? undefined,
+          serviceName: "incident-service",
+          entityName: "incident_actions",
+          entityId: action.id,
+          actionName: "incident.action_registered",
+          actorId: typeof req.headers["x-user-id"] === "string" ? req.headers["x-user-id"] : parsed.data.performedBy,
+          correlationId: typeof req.headers["x-correlation-id"] === "string" ? req.headers["x-correlation-id"] : undefined,
+          payload: {
+            incidentId: action.incidentId,
+            actionType: action.actionType,
+            performedBy: action.performedBy,
+            description: action.description
+          }
+        });
+      }
       return sendSuccess(res, toActionResponse(action), 201);
     } catch (error) {
       if (error instanceof Error && error.message === "INCIDENT_NOT_FOUND") {

@@ -17,5 +17,6 @@ export interface UserRepository {
   findById(id: string): Promise<User | null>;
   findByEmail(email: string): Promise<User | null>;
   list(params: PaginationParams, tenantId?: string | null): Promise<PaginatedResult<User>>;
+  patch(id: string, fields: Record<string, unknown>): Promise<User | null>;
 }
 

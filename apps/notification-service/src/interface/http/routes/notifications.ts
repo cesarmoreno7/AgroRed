@@ -139,5 +139,13 @@ export function createNotificationsRouter(
     return sendSuccess(res, { processed: results.length, results });
   }));
 
+  router.patch("/api/v1/notifications/:id", asyncHandler(async (req, res) => {
+    const existing = await repository.findById(String(req.params.id));
+    if (!existing) return sendError(res, 404, "NOTIFICATION_NOT_FOUND", "Notificación no encontrada.");
+    const updated = await repository.patch(String(req.params.id), req.body as Record<string, unknown>);
+    if (!updated) return sendError(res, 404, "NOTIFICATION_NOT_FOUND", "Notificación no encontrada.");
+    return sendSuccess(res, toNotificationResponse(updated));
+  }));
+
   return router;
 }

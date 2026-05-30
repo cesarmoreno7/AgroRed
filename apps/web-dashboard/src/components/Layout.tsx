@@ -34,11 +34,60 @@ export function Layout({ children }: Props) {
     transition: "all 0.2s",
   };
 
-  const navItems: { to: string; icon: string; label: string }[] = [
-    { to: "/", icon: "📊", label: "Dashboard" },
-    { to: "/territorial", icon: "🗺️", label: "Territorial" },
-    { to: "/fleet", icon: "🚚", label: "Flota" },
+  // Opciones de menú por rol
+  // Todas las opciones del menú
+  const allMenuItems = [
+    { to: "/",             icon: "📈", label: "Tablero Institucional" },
+    { to: "/territorial",  icon: "🗺️", label: "Mapa Territorial",      module: "logistics-service" },
+    { to: "/users",        icon: "👤", label: "Usuarios",               module: "user-service" },
+    { to: "/producers",    icon: "🌾", label: "Productores",            module: "producer-service" },
+    { to: "/offers",       icon: "📦", label: "Ofertas",                module: "offer-service" },
+    { to: "/rescues",      icon: "♻️", label: "Rescates",               module: "rescue-service" },
+    { to: "/demands",      icon: "🍽️", label: "Demandas",               module: "demand-service" },
+    { to: "/institutions", icon: "🏛️", label: "Instituciones",          module: "institution-service" },
+    { to: "/inventory",    icon: "📊", label: "Inventario",             module: "inventory-service" },
+    { to: "/fleet",        icon: "🚚", label: "Flota en tiempo real",   module: "logistics-service" },
+    { to: "/logistics",    icon: "🗂️", label: "Geocercas logísticas",   module: "logistics-service" },
+    { to: "/incidents",    icon: "🚨", label: "Incidencias Sociales",   module: "incident-service" },
+    { to: "/notifications",icon: "🔔", label: "Notificaciones",         module: "notification-service" },
+    { to: "/auctions",     icon: "🏷️", label: "Subastas",               module: "auction-service" },
+    { to: "/alerts",       icon: "🚨", label: "Alertas IRAT",            module: "analytics-service" },
+    { to: "/ml",           icon: "🤖", label: "Apoyo a Decisión",       module: "ml-service" },
+    { to: "/ai-copilot",   icon: "✨", label: "Copiloto IA",            module: "user-service" },
   ];
+
+  const moduleAccess: Record<string, string[]> = {
+    admin_municipal: [
+      "user-service", "producer-service", "offer-service", "rescue-service", "demand-service",
+      "institution-service", "inventory-service", "logistics-service", "incident-service",
+      "notification-service", "auction-service", "analytics-service", "ml-service"
+    ],
+    territorial_analyst: [
+      "producer-service", "offer-service", "rescue-service", "demand-service",
+      "institution-service", "logistics-service", "incident-service", "auction-service",
+      "analytics-service", "ml-service"
+    ],
+    logistics_operator: [
+      "producer-service", "offer-service", "rescue-service", "demand-service",
+      "inventory-service", "logistics-service", "incident-service", "notification-service",
+      "auction-service"
+    ],
+    community_kitchen: [
+      "offer-service", "rescue-service", "demand-service", "auction-service"
+    ],
+    producer: [
+      "producer-service", "rescue-service", "offer-service", "auction-service"
+    ],
+    supermarket: [
+      "offer-service", "auction-service"
+    ],
+  };
+
+  const navItems = user?.role
+    ? allMenuItems.filter((item) =>
+        !item.module || (moduleAccess[user.role]?.includes(item.module))
+      )
+    : [];
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#0a0a12" }}>

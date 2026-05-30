@@ -1,10 +1,34 @@
 import Constants from "expo-constants";
 
-const devGatewayUrl = "http://192.168.1.100:8080";
+const extra = (Constants.expoConfig?.extra ?? {}) as Record<string, string | undefined>;
+const configuredBaseUrl = extra.apiBaseUrl?.trim();
+const configuredGatewayPort = extra.apiGatewayPort?.trim() || "8080";
 
-const extra = Constants.expoConfig?.extra as Record<string, string> | undefined;
+function inferExpoHost(): string | null {
+  const expoConfig = Constants.expoConfig as ({ hostUri?: string } | null | undefined);
+  const hostUri = expoConfig?.hostUri?.trim();
 
-export const API_BASE_URL: string = extra?.apiBaseUrl ?? devGatewayUrl;
+  if (!hostUri) {
+    return null;
+  }
+
+  return hostUri.split(":")[0] ?? null;
+}
+
+function resolveApiBaseUrl(): string {
+  if (configuredBaseUrl) {
+    return configuredBaseUrl.replace(/\/$/, "");
+  }
+
+  const inferredHost = inferExpoHost();
+  if (inferredHost) {
+    return `http://${inferredHost}:${configuredGatewayPort}`;
+  }
+
+  return `http://localhost:${configuredGatewayPort}`;
+}
+
+export const API_BASE_URL: string = resolveApiBaseUrl();
 
 export const ENDPOINTS = {
   // Auth (user-service via gateway)

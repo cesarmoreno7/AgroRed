@@ -388,25 +388,34 @@ export class PostgresIncidentRepository implements IncidentRepository {
       data: { id: r.id, type: r.incident_type, severity: r.severity, affectedPop: Number(r.affected_population) },
     }));
 
-    const clusters = clusterPoints(items, radiusM, minPoints);
+    const flat = clusterPoints(items, radiusM, minPoints);
 
-    return clusters.map((c, idx) => {
-      const severities = c.points.map(p => p.data.severity);
-      const avgSev = severities.reduce((sum, s) => sum + (severityMap[s] ?? 1), 0) / severities.length;
-      const types = c.points.map(p => p.data.type);
-      const dominantType = types.sort((a, b) =>
-        types.filter(t => t === b).length - types.filter(t => t === a).length
+    // Group by clusterId (skip noise = -1)
+    const grouped = new Map<number, typeof items>();
+    for (const entry of flat) {
+      if (entry.clusterId < 0) continue;
+      const arr = grouped.get(entry.clusterId) ?? [];
+      arr.push(entry.point);
+      grouped.set(entry.clusterId, arr);
+    }
+
+    return Array.from(grouped.entries()).map(([cid, points]) => {
+      const severities = points.map((p: typeof items[number]) => p.data.severity);
+      const avgSev = severities.reduce((sum: number, s: string) => sum + (severityMap[s] ?? 1), 0) / severities.length;
+      const types = points.map((p: typeof items[number]) => p.data.type);
+      const dominantType = types.sort((a: string, b: string) =>
+        types.filter((t: string) => t === b).length - types.filter((t: string) => t === a).length
       )[0];
 
       return {
-        clusterId: idx,
-        centroidLat: c.centroidLat,
-        centroidLng: c.centroidLng,
-        incidentCount: c.points.length,
+        clusterId: cid,
+        centroidLat: points.reduce((sum: number, p: typeof items[number]) => sum + p.lat, 0) / points.length,
+        centroidLng: points.reduce((sum: number, p: typeof items[number]) => sum + p.lng, 0) / points.length,
+        incidentCount: points.length,
         avgSeverityScore: Math.round(avgSev * 10) / 10,
         dominantType,
-        affectedPopulation: c.points.reduce((sum, p) => sum + p.data.affectedPop, 0),
-        incidentIds: c.points.map(p => p.data.id),
+        affectedPopulation: points.reduce((sum: number, p: typeof items[number]) => sum + p.data.affectedPop, 0),
+        incidentIds: points.map((p: typeof items[number]) => p.data.id),
       };
     });
   }

@@ -9,6 +9,8 @@ import { createHealthRouter } from "./interface/http/routes/health.js";
 import { createAuctionsRouter } from "./interface/http/routes/auctions.js";
 import { notFoundHandler, globalErrorHandler } from "./interface/http/response.js";
 import { traceabilityMiddleware } from "./shared/traceability.js";
+import { internalAuthMiddleware } from "../../shared/middleware/internalAuth.js";
+import { EventBus } from "../../shared/redis/EventBus.js";
 import { startAuctionScheduler } from "./application/scheduler/AuctionScheduler.js";
 import { logError, logInfo } from "./shared/logger.js";
 
@@ -17,6 +19,7 @@ async function main(): Promise<void> {
   const pool = createPostgresPool(env);
   const auctionRepo = new PostgresAuctionRepository(pool);
   const bidRepo = new PostgresBidRepository(pool);
+  const eventBus = new EventBus(process.env.REDIS_URL);
 
   const app = express();
 
@@ -25,6 +28,7 @@ async function main(): Promise<void> {
   app.use(cors({ origin: process.env.API_GATEWAY_ORIGIN || "http://localhost:8080" }));
   app.use(express.json({ limit: "1mb" }));
   app.use(traceabilityMiddleware);
+  app.use(internalAuthMiddleware);
 
   app.use(
     createHealthRouter({
@@ -35,7 +39,7 @@ async function main(): Promise<void> {
     })
   );
 
-  app.use(createAuctionsRouter(auctionRepo, bidRepo));
+  app.use(createAuctionsRouter(auctionRepo, bidRepo, eventBus));
   app.use(notFoundHandler);
   app.use(globalErrorHandler);
 
@@ -52,6 +56,7 @@ async function main(): Promise<void> {
     clearInterval(schedulerInterval);
 
     server.close(async () => {
+      await eventBus.close();
       await pool.end();
       process.exit(0);
     });

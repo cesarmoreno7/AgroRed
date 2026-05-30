@@ -1,6 +1,7 @@
 export interface AnalyticsTotals {
   users: number;
   producers: number;
+  producersActive: number;
   offers: number;
   rescues: number;
   demands: number;
@@ -8,6 +9,7 @@ export interface AnalyticsTotals {
   logisticsOrders: number;
   incidents: number;
   notifications: number;
+  auctions: number;
 }
 
 export interface AnalyticsOperations {
@@ -18,6 +20,8 @@ export interface AnalyticsOperations {
   scheduledLogistics: number;
   openIncidents: number;
   pendingNotifications: number;
+  iratScore: number | null;
+  programCoverage: number | null;
 }
 
 export interface AnalyticsSummary {
@@ -58,6 +62,7 @@ export interface User {
 export interface LoginResponse {
   token: string;
   user: User;
+  modules?: string[];
 }
 
 export interface CurrentPosition {

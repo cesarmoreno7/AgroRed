@@ -9,6 +9,7 @@ import { createInventoryRouter } from "./interface/http/routes/inventory.js";
 import { logError, logInfo } from "./shared/logger.js";
 import { notFoundHandler, globalErrorHandler } from "./interface/http/response.js";
 import { traceabilityMiddleware } from "./shared/traceability.js";
+import { internalAuthMiddleware } from "../../shared/middleware/internalAuth.js";
 
 async function main(): Promise<void> {
   const env = loadEnv();
@@ -21,6 +22,7 @@ async function main(): Promise<void> {
   app.use(cors({ origin: process.env.API_GATEWAY_ORIGIN || "http://localhost:8080" }));
   app.use(express.json({ limit: "1mb" }));
   app.use(traceabilityMiddleware);
+  app.use(internalAuthMiddleware);
   app.use(
     createHealthRouter({
       check: async () => {

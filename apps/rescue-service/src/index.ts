@@ -6,14 +6,19 @@ import { createPostgresPool, checkPostgres } from "./infrastructure/persistence/
 import { PostgresRescueRepository } from "./infrastructure/repositories/PostgresRescueRepository.js";
 import { createHealthRouter } from "./interface/http/routes/health.js";
 import { createRescuesRouter } from "./interface/http/routes/rescues.js";
+import { createAuditLogger } from "./shared/audit.js";
 import { logError, logInfo } from "./shared/logger.js";
 import { notFoundHandler, globalErrorHandler } from "./interface/http/response.js";
 import { traceabilityMiddleware } from "./shared/traceability.js";
+import { internalAuthMiddleware } from "../../shared/middleware/internalAuth.js";
+import { EventBus } from "../../shared/redis/EventBus.js";
 
 async function main(): Promise<void> {
   const env = loadEnv();
   const pool = createPostgresPool(env);
   const repository = new PostgresRescueRepository(pool);
+  const auditLogger = createAuditLogger(pool);
+  const eventBus = new EventBus(process.env.REDIS_URL);
   const app = express();
 
   app.disable("x-powered-by");
@@ -21,6 +26,7 @@ async function main(): Promise<void> {
   app.use(cors({ origin: process.env.API_GATEWAY_ORIGIN || "http://localhost:8080" }));
   app.use(express.json({ limit: "1mb" }));
   app.use(traceabilityMiddleware);
+  app.use(internalAuthMiddleware);
   app.use(
     createHealthRouter({
       check: async () => {
@@ -29,7 +35,7 @@ async function main(): Promise<void> {
       }
     })
   );
-  app.use(createRescuesRouter(repository));
+  app.use(createRescuesRouter(repository, eventBus, auditLogger));
   app.use(notFoundHandler);
   app.use(globalErrorHandler);
 
@@ -43,6 +49,7 @@ async function main(): Promise<void> {
     logInfo("service.stopping", { signal });
 
     server.close(async () => {
+      await eventBus.close();
       await pool.end();
       process.exit(0);
     });

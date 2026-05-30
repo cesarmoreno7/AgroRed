@@ -15,6 +15,9 @@ const Ctx = createContext<AuthState | undefined>(undefined);
 function decodeJwt(token: string): User | null {
   try {
     const payload = JSON.parse(atob(token.split(".")[1]!));
+    // Reject expired tokens before any render
+    if (payload.exp && payload.exp * 1000 < Date.now()) return null;
+    if (!payload.sub || !payload.role) return null;
     return {
       id: payload.sub,
       tenantId: payload.tenantId,
@@ -31,27 +34,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const logout = useCallback(() => {
+    removeToken();
+    setUser(null);
+  }, []);
+
   useEffect(() => {
     const t = getToken();
     if (t) {
       const u = decodeJwt(t);
       if (u) setUser(u);
-      else removeToken();
+      else { removeToken(); }
     }
     setIsLoading(false);
   }, []);
+
+  // Auto-logout when the server returns 401 (expired or revoked token)
+  useEffect(() => {
+    const handler = () => logout();
+    window.addEventListener("agrored:session_expired", handler);
+    return () => window.removeEventListener("agrored:session_expired", handler);
+  }, [logout]);
 
   const login = useCallback(async (email: string, password: string): Promise<string | null> => {
     const res = await loginApi(email, password);
     if (!res.ok) return res.message;
     setToken(res.data.token);
-    setUser(res.data.user);
+    setUser(decodeJwt(res.data.token));
     return null;
-  }, []);
-
-  const logout = useCallback(() => {
-    removeToken();
-    setUser(null);
   }, []);
 
   return <Ctx.Provider value={{ user, isLoading, login, logout }}>{children}</Ctx.Provider>;

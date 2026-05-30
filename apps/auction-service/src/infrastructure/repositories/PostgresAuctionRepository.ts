@@ -188,6 +188,13 @@ export class PostgresAuctionRepository implements AuctionRepository {
     );
   }
 
+  async softDelete(id: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE public.auctions SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`,
+      [id]
+    );
+  }
+
   async setWinner(id: string, winnerId: string, winnerPrice: number): Promise<void> {
     await this.pool.query(
       `UPDATE public.auctions SET winner_id = $2, winner_price = $3

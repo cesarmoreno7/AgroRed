@@ -12,6 +12,7 @@ export interface RegisterUserCommand {
   fullName: string;
   role: UserRole;
   password: string;
+  contactPhone?: string | null;
 }
 
 export class RegisterUser {
@@ -33,7 +34,8 @@ export class RegisterUser {
       email,
       fullName: command.fullName,
       role: command.role,
-      passwordHash
+      passwordHash,
+      contactPhone: command.contactPhone ?? null
     });
 
     await this.repository.save(user);

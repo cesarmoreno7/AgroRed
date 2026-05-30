@@ -11,6 +11,8 @@ import { useAuth } from "../context/AuthContext";
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
+  const tenantLabel = user?.tenantId ? `${user.tenantId.slice(0, 8)}...` : "—";
+  const userLabel = user?.id ? `${user.id.slice(0, 8)}...` : "—";
 
   const handleLogout = () => {
     Alert.alert("Cerrar sesión", "¿Está seguro que desea cerrar sesión?", [
@@ -37,8 +39,8 @@ export default function ProfileScreen() {
 
       <View style={styles.section}>
         <InfoRow label="Rol" value={user?.role ?? "—"} />
-        <InfoRow label="Tenant ID" value={user?.tenantId?.slice(0, 8) + "..." ?? "—"} />
-        <InfoRow label="User ID" value={user?.id?.slice(0, 8) + "..." ?? "—"} />
+        <InfoRow label="Tenant ID" value={tenantLabel} />
+        <InfoRow label="User ID" value={userLabel} />
       </View>
 
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.8}>

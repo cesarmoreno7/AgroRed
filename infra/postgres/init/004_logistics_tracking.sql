@@ -4,7 +4,7 @@
 -- history, current positions, delivery events, and coverage zones
 -- ============================================================
 
--- ── 1. Recursos logísticos (vehículos, domiciliarios) ──
+-- 1. Recursos logisticos (vehiculos, domiciliarios)
 
 CREATE TABLE IF NOT EXISTS public.recursos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -18,7 +18,6 @@ CREATE TABLE IF NOT EXISTS public.recursos (
     CHECK (estado IN ('disponible', 'en_ruta', 'inactivo', 'mantenimiento')),
   latitude NUMERIC(9,6),
   longitude NUMERIC(9,6),
-  geom GEOMETRY(POINT, 4326),
   metadata JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -33,10 +32,9 @@ CREATE TABLE IF NOT EXISTS public.recursos (
 
 CREATE INDEX IF NOT EXISTS idx_recursos_tenant ON public.recursos(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_recursos_estado ON public.recursos(estado) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_recursos_geom ON public.recursos USING GIST(geom) WHERE geom IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_recursos_user ON public.recursos(user_id) WHERE user_id IS NOT NULL;
 
--- ── 2. Historial de tracking GPS ──
+-- 2. Historial de tracking GPS
 
 CREATE TABLE IF NOT EXISTS public.tracking_historial (
   id BIGSERIAL PRIMARY KEY,
@@ -44,7 +42,6 @@ CREATE TABLE IF NOT EXISTS public.tracking_historial (
   orden_id UUID REFERENCES public.logistics_orders(id),
   latitude NUMERIC(9,6) NOT NULL,
   longitude NUMERIC(9,6) NOT NULL,
-  geom GEOMETRY(POINT, 4326) NOT NULL,
   velocidad NUMERIC(6,2),
   precision_gps NUMERIC(6,2),
   bearing NUMERIC(5,2),
@@ -60,18 +57,15 @@ CREATE INDEX IF NOT EXISTS idx_tracking_historial_recurso
   ON public.tracking_historial(recurso_id, registrado_at DESC);
 CREATE INDEX IF NOT EXISTS idx_tracking_historial_orden
   ON public.tracking_historial(orden_id) WHERE orden_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_tracking_historial_geom
-  ON public.tracking_historial USING GIST(geom);
 CREATE INDEX IF NOT EXISTS idx_tracking_historial_evento
   ON public.tracking_historial(evento, registrado_at DESC);
 
--- ── 3. Última ubicación conocida (upsert rápido) ──
+-- 3. Ultima ubicacion conocida (upsert rapido)
 
 CREATE TABLE IF NOT EXISTS public.tracking_actual (
   recurso_id UUID PRIMARY KEY REFERENCES public.recursos(id),
   latitude NUMERIC(9,6) NOT NULL,
   longitude NUMERIC(9,6) NOT NULL,
-  geom GEOMETRY(POINT, 4326) NOT NULL,
   velocidad NUMERIC(6,2),
   bearing NUMERIC(5,2),
   evento TEXT DEFAULT 'posicion',
@@ -79,10 +73,7 @@ CREATE TABLE IF NOT EXISTS public.tracking_actual (
   actualizado_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_tracking_actual_geom
-  ON public.tracking_actual USING GIST(geom);
-
--- ── 4. Eventos de entrega (lifecycle de una orden logística) ──
+-- 4. Eventos de entrega (lifecycle de una orden logistica)
 
 CREATE TABLE IF NOT EXISTS public.delivery_events (
   id BIGSERIAL PRIMARY KEY,
@@ -96,7 +87,6 @@ CREATE TABLE IF NOT EXISTS public.delivery_events (
   )),
   latitude NUMERIC(9,6),
   longitude NUMERIC(9,6),
-  geom GEOMETRY(POINT, 4326),
   notas TEXT,
   evidencia_url TEXT,
   metadata JSONB DEFAULT '{}',
@@ -108,7 +98,7 @@ CREATE INDEX IF NOT EXISTS idx_delivery_events_orden
 CREATE INDEX IF NOT EXISTS idx_delivery_events_recurso
   ON public.delivery_events(recurso_id, registrado_at DESC);
 
--- ── 5. Asignación recurso ↔ orden logística ──
+-- 5. Asignacion recurso - orden logistica
 
 ALTER TABLE public.logistics_orders
   ADD COLUMN IF NOT EXISTS recurso_id UUID REFERENCES public.recursos(id),
@@ -118,7 +108,7 @@ ALTER TABLE public.logistics_orders
 CREATE INDEX IF NOT EXISTS idx_logistics_orders_recurso
   ON public.logistics_orders(recurso_id) WHERE recurso_id IS NOT NULL;
 
--- ── 6. Vista: Recursos en ruta con posición actual ──
+-- 6. Vista: Recursos en ruta con posicion actual
 
 CREATE OR REPLACE VIEW v_recursos_en_ruta AS
 SELECT
@@ -147,7 +137,7 @@ JOIN public.tenants t ON r.tenant_id = t.id
 WHERE r.estado = 'en_ruta'
   AND r.deleted_at IS NULL;
 
--- ── 7. Vista: Timeline de una orden logística ──
+-- 7. Vista: Timeline de una orden logistica
 
 CREATE OR REPLACE VIEW v_orden_timeline AS
 SELECT
@@ -164,7 +154,7 @@ FROM public.delivery_events de
 JOIN public.recursos r ON de.recurso_id = r.id
 ORDER BY de.orden_id, de.registrado_at ASC;
 
--- ── 8. Vista: Mapa de recursos (GeoJSON-ready) ──
+-- 8. Vista: Mapa de recursos
 
 CREATE OR REPLACE VIEW v_mapa_recursos AS
 SELECT
@@ -188,15 +178,14 @@ JOIN public.tenants t ON r.tenant_id = t.id
 WHERE r.deleted_at IS NULL
   AND (ta.latitude IS NOT NULL OR r.latitude IS NOT NULL);
 
--- ── Grants ──
+-- Grants
 
-DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE ON public.recursos TO ' || CURRENT_USER; END $$;
-DO $$ BEGIN EXECUTE 'GRANT USAGE, SELECT ON SEQUENCE recursos_id_seq TO ' || CURRENT_USER; END $$;
-DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT ON public.tracking_historial TO ' || CURRENT_USER; END $$;
-DO $$ BEGIN EXECUTE 'GRANT USAGE, SELECT ON SEQUENCE tracking_historial_id_seq TO ' || CURRENT_USER; END $$;
-DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE ON public.tracking_actual TO ' || CURRENT_USER; END $$;
-DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT ON public.delivery_events TO ' || CURRENT_USER; END $$;
-DO $$ BEGIN EXECUTE 'GRANT USAGE, SELECT ON SEQUENCE delivery_events_id_seq TO ' || CURRENT_USER; END $$;
-DO $$ BEGIN EXECUTE 'GRANT SELECT ON v_recursos_en_ruta TO ' || CURRENT_USER; END $$;
-DO $$ BEGIN EXECUTE 'GRANT SELECT ON v_orden_timeline TO ' || CURRENT_USER; END $$;
-DO $$ BEGIN EXECUTE 'GRANT SELECT ON v_mapa_recursos TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE ON public.recursos TO ' || quote_ident(CURRENT_USER); END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT ON public.tracking_historial TO ' || quote_ident(CURRENT_USER); END $$;
+DO $$ BEGIN EXECUTE 'GRANT USAGE, SELECT ON SEQUENCE public.tracking_historial_id_seq TO ' || quote_ident(CURRENT_USER); END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE ON public.tracking_actual TO ' || quote_ident(CURRENT_USER); END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT ON public.delivery_events TO ' || quote_ident(CURRENT_USER); END $$;
+DO $$ BEGIN EXECUTE 'GRANT USAGE, SELECT ON SEQUENCE public.delivery_events_id_seq TO ' || quote_ident(CURRENT_USER); END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT ON v_recursos_en_ruta TO ' || quote_ident(CURRENT_USER); END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT ON v_orden_timeline TO ' || quote_ident(CURRENT_USER); END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT ON v_mapa_recursos TO ' || quote_ident(CURRENT_USER); END $$;

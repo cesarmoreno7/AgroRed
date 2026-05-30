@@ -1,7 +1,7 @@
 import bcrypt from "bcrypt";
 import jwt, { type SignOptions } from "jsonwebtoken";
 import type { UserRepository } from "../../domain/ports/UserRepository.js";
-import { MODULE_ACCESS } from "../../domain/value-objects/UserRole";
+import { MODULE_ACCESS } from "../../domain/value-objects/UserRole.js";
 
 export interface LoginUserCommand {
   email: string;
@@ -26,7 +26,7 @@ export class LoginUser {
     private readonly jwtExpiresIn: string
   ) {}
 
-  async execute(command: LoginUserCommand): Promise<{ token: string; modules: string[] }> {
+  async execute(command: LoginUserCommand): Promise<{ token: string; user: { id: string; tenantId: string; email: string; fullName: string; role: string }; modules: string[] }> {
     const email = command.email.trim().toLowerCase();
     const user = await this.repository.findByEmail(email);
 
@@ -37,16 +37,23 @@ export class LoginUser {
     const token = jwt.sign(
       {
         sub: user.id,
+        tenantId: user.tenantId,
+        email: user.email,
+        fullName: user.fullName,
         role: user.role
       },
       this.jwtSecret,
-      { expiresIn: this.jwtExpiresIn }
+      { expiresIn: this.jwtExpiresIn } as SignOptions
     );
 
     const accessibleModules = Object.keys(MODULE_ACCESS).filter(module =>
-      MODULE_ACCESS[module].includes(user.role)
+      MODULE_ACCESS[module].includes(user.role as any)
     );
 
-    return { token, modules: accessibleModules };
+    return {
+      token,
+      user: { id: user.id, tenantId: user.tenantId, email: user.email, fullName: user.fullName, role: user.role },
+      modules: accessibleModules
+    };
   }
 }

@@ -26,6 +26,14 @@ export class EventBus {
     this.publisher = createRedisConnection({ url: redisUrl });
     this.subscriber = createRedisConnection({ url: redisUrl });
 
+    this.publisher.on("error", () => {
+      // Keep Redis transport failures from crashing request handlers.
+    });
+
+    this.subscriber.on("error", () => {
+      // Keep Redis transport failures from crashing subscriber processes.
+    });
+
     this.subscriber.on("message", (channel: string, message: string) => {
       const handlers = this.handlers.get(channel);
       if (!handlers) return;
@@ -57,13 +65,17 @@ export class EventBus {
     }
 
     this.handlers.set(channel, [handler]);
-    await this.subscriber.subscribe(channel);
+    try {
+      await this.subscriber.subscribe(channel);
+    } catch (error) {
+      this.handlers.delete(channel);
+      throw error;
+    }
   }
 
   /** Graceful shutdown — close both connections. */
   async close(): Promise<void> {
-    await this.subscriber.quit();
-    await this.publisher.quit();
+    await Promise.allSettled([this.subscriber.quit(), this.publisher.quit()]);
     this.handlers.clear();
   }
 }

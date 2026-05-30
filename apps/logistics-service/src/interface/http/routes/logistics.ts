@@ -3,6 +3,7 @@ import { z } from "zod";
 import { RegisterLogisticsOrder } from "../../../application/use-cases/RegisterLogisticsOrder.js";
 import type { LogisticsOrder } from "../../../domain/entities/LogisticsOrder.js";
 import type { LogisticsOrderRepository } from "../../../domain/ports/LogisticsOrderRepository.js";
+import type { AuditLogger } from "../../../shared/audit.js";
 import { ROUTE_MODES } from "../../../domain/value-objects/RouteMode.js";
 import { asyncHandler, sendError, sendPaginatedSuccess, sendSuccess } from "../response.js";
 
@@ -49,7 +50,7 @@ function toLogisticsResponse(order: LogisticsOrder) {
   };
 }
 
-export function createLogisticsRouter(repository: LogisticsOrderRepository): Router {
+export function createLogisticsRouter(repository: LogisticsOrderRepository, auditLogger?: AuditLogger): Router {
   const router = Router();
   const registerLogisticsOrder = new RegisterLogisticsOrder(repository);
 
@@ -62,6 +63,28 @@ export function createLogisticsRouter(repository: LogisticsOrderRepository): Rou
 
     try {
       const order = await registerLogisticsOrder.execute(parsed.data);
+
+      if (auditLogger) {
+        await auditLogger({
+          tenantId: order.tenantId,
+          serviceName: "logistics-service",
+          entityName: "logistics_orders",
+          entityId: order.id,
+          actionName: "logistics.order_registered",
+          actorId: typeof req.headers["x-user-id"] === "string" ? req.headers["x-user-id"] : null,
+          correlationId: typeof req.headers["x-correlation-id"] === "string" ? req.headers["x-correlation-id"] : undefined,
+          payload: {
+            inventoryItemId: order.inventoryItemId,
+            demandId: order.demandId,
+            routeMode: order.routeMode,
+            destinationOrganizationName: order.destinationOrganizationName,
+            quantityAssigned: order.quantityAssigned,
+            municipalityName: order.municipalityName,
+            status: order.status
+          }
+        });
+      }
+
       return sendSuccess(res, toLogisticsResponse(order), 201);
     } catch (error) {
       if (error instanceof Error && error.message === "TENANT_NOT_FOUND") {
@@ -93,7 +116,7 @@ export function createLogisticsRouter(repository: LogisticsOrderRepository): Rou
     const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "20"), 10) || 20));
     const tenantId = req.headers["x-tenant-id"] as string | undefined;
     const result = await repository.list({ page, limit }, tenantId ?? null);
-    return sendPaginatedSuccess(res, result.data.map(toLogisticsOrderResponse), { total: result.total, page: result.page, limit: result.limit });
+    return sendPaginatedSuccess(res, result.data.map(toLogisticsResponse), { total: result.total, page: result.page, limit: result.limit });
   }));
 
   router.get("/api/v1/logistics/:id", asyncHandler(async (req, res) => {
@@ -109,6 +132,14 @@ export function createLogisticsRouter(repository: LogisticsOrderRepository): Rou
     }
 
     return sendSuccess(res, toLogisticsResponse(order));
+  }));
+
+  router.patch("/api/v1/logistics/:id", asyncHandler(async (req, res) => {
+    const existing = await repository.findById(String(req.params.id));
+    if (!existing) return sendError(res, 404, "LOGISTICS_NOT_FOUND", "Geocerca no encontrada.");
+    const updated = await repository.patch(String(req.params.id), req.body as Record<string, unknown>);
+    if (!updated) return sendError(res, 404, "LOGISTICS_NOT_FOUND", "Geocerca no encontrada.");
+    return sendSuccess(res, toLogisticsResponse(updated));
   }));
 
   return router;

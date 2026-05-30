@@ -19,4 +19,5 @@ export interface NotificationRepository {
   list(params: PaginationParams, tenantId?: string | null): Promise<PaginatedResult<Notification>>;
   updateStatus(id: string, status: NotificationStatus): Promise<void>;
   findPending(limit: number): Promise<Notification[]>;
+  patch(id: string, fields: Record<string, unknown>): Promise<Notification | null>;
 }

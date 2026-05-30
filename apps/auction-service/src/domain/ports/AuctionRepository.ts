@@ -36,4 +36,5 @@ export interface AuctionRepository {
   updateCurrentPrice(id: string, price: number): Promise<void>;
   updateVisibility(id: string, phase: VisibilityPhase, radiusKm: number): Promise<void>;
   setWinner(id: string, winnerId: string, winnerPrice: number): Promise<void>;
+  softDelete(id: string): Promise<void>;
 }

@@ -2,7 +2,13 @@ import { Router } from "express";
 import type { ServiceRouteDefinition } from "../../../infrastructure/http/serviceRegistry.js";
 import { asyncHandler, sendSuccess } from "../response.js";
 
-async function checkService(service: ServiceRouteDefinition): Promise<{ name: string; status: string }> {
+export type DependencyStatus = "ok" | "degraded" | "unavailable";
+
+export interface GatewayHealthDependencies {
+  redis?: DependencyStatus;
+}
+
+async function checkService(service: ServiceRouteDefinition): Promise<{ name: string; status: DependencyStatus }> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 3000);
@@ -14,18 +20,24 @@ async function checkService(service: ServiceRouteDefinition): Promise<{ name: st
   }
 }
 
-export function createHealthRouter(services: ServiceRouteDefinition[]): Router {
+export function createHealthRouter(
+  services: ServiceRouteDefinition[],
+  gatewayDependencies: GatewayHealthDependencies = {}
+): Router {
   const router = Router();
 
   router.get("/health", asyncHandler(async (_req, res) => {
     const results = await Promise.all(services.map(checkService));
-    const allOk = results.every((r) => r.status === "ok");
+    const downstreamOk = results.every((r) => r.status === "ok");
+    const gatewayDependenciesOk = Object.values(gatewayDependencies).every((status) => status === "ok");
+    const allOk = downstreamOk && gatewayDependenciesOk;
 
     const payload = {
       service: "api-gateway",
       status: allOk ? "ok" : "degraded",
       timestamp: new Date().toISOString(),
       managedServices: services.length,
+      gatewayDependencies,
       dependencies: Object.fromEntries(results.map((r) => [r.name, r.status]))
     };
 

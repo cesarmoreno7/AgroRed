@@ -107,7 +107,7 @@ ALTER TABLE public.incidents
 -- ────────────────────────────────────────────
 -- Grants
 -- ────────────────────────────────────────────
-DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.vrp_solutions TO ' || CURRENT_USER; END $$;
-DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.vrp_vehicle_routes TO ' || CURRENT_USER; END $$;
-DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.spoilage_records TO ' || CURRENT_USER; END $$;
-DO $$ BEGIN EXECUTE 'GRANT SELECT ON public.v_spoilage_summary TO ' || CURRENT_USER; END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.vrp_solutions TO ' || quote_ident(CURRENT_USER); END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.vrp_vehicle_routes TO ' || quote_ident(CURRENT_USER); END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.spoilage_records TO ' || quote_ident(CURRENT_USER); END $$;
+DO $$ BEGIN EXECUTE 'GRANT SELECT ON public.v_spoilage_summary TO ' || quote_ident(CURRENT_USER); END $$;

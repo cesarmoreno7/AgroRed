@@ -46,9 +46,9 @@ export function FleetMap({ resources }: Props) {
     [resources]
   );
 
-  // Default center: Colombia
-  const center: [number, number] = positioned.length > 0
-    ? [positioned[0].latitude, positioned[0].longitude]
+  const first = positioned[0];
+  const center: [number, number] = first
+    ? [first.latitude!, first.longitude!]
     : [4.6, -74.1];
 
   return (

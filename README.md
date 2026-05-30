@@ -84,3 +84,9 @@ AGRORED nace como una plataforma GovTech/FoodTech para articular productores rur
 1. trazabilidad transversal y auditoria de eventos de negocio.
 2. profundizar heuristicas y versionado del modelo en `ml-service`.
 3. preparar scheduler externo y reglas avanzadas sobre `automation-service`.
+
+## Guias Operativas (Local y QA)
+
+- `docs/08_GUIA_LOCAL_Y_ACCESOS_ROLES.md`: levantamiento local paso a paso y credenciales de acceso por rol.
+- `docs/07_MATRIZ_PRUEBAS_ROLES_QA.md`: matriz de pruebas por rol para validacion QA.
+- `docs/06_CHECKLIST_DESPLIEGUE_STAGING_PROD.md`: checklist de despliegue controlado a staging/produccion.

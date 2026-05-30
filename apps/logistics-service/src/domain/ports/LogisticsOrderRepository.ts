@@ -16,4 +16,5 @@ export interface LogisticsOrderRepository {
   save(order: LogisticsOrder): Promise<void>;
   findById(id: string): Promise<LogisticsOrder | null>;
   list(params: PaginationParams, tenantId?: string | null): Promise<PaginatedResult<LogisticsOrder>>;
+  patch(id: string, fields: Record<string, unknown>): Promise<LogisticsOrder | null>;
 }

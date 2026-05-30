@@ -22,8 +22,13 @@ export interface ApiOk<T> { ok: true; status: number; data: T }
 export interface ApiErr { ok: false; status: number; code: string; message: string }
 export type ApiResult<T> = ApiOk<T> | ApiErr;
 
+// VITE_API_BASE_URL = "" means requests go to the same origin (Vite dev proxy handles /api → gateway).
+// In production set VITE_API_BASE_URL to the gateway URL, e.g. https://gateway.agrored.co
+const API_BASE = (import.meta as unknown as { env: Record<string, string> }).env?.VITE_API_BASE_URL ?? "";
+
 function buildUrl(path: string, params?: Record<string, string | number | undefined>): string {
-  const url = new URL(path, window.location.origin);
+  const base = API_BASE ? API_BASE.replace(/\/$/, "") : window.location.origin;
+  const url = new URL(path, base);
   if (params) {
     for (const [k, v] of Object.entries(params)) {
       if (v !== undefined) url.searchParams.set(k, String(v));
@@ -52,6 +57,10 @@ export async function api<T = unknown>(path: string, opts: RequestOptions = {}):
     clearTimeout(tid);
     const json = await res.json();
     if (!res.ok) {
+      // Emit session-expired event so AuthProvider can auto-logout
+      if (res.status === 401) {
+        window.dispatchEvent(new CustomEvent("agrored:session_expired"));
+      }
       return { ok: false, status: res.status, code: json.error?.code ?? "UNKNOWN", message: json.error?.message ?? "Error" };
     }
     return { ok: true, status: res.status, data: (json.data ?? json) as T };

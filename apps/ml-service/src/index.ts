@@ -4,22 +4,33 @@ import helmet from "helmet";
 import { loadEnv } from "./config/env.js";
 import { createPostgresPool, checkPostgres } from "./infrastructure/persistence/postgres.js";
 import { PostgresDecisionSupportRepository } from "./infrastructure/repositories/PostgresDecisionSupportRepository.js";
-import { getRedisClient, closeRedis } from "../../shared/redis/RedisClient.js";
+import { getRedisClient, closeRedis, checkRedis } from "../../shared/redis/RedisClient.js";
 import { RedisCache } from "../../shared/redis/RedisCache.js";
 import { createHealthRouter } from "./interface/http/routes/health.js";
 import { createMlRouter } from "./interface/http/routes/ml.js";
 import { logError, logInfo } from "./shared/logger.js";
 import { notFoundHandler, globalErrorHandler } from "./interface/http/response.js";
 import { traceabilityMiddleware } from "./shared/traceability.js";
+import { internalAuthMiddleware } from "../../shared/middleware/internalAuth.js";
 
 async function main(): Promise<void> {
   const env = loadEnv();
   const pool = createPostgresPool(env);
   const repository = new PostgresDecisionSupportRepository(pool);
 
-  // Redis cache
-  const redis = getRedisClient({ url: env.REDIS_URL });
-  const cache = new RedisCache(redis, "ml");
+  let cache: RedisCache | undefined;
+
+  try {
+    const redis = getRedisClient({ url: env.REDIS_URL });
+    await checkRedis(redis);
+    cache = new RedisCache(redis, "ml");
+    logInfo("redis.cache.enabled", {});
+  } catch (error) {
+    await closeRedis().catch(() => undefined);
+    logError("redis.cache.disabled", {
+      message: error instanceof Error ? error.message : String(error)
+    });
+  }
 
   const app = express();
 
@@ -28,6 +39,7 @@ async function main(): Promise<void> {
   app.use(cors({ origin: process.env.API_GATEWAY_ORIGIN || "http://localhost:8080" }));
   app.use(express.json({ limit: "1mb" }));
   app.use(traceabilityMiddleware);
+  app.use(internalAuthMiddleware);
   app.use(
     createHealthRouter({
       check: async () => {

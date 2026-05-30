@@ -30,16 +30,15 @@ export function registerServiceProxies(app: Express, services: ServiceRouteDefin
       createProxyMiddleware<Request, Response>({
         target: service.target,
         changeOrigin: true,
-        proxyTimeout: 10_000,
-        timeout: 10_000,
+        proxyTimeout: 5_000,
+        timeout: 5_000,
         pathRewrite: (_path, req) => req.originalUrl,
         on: {
           proxyReq: (proxyReq, req) => {
-            writeParsedBody(proxyReq, req);
-
             if (req.correlationId) {
               proxyReq.setHeader("x-correlation-id", req.correlationId);
             }
+            writeParsedBody(proxyReq, req);
           },
           error: (error, req, res) => {
             logError("proxy.error", {

@@ -140,6 +140,50 @@ paths:
         "401":
           description: Credenciales invalidas
 
+  /api/v1/users/recover-password:
+    post:
+      summary: Solicitar recuperacion de contrasena
+      security: []
+      tags: [Users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "200":
+          description: Mensaje generico para evitar enumeracion de correos
+
+  /api/v1/users/reset-password:
+    post:
+      summary: Restablecer contrasena con token de recuperacion
+      security: []
+      tags: [Users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, newPassword]
+              properties:
+                token:
+                  type: string
+                newPassword:
+                  type: string
+                  minLength: 8
+      responses:
+        "200":
+          description: Contrasena restablecida
+        "400":
+          description: Token invalido o payload incorrecto
+
   /api/v1/users:
     get:
       summary: Listar usuarios (admin)
@@ -612,6 +656,411 @@ paths:
       responses:
         "200":
           description: GeoJSON FeatureCollection
+
+  /api/v1/analytics/institutional/dashboard:
+    get:
+      summary: Dashboard institucional consolidado
+      tags: [Analytics Institutional]
+      parameters:
+        - name: tenantId
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Dashboard institucional con KPIs, IRAT y alertas activas
+
+  /api/v1/analytics/institutional/irat:
+    get:
+      summary: IRAT por territorio
+      tags: [Analytics Institutional]
+      parameters:
+        - name: tenantId
+          in: query
+          schema: { type: string }
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv, pdf]
+      responses:
+        "200":
+          description: Puntajes IRAT en JSON o exportacion documental
+
+  /api/v1/analytics/institutional/programs:
+    post:
+      summary: Crear programa alimentario institucional
+      tags: [Analytics Institutional]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "201":
+          description: Programa creado
+        "400":
+          description: Payload invalido
+    get:
+      summary: Listar programas institucionales
+      tags: [Analytics Institutional]
+      parameters:
+        - name: tenantId
+          in: query
+          required: true
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+      responses:
+        "200":
+          description: Lista paginada de programas
+
+  /api/v1/analytics/institutional/programs/{id}:
+    get:
+      summary: Obtener programa institucional por ID
+      tags: [Analytics Institutional]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Detalle del programa
+        "404":
+          description: Programa no encontrado
+
+  /api/v1/analytics/institutional/programs/{id}/status:
+    patch:
+      summary: Actualizar estado de programa institucional
+      tags: [Analytics Institutional]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [active, paused, completed, cancelled]
+      responses:
+        "200":
+          description: Estado actualizado
+        "400":
+          description: Estado invalido
+
+  /api/v1/analytics/institutional/programs/import/csv:
+    post:
+      summary: Importar programas institucionales desde CSV
+      tags: [Analytics Institutional]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenantId, municipalityName, csvText]
+              properties:
+                tenantId:
+                  type: string
+                municipalityName:
+                  type: string
+                csvText:
+                  type: string
+      responses:
+        "200":
+          description: Importacion procesada con resumen de filas
+        "422":
+          description: Todas las filas fallaron validacion
+
+  /api/v1/analytics/institutional/coverage:
+    get:
+      summary: Cobertura de programas por tenant
+      tags: [Analytics Institutional]
+      parameters:
+        - name: tenantId
+          in: query
+          required: true
+          schema: { type: string }
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv, pdf]
+      responses:
+        "200":
+          description: Cobertura institucional agregada
+
+  /api/v1/analytics/institutional/beneficiaries:
+    post:
+      summary: Registrar beneficiario
+      tags: [Analytics Institutional]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "201":
+          description: Beneficiario registrado
+        "400":
+          description: Payload invalido
+    get:
+      summary: Listar beneficiarios
+      tags: [Analytics Institutional]
+      parameters:
+        - name: tenantId
+          in: query
+          required: true
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+        - name: programId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: riskClassification
+          in: query
+          schema: { type: string }
+        - name: municipalityName
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Lista paginada de beneficiarios
+
+  /api/v1/analytics/institutional/beneficiaries/{id}:
+    get:
+      summary: Obtener beneficiario por ID
+      tags: [Analytics Institutional]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Detalle del beneficiario
+        "404":
+          description: Beneficiario no encontrado
+
+  /api/v1/analytics/institutional/alerts:
+    get:
+      summary: Listar alertas institucionales
+      tags: [Analytics Institutional]
+      parameters:
+        - name: tenantId
+          in: query
+          required: true
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+      responses:
+        "200":
+          description: Alertas institucionales paginadas
+
+  /api/v1/analytics/institutional/alerts/generate:
+    post:
+      summary: Generar alertas institucionales
+      tags: [Analytics Institutional]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenantId]
+              properties:
+                tenantId:
+                  type: string
+      responses:
+        "201":
+          description: Alertas generadas
+
+  /api/v1/analytics/institutional/alerts/{alertId}/acknowledge:
+    patch:
+      summary: Acusar recibo de alerta institucional
+      tags: [Analytics Institutional]
+      parameters:
+        - name: alertId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [acknowledgedBy]
+              properties:
+                acknowledgedBy:
+                  type: string
+      responses:
+        "200":
+          description: Alerta reconocida
+
+  /api/v1/analytics/institutional/tasks:
+    post:
+      summary: Crear tarea de coordinacion institucional
+      tags: [Analytics Institutional]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "201":
+          description: Tarea creada
+        "400":
+          description: Payload invalido
+    get:
+      summary: Listar tareas de coordinacion
+      tags: [Analytics Institutional]
+      parameters:
+        - name: tenantId
+          in: query
+          required: true
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+      responses:
+        "200":
+          description: Lista paginada de tareas
+
+  /api/v1/analytics/institutional/tasks/{taskId}/status:
+    patch:
+      summary: Actualizar estado de tarea institucional
+      tags: [Analytics Institutional]
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [pending, in_progress, completed, cancelled]
+      responses:
+        "200":
+          description: Estado actualizado
+
+  /api/v1/analytics/institutional/scenarios:
+    post:
+      summary: Crear escenario de simulacion institucional
+      tags: [Analytics Institutional]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "201":
+          description: Escenario creado
+    get:
+      summary: Listar escenarios institucionales
+      tags: [Analytics Institutional]
+      parameters:
+        - name: tenantId
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Lista de escenarios
+
+  /api/v1/analytics/institutional/scenarios/{id}/run:
+    post:
+      summary: Ejecutar simulacion institucional
+      tags: [Analytics Institutional]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Resultado de la simulacion
+        "404":
+          description: Escenario no encontrado
+
+  /api/v1/analytics/institutional/supervision:
+    get:
+      summary: Supervision operativa institucional
+      tags: [Analytics Institutional]
+      parameters:
+        - name: tenantId
+          in: query
+          schema: { type: string }
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv, pdf]
+      responses:
+        "200":
+          description: Datos de supervision operativa
+
+  /api/v1/ai-chat:
+    post:
+      summary: Copiloto analitico AI con puente desde gateway a backend legado
+      tags: [AI Chat]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message:
+                  type: string
+                history:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: true
+      responses:
+        "200":
+          description: Respuesta del copiloto AI
+        "503":
+          description: Integracion AI no configurada en gateway
 
   /api/v1/notifications/register:
     post:

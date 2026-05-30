@@ -1,0 +1,1 @@
+export const API_GATEWAY_PORT = process.env.API_GATEWAY_PORT || 8082;

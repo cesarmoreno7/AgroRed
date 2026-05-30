@@ -9,7 +9,12 @@ const envSchema = z.object({
   POSTGRES_USER: z.string().default("777"),
   POSTGRES_PASSWORD: z.string().default("777"),
   JWT_SECRET: z.string().min(32).default("change_me_in_production_min_32_chars!!"),
-  JWT_EXPIRES_IN: z.string().default("8h")
+  JWT_EXPIRES_IN: z.string().default("8h"),
+  REDIS_URL: z.string().default("redis://localhost:6379"),
+  EMAIL_USER: z.string().default(""),
+  EMAIL_PASS: z.string().default(""),
+  FRONTEND_URL: z.string().default("http://localhost:5173"),
+  INTERNAL_API_KEY: z.string().default("")
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

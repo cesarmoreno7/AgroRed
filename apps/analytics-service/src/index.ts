@@ -6,8 +6,9 @@ import { createPostgresPool, checkPostgres } from "./infrastructure/persistence/
 import { PostgresAnalyticsRepository } from "./infrastructure/repositories/PostgresAnalyticsRepository.js";
 import { PostgresMapRepository } from "./infrastructure/repositories/PostgresMapRepository.js";
 import { PostgresInstitutionalRepository } from "./infrastructure/repositories/PostgresInstitutionalRepository.js";
-import { getRedisClient, closeRedis } from "../../shared/redis/RedisClient.js";
+import { getRedisClient, closeRedis, checkRedis } from "../../shared/redis/RedisClient.js";
 import { RedisCache } from "../../shared/redis/RedisCache.js";
+import { EventBus } from "../../shared/redis/EventBus.js";
 import { createHealthRouter } from "./interface/http/routes/health.js";
 import { createAnalyticsRouter } from "./interface/http/routes/analytics.js";
 import { createMapRouter } from "./interface/http/routes/map.js";
@@ -15,6 +16,7 @@ import { createInstitutionalRouter } from "./interface/http/routes/institutional
 import { logError, logInfo } from "./shared/logger.js";
 import { notFoundHandler, globalErrorHandler } from "./interface/http/response.js";
 import { traceabilityMiddleware } from "./shared/traceability.js";
+import { internalAuthMiddleware } from "../../shared/middleware/internalAuth.js";
 
 async function main(): Promise<void> {
   const env = loadEnv();
@@ -23,9 +25,42 @@ async function main(): Promise<void> {
   const mapRepository = new PostgresMapRepository(pool);
   const institutionalRepository = new PostgresInstitutionalRepository(pool);
 
-  // Redis cache
-  const redis = getRedisClient({ url: env.REDIS_URL });
-  const cache = new RedisCache(redis, "analytics");
+  let cache: RedisCache | undefined;
+  let eventBus: EventBus | null = null;
+
+  try {
+    const redis = getRedisClient({ url: env.REDIS_URL });
+    await checkRedis(redis);
+    cache = new RedisCache(redis, "analytics");
+    logInfo("redis.cache.enabled", {});
+  } catch (error) {
+    await closeRedis().catch(() => undefined);
+    logError("redis.cache.disabled", {
+      message: error instanceof Error ? error.message : String(error)
+    });
+  }
+
+  if (cache) {
+    const invalidateAnalyticsCache = async (): Promise<void> => {
+      await cache.invalidatePattern("summary:*");
+      await cache.invalidatePattern("overview:*");
+    };
+
+    const candidateEventBus = new EventBus(env.REDIS_URL);
+
+    try {
+      await candidateEventBus.subscribe("offer.published", () => void invalidateAnalyticsCache());
+      await candidateEventBus.subscribe("rescue.created", () => void invalidateAnalyticsCache());
+      await candidateEventBus.subscribe("auction.closed", () => void invalidateAnalyticsCache());
+      eventBus = candidateEventBus;
+      logInfo("redis.event_bus.enabled", {});
+    } catch (error) {
+      await candidateEventBus.close();
+      logError("redis.event_bus.disabled", {
+        message: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
 
   const app = express();
 
@@ -34,6 +69,7 @@ async function main(): Promise<void> {
   app.use(cors({ origin: process.env.API_GATEWAY_ORIGIN || "http://localhost:8080" }));
   app.use(express.json({ limit: "1mb" }));
   app.use(traceabilityMiddleware);
+  app.use(internalAuthMiddleware);
   app.use(
     createHealthRouter({
       check: async () => {
@@ -58,6 +94,9 @@ async function main(): Promise<void> {
     logInfo("service.stopping", { signal });
 
     server.close(async () => {
+      if (eventBus) {
+        await eventBus.close();
+      }
       await closeRedis();
       await pool.end();
       process.exit(0);

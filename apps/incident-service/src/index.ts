@@ -6,14 +6,17 @@ import { createPostgresPool, checkPostgres } from "./infrastructure/persistence/
 import { PostgresIncidentRepository } from "./infrastructure/repositories/PostgresIncidentRepository.js";
 import { createHealthRouter } from "./interface/http/routes/health.js";
 import { createIncidentsRouter } from "./interface/http/routes/incidents.js";
+import { createAuditLogger } from "./shared/audit.js";
 import { logError, logInfo } from "./shared/logger.js";
 import { notFoundHandler, globalErrorHandler } from "./interface/http/response.js";
 import { traceabilityMiddleware } from "./shared/traceability.js";
+import { internalAuthMiddleware } from "../../shared/middleware/internalAuth.js";
 
 async function main(): Promise<void> {
   const env = loadEnv();
   const pool = createPostgresPool(env);
   const repository = new PostgresIncidentRepository(pool);
+  const auditLogger = createAuditLogger(pool);
   const app = express();
 
   app.disable("x-powered-by");
@@ -21,6 +24,7 @@ async function main(): Promise<void> {
   app.use(cors({ origin: process.env.API_GATEWAY_ORIGIN || "http://localhost:8080" }));
   app.use(express.json({ limit: "1mb" }));
   app.use(traceabilityMiddleware);
+  app.use(internalAuthMiddleware);
   app.use(
     createHealthRouter({
       check: async () => {
@@ -29,7 +33,7 @@ async function main(): Promise<void> {
       }
     })
   );
-  app.use(createIncidentsRouter(repository));
+  app.use(createIncidentsRouter(repository, auditLogger));
   app.use(notFoundHandler);
   app.use(globalErrorHandler);
 

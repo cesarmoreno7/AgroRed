@@ -1,0 +1,17 @@
+﻿{
+    "auction-service":  18628,
+    "api-gateway":  19104,
+    "analytics-service":  15248,
+    "producer-service":  17584,
+    "automation-service":  18416,
+    "rescue-service":  16544,
+    "web-dashboard":  18024,
+    "ml-service":  18204,
+    "notification-service":  7088,
+    "demand-service":  8196,
+    "user-service":  18372,
+    "logistics-service":  9432,
+    "offer-service":  18320,
+    "incident-service":  17980,
+    "inventory-service":  16696
+}

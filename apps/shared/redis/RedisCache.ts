@@ -10,6 +10,14 @@ export class RedisCache {
     private readonly prefix: string = "cache"
   ) {}
 
+  private async safe<T>(operation: () => Promise<T>, fallback: () => Promise<T> | T): Promise<T> {
+    try {
+      return await operation();
+    } catch {
+      return await fallback();
+    }
+  }
+
   /**
    * Get a cached value or compute it and store for next time.
    * @param key     cache key (will be prefixed automatically)
@@ -18,27 +26,31 @@ export class RedisCache {
    */
   async getOrSet<T>(key: string, ttl: number, compute: () => Promise<T>): Promise<T> {
     const fullKey = `${this.prefix}:${key}`;
-    const cached = await this.redis.get(fullKey);
+    return this.safe(async () => {
+      const cached = await this.redis.get(fullKey);
 
-    if (cached !== null) {
-      return JSON.parse(cached) as T;
-    }
+      if (cached !== null) {
+        return JSON.parse(cached) as T;
+      }
 
-    const value = await compute();
-    await this.redis.set(fullKey, JSON.stringify(value), "EX", ttl);
-    return value;
+      const value = await compute();
+      await this.redis.set(fullKey, JSON.stringify(value), "EX", ttl);
+      return value;
+    }, compute);
   }
 
   /** Invalidate a specific key. */
   async invalidate(key: string): Promise<void> {
-    await this.redis.del(`${this.prefix}:${key}`);
+    await this.safe(() => this.redis.del(`${this.prefix}:${key}`), () => undefined);
   }
 
   /** Invalidate all keys matching a pattern. */
   async invalidatePattern(pattern: string): Promise<void> {
-    const keys = await this.redis.keys(`${this.prefix}:${pattern}`);
-    if (keys.length > 0) {
-      await this.redis.del(...keys);
-    }
+    await this.safe(async () => {
+      const keys = await this.redis.keys(`${this.prefix}:${pattern}`);
+      if (keys.length > 0) {
+        await this.redis.del(...keys);
+      }
+    }, () => undefined);
   }
 }

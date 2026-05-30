@@ -8,6 +8,7 @@ import type { AnalyticsRepository } from "../../domain/ports/AnalyticsRepository
 interface SummaryRow {
   users: string;
   producers: string;
+  producers_active: string;
   offers: string;
   rescues: string;
   demands: string;
@@ -15,6 +16,7 @@ interface SummaryRow {
   logistics_orders: string;
   incidents: string;
   notifications: string;
+  auctions: string;
   open_demands: string;
   scheduled_rescues: string;
   available_inventory_units: string;
@@ -22,6 +24,8 @@ interface SummaryRow {
   scheduled_logistics: string;
   open_incidents: string;
   pending_notifications: string;
+  irat_score: string | null;
+  program_coverage: string | null;
 }
 
 interface TerritorialOverviewRow {
@@ -55,6 +59,7 @@ export class PostgresAnalyticsRepository implements AnalyticsRepository {
         SELECT
           (SELECT COUNT(*) FROM public.users WHERE deleted_at IS NULL AND ($1::uuid IS NULL OR tenant_id = $1))::text AS users,
           (SELECT COUNT(*) FROM public.producers WHERE deleted_at IS NULL AND ($1::uuid IS NULL OR tenant_id = $1))::text AS producers,
+          (SELECT COUNT(*) FROM public.producers WHERE deleted_at IS NULL AND status = 'active' AND ($1::uuid IS NULL OR tenant_id = $1))::text AS producers_active,
           (SELECT COUNT(*) FROM public.offers WHERE deleted_at IS NULL AND ($1::uuid IS NULL OR tenant_id = $1))::text AS offers,
           (SELECT COUNT(*) FROM public.rescues WHERE deleted_at IS NULL AND ($1::uuid IS NULL OR tenant_id = $1))::text AS rescues,
           (SELECT COUNT(*) FROM public.demands WHERE deleted_at IS NULL AND ($1::uuid IS NULL OR tenant_id = $1))::text AS demands,
@@ -62,13 +67,23 @@ export class PostgresAnalyticsRepository implements AnalyticsRepository {
           (SELECT COUNT(*) FROM public.logistics_orders WHERE deleted_at IS NULL AND ($1::uuid IS NULL OR tenant_id = $1))::text AS logistics_orders,
           (SELECT COUNT(*) FROM public.incidents WHERE deleted_at IS NULL AND ($1::uuid IS NULL OR tenant_id = $1))::text AS incidents,
           (SELECT COUNT(*) FROM public.notifications WHERE deleted_at IS NULL AND ($1::uuid IS NULL OR tenant_id = $1))::text AS notifications,
+          (SELECT COUNT(*) FROM public.auctions WHERE deleted_at IS NULL AND ($1::uuid IS NULL OR tenant_id = $1))::text AS auctions,
           (SELECT COUNT(*) FROM public.demands WHERE deleted_at IS NULL AND status = 'open' AND ($1::uuid IS NULL OR tenant_id = $1))::text AS open_demands,
           (SELECT COUNT(*) FROM public.rescues WHERE deleted_at IS NULL AND status = 'scheduled' AND ($1::uuid IS NULL OR tenant_id = $1))::text AS scheduled_rescues,
           (SELECT COALESCE(SUM(quantity_on_hand - quantity_reserved), 0) FROM public.inventory_items WHERE deleted_at IS NULL AND ($1::uuid IS NULL OR tenant_id = $1))::text AS available_inventory_units,
           (SELECT COALESCE(SUM(quantity_reserved), 0) FROM public.inventory_items WHERE deleted_at IS NULL AND ($1::uuid IS NULL OR tenant_id = $1))::text AS reserved_inventory_units,
           (SELECT COUNT(*) FROM public.logistics_orders WHERE deleted_at IS NULL AND status = 'scheduled' AND ($1::uuid IS NULL OR tenant_id = $1))::text AS scheduled_logistics,
           (SELECT COUNT(*) FROM public.incidents WHERE deleted_at IS NULL AND status = 'open' AND ($1::uuid IS NULL OR tenant_id = $1))::text AS open_incidents,
-          (SELECT COUNT(*) FROM public.notifications WHERE deleted_at IS NULL AND status = 'pending' AND ($1::uuid IS NULL OR tenant_id = $1))::text AS pending_notifications
+          (SELECT COUNT(*) FROM public.notifications WHERE deleted_at IS NULL AND status = 'pending' AND ($1::uuid IS NULL OR tenant_id = $1))::text AS pending_notifications,
+          (SELECT irat_score::text FROM public.v_irat_municipal v
+             WHERE ($1::uuid IS NULL OR v.tenant_id = $1)
+             ORDER BY irat_score DESC LIMIT 1) AS irat_score,
+          (SELECT CASE WHEN total_beneficiaries > 0
+                       THEN ROUND(program_coverage * 100.0 / total_beneficiaries)
+                       ELSE 0 END::text
+             FROM public.v_irat_municipal v
+             WHERE ($1::uuid IS NULL OR v.tenant_id = $1)
+             ORDER BY irat_score DESC LIMIT 1) AS program_coverage
       `,
       [tenantId]
     );
@@ -80,24 +95,28 @@ export class PostgresAnalyticsRepository implements AnalyticsRepository {
       tenantCode: tenant?.code ?? null,
       tenantName: tenant?.name ?? null,
       totals: {
-        users: Number(row.users),
-        producers: Number(row.producers),
-        offers: Number(row.offers),
-        rescues: Number(row.rescues),
-        demands: Number(row.demands),
+        users:          Number(row.users),
+        producers:      Number(row.producers),
+        producersActive:Number(row.producers_active),
+        offers:         Number(row.offers),
+        rescues:        Number(row.rescues),
+        demands:        Number(row.demands),
         inventoryItems: Number(row.inventory_items),
-        logisticsOrders: Number(row.logistics_orders),
-        incidents: Number(row.incidents),
-        notifications: Number(row.notifications)
+        logisticsOrders:Number(row.logistics_orders),
+        incidents:      Number(row.incidents),
+        notifications:  Number(row.notifications),
+        auctions:       Number(row.auctions),
       },
       operations: {
-        openDemands: Number(row.open_demands),
-        scheduledRescues: Number(row.scheduled_rescues),
+        openDemands:             Number(row.open_demands),
+        scheduledRescues:        Number(row.scheduled_rescues),
         availableInventoryUnits: Number(row.available_inventory_units),
-        reservedInventoryUnits: Number(row.reserved_inventory_units),
-        scheduledLogistics: Number(row.scheduled_logistics),
-        openIncidents: Number(row.open_incidents),
-        pendingNotifications: Number(row.pending_notifications)
+        reservedInventoryUnits:  Number(row.reserved_inventory_units),
+        scheduledLogistics:      Number(row.scheduled_logistics),
+        openIncidents:           Number(row.open_incidents),
+        pendingNotifications:    Number(row.pending_notifications),
+        iratScore:               row.irat_score   !== null ? Number(row.irat_score)   : null,
+        programCoverage:         row.program_coverage !== null ? Number(row.program_coverage) : null,
       },
       generatedAt: new Date().toISOString()
     };

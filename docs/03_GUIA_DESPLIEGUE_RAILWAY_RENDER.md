@@ -92,6 +92,14 @@ Railway es la mejor opción para AgroRed porque:
 | Caché de Consultas | analytics-service, ml-service | Cache de resúmenes analíticos y recomendaciones ML |
 | Pub/Sub Event Bus | todos los servicios | Comunicación asíncrona entre microservicios |
 
+### Recomendacion operativa Redis para salir rapido a produccion
+
+- Usar una sola instancia Redis managed, version 7 o superior, dentro de Railway o Render.
+- No introducir Redis Cluster, Sentinel, self-hosting ni proveedores serverless HTTP en la primera salida a produccion.
+- Tratar Redis como dependencia critica solo para `user-service`, `notification-service`, `automation-service` y capacidades distribuidas del `api-gateway`.
+- Mantener `analytics-service` y `ml-service` en modo fail-open: si Redis falla, deben seguir respondiendo sin cache.
+- Mantener Pub/Sub como mecanismo de invalidez de cache y sincronizacion ligera, no como unica fuente de consistencia de negocio.
+
 ---
 
 ## 3. Pre-requisitos
@@ -262,7 +270,7 @@ Agregar al **api-gateway** las siguientes variables:
 2. Railway construye y despliega automáticamente
 3. Verificar logs de cada servicio en Railway → servicio → **Logs**
 
----
+-----------------------------------------------------------------------------------------------
 
 ## 5. Opción B — Render
 

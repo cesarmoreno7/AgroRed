@@ -6,15 +6,17 @@ interface Props {
 }
 
 const ROWS: { key: keyof AnalyticsTotals; label: string; icon: string }[] = [
-  { key: "users", label: "Usuarios", icon: "👤" },
-  { key: "producers", label: "Productores", icon: "🌾" },
-  { key: "offers", label: "Ofertas", icon: "📦" },
-  { key: "rescues", label: "Rescates", icon: "♻️" },
-  { key: "demands", label: "Demandas", icon: "🍽️" },
-  { key: "inventoryItems", label: "Inventario", icon: "📊" },
-  { key: "logisticsOrders", label: "Órdenes logísticas", icon: "🚚" },
-  { key: "incidents", label: "Incidentes", icon: "⚠️" },
-  { key: "notifications", label: "Notificaciones", icon: "🔔" },
+  { key: "users",          label: "Usuarios",           icon: "👤" },
+  { key: "producersActive",label: "Productores activos",icon: "🌾" },
+  { key: "producers",      label: "Productores total",  icon: "🌿" },
+  { key: "offers",         label: "Ofertas",            icon: "📦" },
+  { key: "rescues",        label: "Rescates",           icon: "♻️" },
+  { key: "demands",        label: "Demandas",           icon: "🍽️" },
+  { key: "inventoryItems", label: "Ítems inventario",   icon: "📊" },
+  { key: "logisticsOrders",label: "Órdenes logísticas", icon: "🚚" },
+  { key: "incidents",      label: "Incidentes",         icon: "⚠️" },
+  { key: "notifications",  label: "Notificaciones",     icon: "🔔" },
+  { key: "auctions",       label: "Subastas",           icon: "🏷️" },
 ];
 
 export function TotalsTable({ totals }: Props) {

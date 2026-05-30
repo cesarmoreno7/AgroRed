@@ -8,6 +8,7 @@ interface DemandRow {
   id: string;
   tenant_id: string;
   responsible_user_id: string | null;
+  institution_id: string | null;
   demand_channel: DemandChannel;
   organization_name: string;
   product_name: string;
@@ -34,76 +35,31 @@ export class PostgresDemandRepository implements DemandRepository {
       : null;
 
     await this.pool.query(
-      `
-        INSERT INTO public.demands (
-          id,
-          tenant_id,
-          responsible_user_id,
-          demand_channel,
-          organization_name,
-          product_name,
-          category,
-          unit,
-          quantity_required,
-          needed_by,
-          beneficiary_count,
-          municipality_name,
-          notes,
-          status,
-          latitude,
-          longitude
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-      `,
+      `INSERT INTO public.demands (
+          id, tenant_id, responsible_user_id, institution_id, demand_channel,
+          organization_name, product_name, category, unit, quantity_required,
+          needed_by, beneficiary_count, municipality_name, notes, status, latitude, longitude
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
       [
-        demand.id,
-        tenantId,
-        responsibleUserId,
-        demand.demandChannel,
-        demand.organizationName,
-        demand.productName,
-        demand.category,
-        demand.unit,
-        demand.quantityRequired,
-        demand.neededBy,
-        demand.beneficiaryCount,
-        demand.municipalityName,
-        demand.notes,
-        demand.status,
-        demand.latitude,
-        demand.longitude
+        demand.id, tenantId, responsibleUserId, demand.institutionId,
+        demand.demandChannel, demand.organizationName, demand.productName,
+        demand.category, demand.unit, demand.quantityRequired, demand.neededBy,
+        demand.beneficiaryCount, demand.municipalityName, demand.notes,
+        demand.status, demand.latitude, demand.longitude
       ]
     );
   }
 
   async findById(id: string): Promise<Demand | null> {
     const result = await this.pool.query<DemandRow>(
-      `
-        SELECT
-          id,
-          tenant_id,
-          responsible_user_id,
-          demand_channel,
-          organization_name,
-          product_name,
-          category,
-          unit,
-          quantity_required,
-          needed_by,
-          beneficiary_count,
-          municipality_name,
-          notes,
-          status,
-          latitude,
-          longitude,
-          created_at
-        FROM public.demands
-        WHERE id = $1
-          AND deleted_at IS NULL
-      `,
+      `SELECT id, tenant_id, responsible_user_id, institution_id, demand_channel,
+              organization_name, product_name, category, unit, quantity_required,
+              needed_by, beneficiary_count, municipality_name, notes, status,
+              latitude, longitude, created_at
+       FROM public.demands
+       WHERE id = $1 AND deleted_at IS NULL`,
       [id]
     );
-
     return result.rows[0] ? this.mapRow(result.rows[0]) : null;
   }
 
@@ -117,14 +73,14 @@ export class PostgresDemandRepository implements DemandRepository {
     const total = parseInt(countResult.rows[0].count, 10);
 
     const result = await this.pool.query<DemandRow>(
-      `
-        SELECT id, tenant_id, responsible_user_id, demand_channel, organization_name, product_name, category, unit, quantity_required, needed_by, beneficiary_count, municipality_name, notes, status, latitude, longitude, created_at
-        FROM public.demands
-        WHERE deleted_at IS NULL
-          AND ($1::uuid IS NULL OR tenant_id = $1)
-        ORDER BY created_at DESC
-        LIMIT $2 OFFSET $3
-      `,
+      `SELECT id, tenant_id, responsible_user_id, institution_id, demand_channel,
+              organization_name, product_name, category, unit, quantity_required,
+              needed_by, beneficiary_count, municipality_name, notes, status,
+              latitude, longitude, created_at
+       FROM public.demands
+       WHERE deleted_at IS NULL AND ($1::uuid IS NULL OR tenant_id = $1)
+       ORDER BY created_at DESC
+       LIMIT $2 OFFSET $3`,
       [tenantId ?? null, params.limit, offset]
     );
 
@@ -174,11 +130,31 @@ export class PostgresDemandRepository implements DemandRepository {
     return result.rows[0].id;
   }
 
+  async patch(id: string, fields: Record<string, unknown>): Promise<Demand | null> {
+    const COLS: Record<string, string> = {
+      demandChannel: "demand_channel", organizationName: "organization_name",
+      productName: "product_name", category: "category", unit: "unit",
+      quantityRequired: "quantity_required", neededBy: "needed_by",
+      beneficiaryCount: "beneficiary_count", municipalityName: "municipality_name",
+      notes: "notes", status: "status", latitude: "latitude", longitude: "longitude",
+      institutionId: "institution_id"
+    };
+    const sets: string[] = []; const vals: unknown[] = []; let i = 1;
+    for (const [k, v] of Object.entries(fields)) {
+      if (COLS[k] !== undefined) { sets.push(`${COLS[k]} = $${i++}`); vals.push(v ?? null); }
+    }
+    if (sets.length === 0) return this.findById(id);
+    sets.push(`updated_at = NOW()`); vals.push(id);
+    await this.pool.query(`UPDATE public.demands SET ${sets.join(", ")} WHERE id = $${i} AND deleted_at IS NULL`, vals);
+    return this.findById(id);
+  }
+
   private mapRow(row: DemandRow): Demand {
     return new Demand({
       id: row.id,
       tenantId: row.tenant_id,
       responsibleUserId: row.responsible_user_id,
+      institutionId: row.institution_id,
       demandChannel: row.demand_channel,
       organizationName: row.organization_name,
       productName: row.product_name,

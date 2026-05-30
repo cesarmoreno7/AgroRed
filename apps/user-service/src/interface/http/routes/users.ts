@@ -7,31 +7,32 @@ import type { UserRepository } from "../../../domain/ports/UserRepository.js";
 import { USER_ROLES } from "../../../domain/value-objects/UserRole.js";
 import { asyncHandler, sendError, sendPaginatedSuccess, sendSuccess } from "../response.js";
 import { randomUUID } from "node:crypto";
-import { bcrypt } from "bcrypt";
+import bcrypt from "bcrypt";
 import nodemailer from "nodemailer";
+import type { Redis } from "ioredis";
 
-const transporter = nodemailer.createTransport({
-  service: "Gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
-});
+const RECOVERY_TTL_SECONDS = 3600; // 1 hour
+const RECOVERY_KEY_PREFIX = "pwd_recovery:";
+
+const passwordStrengthSchema = z.string()
+  .min(8, "Mínimo 8 caracteres")
+  .regex(/[A-Z]/, "Debe contener al menos una mayúscula")
+  .regex(/[0-9]/, "Debe contener al menos un número")
+  .regex(/[^A-Za-z0-9]/, "Debe contener al menos un carácter especial");
 
 const registerUserSchema = z.object({
   tenantId: z.string().min(1),
   email: z.string().email(),
   fullName: z.string().min(3),
-  role: z.enum(USER_ROLES), // Updated to include all defined roles
-  password: z.string().min(8)
+  role: z.enum(USER_ROLES),
+  password: passwordStrengthSchema,
+  contactPhone: z.string().min(7).nullable().optional()
 });
 
 const loginUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1)
 });
-
-const passwordRecoveryTokens = new Map<string, { userId: string; expiresAt: Date }>();
 
 function toUserResponse(user: User) {
   return {
@@ -40,20 +41,34 @@ function toUserResponse(user: User) {
     email: user.email,
     fullName: user.fullName,
     role: user.role,
+    contactPhone: user.contactPhone,
     createdAt: user.createdAt.toISOString()
   };
 }
 
 interface UsersRouterDeps {
   repository: UserRepository;
+  redis?: Redis;
   jwtSecret: string;
   jwtExpiresIn: string;
+  emailUser: string;
+  emailPass: string;
+  frontendUrl: string;
+}
+
+function isPasswordRecoveryAvailable(deps: UsersRouterDeps): deps is UsersRouterDeps & { redis: Redis } {
+  return Boolean(deps.redis);
 }
 
 export function createUsersRouter(deps: UsersRouterDeps): Router {
   const router = Router();
   const registerUser = new RegisterUser(deps.repository);
   const loginUser = new LoginUser(deps.repository, deps.jwtSecret, deps.jwtExpiresIn);
+
+  const transporter = nodemailer.createTransport({
+    service: "Gmail",
+    auth: { user: deps.emailUser, pass: deps.emailPass }
+  });
 
   router.post("/api/v1/users/register", asyncHandler(async (req, res) => {
     const parsed = registerUserSchema.safeParse(req.body);
@@ -98,47 +113,86 @@ export function createUsersRouter(deps: UsersRouterDeps): Router {
   }));
 
   router.post("/api/v1/users/recover-password", asyncHandler(async (req, res) => {
+    if (!isPasswordRecoveryAvailable(deps)) {
+      return sendError(
+        res,
+        503,
+        "PASSWORD_RECOVERY_TEMPORARILY_UNAVAILABLE",
+        "La recuperacion de contraseña no esta disponible temporalmente. Intente de nuevo mas tarde."
+      );
+    }
+
     const { email } = req.body;
 
     const user = await deps.repository.findByEmail(email);
     if (!user) {
-      return sendError(res, 404, "USER_NOT_FOUND", "No se encontró un usuario con ese correo electrónico.");
+      // Return 200 to avoid email enumeration
+      return sendSuccess(res, { message: "Si el correo existe, recibirá el enlace de recuperación." });
     }
 
     const token = randomUUID();
-    const expiresAt = new Date(Date.now() + 1000 * 60 * 60); // 1 hora de validez
-    passwordRecoveryTokens.set(token, { userId: user.id, expiresAt });
+    const redisKey = `${RECOVERY_KEY_PREFIX}${token}`;
+    await deps.redis.set(redisKey, user.id, "EX", RECOVERY_TTL_SECONDS);
 
-    const recoveryLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+    const recoveryLink = `${deps.frontendUrl}/reset-password?token=${token}`;
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Recuperación de contraseña",
-      text: `Hola, ${user.fullName}. Utiliza el siguiente enlace para restablecer tu contraseña: ${recoveryLink}`
-    });
+    if (deps.emailUser) {
+      await transporter.sendMail({
+        from: deps.emailUser,
+        to: email,
+        subject: "Recuperación de contraseña — AgroRed",
+        text: `Hola, ${user.fullName}. Usa este enlace para restablecer tu contraseña (válido 1 hora): ${recoveryLink}`
+      });
+    }
 
-    return sendSuccess(res, { message: "Se ha enviado un enlace de recuperación a su correo electrónico." });
+    return sendSuccess(res, { message: "Si el correo existe, recibirá el enlace de recuperación." });
   }));
 
   router.post("/api/v1/users/reset-password", asyncHandler(async (req, res) => {
+    if (!isPasswordRecoveryAvailable(deps)) {
+      return sendError(
+        res,
+        503,
+        "PASSWORD_RECOVERY_TEMPORARILY_UNAVAILABLE",
+        "La recuperacion de contraseña no esta disponible temporalmente. Intente de nuevo mas tarde."
+      );
+    }
+
     const { token, newPassword } = req.body;
 
-    const recoveryData = passwordRecoveryTokens.get(token);
-    if (!recoveryData || recoveryData.expiresAt < new Date()) {
+    if (!token || !newPassword) {
+      return sendError(res, 400, "INVALID_PAYLOAD", "Token y nueva contraseña requeridos.");
+    }
+
+    const strengthCheck = passwordStrengthSchema.safeParse(newPassword);
+    if (!strengthCheck.success) {
+      return sendError(res, 400, "WEAK_PASSWORD", strengthCheck.error.issues[0]?.message ?? "Contraseña débil.");
+    }
+
+    const redisKey = `${RECOVERY_KEY_PREFIX}${token}`;
+    const userId = await deps.redis.get(redisKey);
+
+    if (!userId) {
       return sendError(res, 400, "INVALID_OR_EXPIRED_TOKEN", "El token de recuperación es inválido o ha expirado.");
     }
 
-    const user = await deps.repository.findById(recoveryData.userId);
+    const user = await deps.repository.findById(userId);
     if (!user) {
       return sendError(res, 404, "USER_NOT_FOUND", "No se encontró un usuario asociado al token.");
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
-    user.passwordHash = passwordHash;
-    await deps.repository.save(user);
+    const updatedUser = new (await import("../../../domain/entities/User.js")).User({
+      ...user,
+      passwordHash
+    });
+    await deps.repository.save(updatedUser);
 
-    passwordRecoveryTokens.delete(token);
+    // Invalidate the recovery token immediately
+    await deps.redis.del(redisKey);
+
+    // Flag all existing sessions as invalidated (blacklist by userId+timestamp)
+    await deps.redis.set(`pwd_changed:${userId}`, Date.now().toString(), "EX", 60 * 60 * 24 * 7);
 
     return sendSuccess(res, { message: "La contraseña ha sido restablecida exitosamente." });
   }));
@@ -164,6 +218,14 @@ export function createUsersRouter(deps: UsersRouterDeps): Router {
     }
 
     return sendSuccess(res, toUserResponse(user));
+  }));
+
+  router.patch("/api/v1/users/:id", asyncHandler(async (req, res) => {
+    const existing = await deps.repository.findById(String(req.params.id));
+    if (!existing) return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado.");
+    const updated = await deps.repository.patch(String(req.params.id), req.body as Record<string, unknown>);
+    if (!updated) return sendError(res, 404, "USER_NOT_FOUND", "Usuario no encontrado.");
+    return sendSuccess(res, toUserResponse(updated));
   }));
 
   return router;

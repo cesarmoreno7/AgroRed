@@ -5,7 +5,8 @@ import { Producer } from "../../../domain/entities/Producer.js";
 import type {
   ProducerRepository,
   PaginationParams,
-  PaginatedResult
+  PaginatedResult,
+  ProducerStats
 } from "../../../domain/ports/ProducerRepository.js";
 
 class InMemoryProducerRepository implements ProducerRepository {
@@ -17,6 +18,14 @@ class InMemoryProducerRepository implements ProducerRepository {
 
   async saveBatch(producers: Producer[]): Promise<void> {
     for (const p of producers) this.store.set(p.id, p);
+  }
+
+  async update(producer: Producer): Promise<void> {
+    this.store.set(producer.id, producer);
+  }
+
+  async softDelete(id: string): Promise<boolean> {
+    return this.store.delete(id);
   }
 
   async findById(id: string): Promise<Producer | null> {
@@ -35,6 +44,12 @@ class InMemoryProducerRepository implements ProducerRepository {
       if (p.tenantId === tenantId && p.organizationName.trim().toLowerCase() === organizationName) return p;
     }
     return null;
+  }
+
+  async findStats(producerId: string): Promise<ProducerStats | null> {
+    const producer = this.store.get(producerId);
+    if (!producer) return null;
+    return { producer, totalOffers: 0, activeOffers: 0, totalRescues: 0, totalKgRescued: 0, lastActivityAt: null, historicalProduction: [] };
   }
 }
 
@@ -141,6 +156,114 @@ describe("Producer routes", () => {
 
       const res = await request(app)
         .get(`/api/v1/producers/${id}`)
+        .set("x-tenant-id", "t-other");
+
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe("PUT /api/v1/producers/:id", () => {
+    it("returns 404 for unknown producer", async () => {
+      const res = await request(app).put("/api/v1/producers/unknown").send({ contactName: "Nuevo Nombre" });
+
+      expect(res.status).toBe(404);
+      expect(res.body.error.code).toBe("PRODUCER_NOT_FOUND");
+    });
+
+    it("returns 400 with empty payload", async () => {
+      const created = await request(app).post("/api/v1/producers/register").send(validPayload);
+      const id = created.body.data.id;
+
+      const res = await request(app).put(`/api/v1/producers/${id}`).send({});
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe("INVALID_PRODUCER_PAYLOAD");
+    });
+
+    it("updates producer fields", async () => {
+      const created = await request(app).post("/api/v1/producers/register").send(validPayload);
+      const id = created.body.data.id;
+
+      const res = await request(app).put(`/api/v1/producers/${id}`).send({
+        contactName: "Pedro Gómez",
+        contactPhone: "3209876543",
+        productCategories: ["Lácteos"]
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.contactName).toBe("Pedro Gómez");
+      expect(res.body.data.contactPhone).toBe("3209876543");
+      expect(res.body.data.productCategories).toEqual(["Lácteos"]);
+      expect(res.body.data.organizationName).toBe("Asociación Campesina Valle");
+    });
+
+    it("returns 404 for cross-tenant update", async () => {
+      const created = await request(app).post("/api/v1/producers/register").send(validPayload);
+      const id = created.body.data.id;
+
+      const res = await request(app)
+        .put(`/api/v1/producers/${id}`)
+        .set("x-tenant-id", "t-other")
+        .send({ contactName: "Intruso" });
+
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe("PATCH /api/v1/producers/:id/status", () => {
+    it("returns 404 for unknown producer", async () => {
+      const res = await request(app).patch("/api/v1/producers/unknown/status").send({ status: "active" });
+
+      expect(res.status).toBe(404);
+    });
+
+    it("returns 400 for invalid status", async () => {
+      const created = await request(app).post("/api/v1/producers/register").send(validPayload);
+      const id = created.body.data.id;
+
+      const res = await request(app).patch(`/api/v1/producers/${id}/status`).send({ status: "suspended" });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe("INVALID_STATUS_PAYLOAD");
+    });
+
+    it("updates producer status to active", async () => {
+      const created = await request(app).post("/api/v1/producers/register").send(validPayload);
+      const id = created.body.data.id;
+
+      expect(created.body.data.status).toBe("pending_verification");
+
+      const res = await request(app).patch(`/api/v1/producers/${id}/status`).send({ status: "active" });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.status).toBe("active");
+    });
+  });
+
+  describe("DELETE /api/v1/producers/:id", () => {
+    it("returns 404 for unknown producer", async () => {
+      const res = await request(app).delete("/api/v1/producers/unknown");
+
+      expect(res.status).toBe(404);
+    });
+
+    it("soft deletes a producer and returns 204", async () => {
+      const created = await request(app).post("/api/v1/producers/register").send(validPayload);
+      const id = created.body.data.id;
+
+      const delRes = await request(app).delete(`/api/v1/producers/${id}`);
+      expect(delRes.status).toBe(204);
+
+      const getRes = await request(app).get(`/api/v1/producers/${id}`);
+      expect(getRes.status).toBe(404);
+    });
+
+    it("returns 404 for cross-tenant delete", async () => {
+      const created = await request(app).post("/api/v1/producers/register").send(validPayload);
+      const id = created.body.data.id;
+
+      const res = await request(app)
+        .delete(`/api/v1/producers/${id}`)
         .set("x-tenant-id", "t-other");
 
       expect(res.status).toBe(404);

@@ -14,7 +14,7 @@ import { fetchMapLayer, fetchNearbyProducers } from "../services/map.service";
 import { useLocation } from "../hooks/useLocation";
 import { MAP_LAYERS, LAYER_LABELS, LAYER_COLORS } from "../config/api";
 import type { MapLayerName } from "../config/api";
-import type { GeoJsonFeature, GeoJsonFeatureCollection } from "../types";
+import type { GeoJsonFeature, GeoJsonFeatureCollection, NearbyProducerProps } from "../types";
 
 const { width } = Dimensions.get("window");
 
@@ -42,7 +42,7 @@ export default function MapScreen() {
   const { location, getCurrentLocation } = useLocation();
   const [activeLayers, setActiveLayers] = useState<Set<MapLayerName>>(new Set(["producers"]));
   const [layerData, setLayerData] = useState<
-    Partial<Record<MapLayerName, GeoJsonFeatureCollection>>
+    Partial<Record<MapLayerName, GeoJsonFeatureCollection<Record<string, unknown> | NearbyProducerProps>>>
   >({});
   const [loading, setLoading] = useState(false);
   const [showLayers, setShowLayers] = useState(false);
@@ -61,7 +61,7 @@ export default function MapScreen() {
 
   const loadLayers = useCallback(async () => {
     setLoading(true);
-    const results: Partial<Record<MapLayerName, GeoJsonFeatureCollection>> = {};
+    const results: Partial<Record<MapLayerName, GeoJsonFeatureCollection<Record<string, unknown> | NearbyProducerProps>>> = {};
 
     const promises = Array.from(activeLayers).map(async (layer) => {
       const result = await fetchMapLayer(layer);
@@ -166,7 +166,7 @@ export default function MapScreen() {
           const data = layerData[layer];
           if (!data) return null;
 
-          return data.features.map((feature: GeoJsonFeature, index: number) => {
+          return data.features.map((feature: GeoJsonFeature<Record<string, unknown> | NearbyProducerProps>, index: number) => {
             const [lng, lat] = feature.geometry.coordinates;
             const props = feature.properties as Record<string, unknown>;
 

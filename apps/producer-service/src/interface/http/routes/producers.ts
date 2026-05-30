@@ -2,11 +2,12 @@ import { Router } from "express";
 import { z } from "zod";
 import { RegisterProducer } from "../../../application/use-cases/RegisterProducer.js";
 import { ImportProducers } from "../../../application/use-cases/ImportProducers.js";
-import type { Producer } from "../../../domain/entities/Producer.js";
+import { Producer } from "../../../domain/entities/Producer.js";
 import type { ProducerRepository } from "../../../domain/ports/ProducerRepository.js";
 import {
   PRODUCER_TYPES,
-  PRODUCER_ZONES
+  PRODUCER_ZONES,
+  PRODUCER_STATUSES
 } from "../../../domain/value-objects/ProducerType.js";
 import { asyncHandler, sendError, sendPaginatedSuccess, sendSuccess } from "../response.js";
 
@@ -102,6 +103,28 @@ export function createProducersRouter(repository: ProducerRepository): Router {
     return sendPaginatedSuccess(res, result.data.map(toProducerResponse), { total: result.total, page: result.page, limit: result.limit });
   }));
 
+  router.get("/api/v1/producers/:id/stats", asyncHandler(async (req, res) => {
+    const stats = await repository.findStats(String(req.params.id));
+    if (!stats) return sendError(res, 404, "PRODUCER_NOT_FOUND", "Productor no encontrado.");
+
+    const tenantId = req.headers["x-tenant-id"] as string | undefined;
+    if (tenantId && stats.producer.tenantId !== tenantId) {
+      return sendError(res, 404, "PRODUCER_NOT_FOUND", "Productor no encontrado.");
+    }
+
+    return sendSuccess(res, {
+      producer: toProducerResponse(stats.producer),
+      stats: {
+        totalOffers: stats.totalOffers,
+        activeOffers: stats.activeOffers,
+        totalRescues: stats.totalRescues,
+        totalKgRescued: stats.totalKgRescued,
+        lastActivityAt: stats.lastActivityAt,
+        historicalProduction: stats.historicalProduction
+      }
+    });
+  }));
+
   router.get("/api/v1/producers/:id", asyncHandler(async (req, res) => {
     const producer = await repository.findById(String(req.params.id));
 
@@ -115,6 +138,105 @@ export function createProducersRouter(repository: ProducerRepository): Router {
     }
 
     return sendSuccess(res, toProducerResponse(producer));
+  }));
+
+  /* ---------------------------------------------------------------- */
+  /*  Update producer                                                  */
+  /* ---------------------------------------------------------------- */
+
+  const updateProducerSchema = z.object({
+    producerType: z.enum(PRODUCER_TYPES).optional(),
+    organizationName: z.string().min(3).optional(),
+    contactName: z.string().min(3).optional(),
+    contactPhone: z.string().min(7).optional(),
+    zoneType: z.enum(PRODUCER_ZONES).optional(),
+    productCategories: z.array(z.string().min(2)).min(1).optional(),
+    latitude: z.coerce.number().min(-90).max(90).nullable().optional(),
+    longitude: z.coerce.number().min(-180).max(180).nullable().optional()
+  }).refine((d) => Object.keys(d).length > 0, { message: "At least one field must be provided." });
+
+  router.put("/api/v1/producers/:id", asyncHandler(async (req, res) => {
+    const parsed = updateProducerSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return sendError(res, 400, "INVALID_PRODUCER_PAYLOAD", "Payload inválido para edición de productor.");
+    }
+
+    const producer = await repository.findById(String(req.params.id));
+    if (!producer) return sendError(res, 404, "PRODUCER_NOT_FOUND", "Productor no encontrado.");
+
+    const tenantId = req.headers["x-tenant-id"] as string | undefined;
+    if (tenantId && producer.tenantId !== tenantId) {
+      return sendError(res, 404, "PRODUCER_NOT_FOUND", "Productor no encontrado.");
+    }
+
+    const data = parsed.data;
+    const updated = new Producer({
+      id: producer.id,
+      tenantId: producer.tenantId,
+      userId: producer.userId,
+      municipalityName: producer.municipalityName,
+      status: producer.status,
+      createdAt: producer.createdAt,
+      producerType: data.producerType ?? producer.producerType,
+      organizationName: data.organizationName ?? producer.organizationName,
+      contactName: data.contactName ?? producer.contactName,
+      contactPhone: data.contactPhone ?? producer.contactPhone,
+      zoneType: data.zoneType ?? producer.zoneType,
+      productCategories: data.productCategories ?? producer.productCategories,
+      latitude: "latitude" in data ? data.latitude : producer.latitude,
+      longitude: "longitude" in data ? data.longitude : producer.longitude
+    });
+
+    await repository.update(updated);
+    return sendSuccess(res, toProducerResponse(updated));
+  }));
+
+  /* ---------------------------------------------------------------- */
+  /*  Update producer status                                           */
+  /* ---------------------------------------------------------------- */
+
+  const updateStatusSchema = z.object({
+    status: z.enum(PRODUCER_STATUSES)
+  });
+
+  router.patch("/api/v1/producers/:id/status", asyncHandler(async (req, res) => {
+    const parsed = updateStatusSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return sendError(res, 400, "INVALID_STATUS_PAYLOAD", "Estado inválido. Valores permitidos: pending_verification, active, inactive.");
+    }
+
+    const producer = await repository.findById(String(req.params.id));
+    if (!producer) return sendError(res, 404, "PRODUCER_NOT_FOUND", "Productor no encontrado.");
+
+    const tenantId = req.headers["x-tenant-id"] as string | undefined;
+    if (tenantId && producer.tenantId !== tenantId) {
+      return sendError(res, 404, "PRODUCER_NOT_FOUND", "Productor no encontrado.");
+    }
+
+    const updated = new Producer({
+      ...producer,
+      status: parsed.data.status
+    });
+
+    await repository.update(updated);
+    return sendSuccess(res, toProducerResponse(updated));
+  }));
+
+  /* ---------------------------------------------------------------- */
+  /*  Soft delete producer                                             */
+  /* ---------------------------------------------------------------- */
+
+  router.delete("/api/v1/producers/:id", asyncHandler(async (req, res) => {
+    const producer = await repository.findById(String(req.params.id));
+    if (!producer) return sendError(res, 404, "PRODUCER_NOT_FOUND", "Productor no encontrado.");
+
+    const tenantId = req.headers["x-tenant-id"] as string | undefined;
+    if (tenantId && producer.tenantId !== tenantId) {
+      return sendError(res, 404, "PRODUCER_NOT_FOUND", "Productor no encontrado.");
+    }
+
+    await repository.softDelete(producer.id);
+    return res.status(204).send();
   }));
 
   /* ---------------------------------------------------------------- */

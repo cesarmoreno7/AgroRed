@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import bcrypt from "bcrypt";
-import { User } from "../domain/entities/User.ts";
-import { InMemoryUserRepository } from "../infrastructure/repositories/InMemoryUserRepository.ts";
+import { User } from "../domain/entities/User.js";
+import { InMemoryUserRepository } from "../infrastructure/repositories/InMemoryUserRepository.js";
 
 const SALT_ROUNDS = 10;
 
@@ -13,21 +13,21 @@ async function addTestUsers() {
       tenantId: "tenant1",
       email: "admin@example.com",
       fullName: "Admin User",
-      role: "ADMIN",
+      role: "ADMIN" as const,
       password: "admin1234"
     },
     {
       tenantId: "tenant1",
       email: "user@example.com",
       fullName: "Regular User",
-      role: "USER",
+      role: "OPERATOR" as const,
       password: "user1234"
     },
     {
       tenantId: "tenant2",
       email: "manager@example.com",
       fullName: "Manager User",
-      role: "MANAGER",
+      role: "TERRITORIAL_MANAGER" as const,
       password: "manager1234"
     }
   ];

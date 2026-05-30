@@ -6,6 +6,8 @@ import type { Offer } from "../../../domain/entities/Offer.js";
 import type { OfferRepository } from "../../../domain/ports/OfferRepository.js";
 import type { DemandQueryPort } from "../../../domain/ports/DemandQueryPort.js";
 import type { NotificationPort } from "../../../domain/ports/NotificationPort.js";
+import type { EventBus } from "../../../../../shared/redis/EventBus.js";
+import type { AuditLogger } from "../../../shared/audit.js";
 import { asyncHandler, sendError, sendPaginatedSuccess, sendSuccess } from "../response.js";
 
 const publishOfferSchema = z.object({
@@ -52,7 +54,9 @@ function toOfferResponse(offer: Offer) {
 export function createOffersRouter(
   repository: OfferRepository,
   demandQuery: DemandQueryPort,
-  notificationPort: NotificationPort
+  notificationPort: NotificationPort,
+  eventBus: EventBus | null = null,
+  auditLogger?: AuditLogger
 ): Router {
   const router = Router();
   const publishOffer = new PublishOffer(repository);
@@ -67,6 +71,36 @@ export function createOffersRouter(
 
     try {
       const offer = await publishOffer.execute(parsed.data);
+
+      if (auditLogger) {
+        await auditLogger({
+          tenantId: offer.tenantId,
+          serviceName: "offer-service",
+          entityName: "offers",
+          entityId: offer.id,
+          actionName: "offer.published",
+          actorId: typeof req.headers["x-user-id"] === "string" ? req.headers["x-user-id"] : offer.producerId,
+          correlationId: typeof req.headers["x-correlation-id"] === "string" ? req.headers["x-correlation-id"] : undefined,
+          payload: {
+            producerId: offer.producerId,
+            productName: offer.productName,
+            quantityAvailable: offer.quantityAvailable,
+            unit: offer.unit,
+            municipalityName: offer.municipalityName,
+            status: offer.status
+          }
+        });
+      }
+
+      if (eventBus) {
+        void eventBus.publish("offer.published", {
+          type: "offer.published",
+          tenantId: offer.tenantId,
+          data: { offerId: offer.id, producerId: offer.producerId, productName: offer.productName, municipalityName: offer.municipalityName },
+          timestamp: new Date().toISOString(),
+          source: "offer-service"
+        }).catch(() => { /* non-blocking */ });
+      }
 
       // Matching asíncrono: buscar demandas compatibles y notificar
       const matchResult = await matchOfferToDemands.execute(offer).catch(() => null);
@@ -130,6 +164,14 @@ export function createOffersRouter(
     }
 
     return sendSuccess(res, toOfferResponse(offer));
+  }));
+
+  router.patch("/api/v1/offers/:id", asyncHandler(async (req, res) => {
+    const existing = await repository.findById(String(req.params.id));
+    if (!existing) return sendError(res, 404, "OFFER_NOT_FOUND", "Oferta no encontrada.");
+    const updated = await repository.patch(String(req.params.id), req.body as Record<string, unknown>);
+    if (!updated) return sendError(res, 404, "OFFER_NOT_FOUND", "Oferta no encontrada.");
+    return sendSuccess(res, toOfferResponse(updated));
   }));
 
   return router;
