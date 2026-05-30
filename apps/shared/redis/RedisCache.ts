@@ -4,7 +4,6 @@ import Redis from "ioredis";
  * Lightweight Redis-backed query cache.
  * Stores JSON-serialisable results with automatic TTL expiry.
  */
-export class RedisCache {
   constructor(
     private readonly redis: Redis,
     private readonly prefix: string = "cache"
