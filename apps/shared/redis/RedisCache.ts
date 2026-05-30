@@ -19,7 +19,6 @@ export class RedisCache {
       return await fallback();
     }
   }
-}
 
   /**
    * Get a cached value or compute it and store for next time.
@@ -56,4 +55,5 @@ export class RedisCache {
       }
     }, () => undefined);
   }
+}
 
