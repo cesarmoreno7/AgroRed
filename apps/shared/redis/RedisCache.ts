@@ -1,6 +1,7 @@
 
 
-import Redis from "ioredis";
+import type Redis from "ioredis";
+import RedisClass from "ioredis";
 
 /**
  * Lightweight Redis-backed query cache.
