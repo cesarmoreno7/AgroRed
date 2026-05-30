@@ -3,7 +3,6 @@ import Redis from "ioredis";
 
 let instance: Redis | null = null;
 
-export interface RedisOptions {
   url?: string;
   maxRetriesPerRequest?: number | null;
   lazyConnect?: boolean;
@@ -13,7 +12,6 @@ export interface RedisOptions {
  * Returns a singleton Redis client. Safe to call multiple times — always
  * returns the same connection. Accepts REDIS_URL in standard ioredis format.
  */
-export function getRedisClient(options: RedisOptions = {}): Redis {
   if (instance) return instance;
 
   const url = options.url || process.env.REDIS_URL || "redis://localhost:6379";
@@ -34,7 +32,6 @@ export function getRedisClient(options: RedisOptions = {}): Redis {
  * Creates a NEW Redis connection (not the singleton).
  * Use for BullMQ workers, Pub/Sub subscribers that need dedicated connections.
  */
-export function createRedisConnection(options: RedisOptions = {}): Redis {
   const url = options.url || process.env.REDIS_URL || "redis://localhost:6379";
 
   return new Redis(url, {
@@ -50,7 +47,6 @@ export function createRedisConnection(options: RedisOptions = {}): Redis {
 /**
  * Graceful shutdown — close the singleton connection.
  */
-export async function closeRedis(): Promise<void> {
   if (instance) {
     await instance.quit();
     instance = null;
@@ -60,7 +56,6 @@ export async function closeRedis(): Promise<void> {
 /**
  * Health check — ping Redis and return "ok" or throw.
  */
-export async function checkRedis(client?: Redis): Promise<{ redis: string }> {
   const c = client ?? getRedisClient();
   const pong = await c.ping();
   if (pong !== "PONG") throw new Error("Redis health check failed");
