@@ -28,5 +28,12 @@ export class InMemoryUserRepository implements UserRepository {
       limit: params.limit
     };
   }
+  async patch(id: string, fields: Record<string, unknown>): Promise<User | null> {
+    const user = await this.findById(id);
+    if (!user) return null;
+    const updated = { ...user, ...fields } as User;
+    await this.save(updated);
+    return updated;
+  }
 }
 
