@@ -4,6 +4,6 @@
     "outDir": "dist",
     "types": ["node", "jest"]
   },
-  "include": ["src/**/*", "../shared/**/*"]
+  "include": ["src/**/*", "../shared/**/*"],
+  "exclude": ["src/**/*.test.ts"]
 }
-
