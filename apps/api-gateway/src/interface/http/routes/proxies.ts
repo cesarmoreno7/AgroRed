@@ -40,6 +40,15 @@ export function registerServiceProxies(app: Express, services: ServiceRouteDefin
             }
             writeParsedBody(proxyReq, req);
           },
+          proxyRes: (proxyRes) => {
+            // Strip CORS headers emitted by microservices so only the
+            // gateway's cors() middleware controls what the browser sees.
+            delete proxyRes.headers["access-control-allow-origin"];
+            delete proxyRes.headers["access-control-allow-credentials"];
+            delete proxyRes.headers["access-control-allow-methods"];
+            delete proxyRes.headers["access-control-allow-headers"];
+            delete proxyRes.headers["access-control-expose-headers"];
+          },
           error: (error, req, res) => {
             logError("proxy.error", {
               correlationId: req.correlationId,
