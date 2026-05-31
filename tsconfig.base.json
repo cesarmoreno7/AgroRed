@@ -9,11 +9,6 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "isolatedModules": true,
-    "typeRoots": [
-      "./node_modules/@types",
-      "./apps/**/src/shared",
-      "./apps/**/src/shared/**/*.d.ts"
-    ]
+    "isolatedModules": true
   }
 }
