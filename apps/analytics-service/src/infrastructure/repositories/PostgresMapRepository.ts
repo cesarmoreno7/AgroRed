@@ -163,33 +163,34 @@ interface HierarchyRow {
 export class PostgresMapRepository implements MapRepository {
   constructor(private readonly pool: Pool) {}
 
-  // ── Producers (uses v_mapa_productores view + fallback to lat/lon) ──
+  // ── Producers (direct query — no view dependency) ──
 
   async getProducers(bbox?: MapBboxFilter): Promise<GeoJsonFeatureCollection<GeoJsonPoint, MapProducerProperties>> {
-    const bboxFilter = bboxClause(bbox, "longitud", "latitud", 1);
+    const bboxFilter = bboxClause(bbox, "p.longitude", "p.latitude", 1);
 
     const result = await this.pool.query<ProducerMapRow>(
       `
-        SELECT id, nombre, tipo, contact_name, contact_phone,
-               product_categories, status, zona, comuna, municipio, departamento,
-               longitud, latitud
-        FROM v_mapa_productores
-        WHERE 1=1 ${bboxFilter.sql}
-
-        UNION ALL
-
-        SELECT p.id, p.organization_name AS nombre, p.producer_type AS tipo,
-               p.contact_name, p.contact_phone, p.product_categories, p.status,
-               NULL AS zona, NULL AS comuna, p.municipality_name AS municipio, NULL AS departamento,
-               p.longitude::text AS longitud, p.latitude::text AS latitud
+        SELECT p.id,
+               p.organization_name        AS nombre,
+               p.producer_type            AS tipo,
+               p.contact_name,
+               p.contact_phone,
+               p.product_categories,
+               p.status,
+               NULL::text                 AS zona,
+               NULL::text                 AS comuna,
+               p.municipality_name        AS municipio,
+               NULL::text                 AS departamento,
+               p.longitude::text          AS longitud,
+               p.latitude::text           AS latitud
         FROM producers p
         WHERE p.deleted_at IS NULL
-          AND p.latitude IS NOT NULL
+          AND p.latitude  IS NOT NULL
           AND p.longitude IS NOT NULL
-          AND NOT EXISTS (SELECT 1 FROM v_mapa_productores v WHERE v.id = p.id)
-          ${bboxFilter.sql.replace(/\$(\d+)/g, (_, n) => `$${Number(n) + bboxFilter.params.length}`)}
+          ${bboxFilter.sql}
+        ORDER BY p.created_at DESC
       `,
-      [...bboxFilter.params, ...bboxFilter.params]
+      bboxFilter.params
     );
 
     const features = result.rows.map((r) =>
@@ -211,40 +212,39 @@ export class PostgresMapRepository implements MapRepository {
     return featureCollection(features);
   }
 
-  // ── Offers (uses v_mapa_ofertas view + fallback) ──
+  // ── Offers (direct query — no view dependency) ──
 
   async getOffers(bbox?: MapBboxFilter): Promise<GeoJsonFeatureCollection<GeoJsonPoint, MapOfferProperties>> {
-    const bboxFilter = bboxClause(bbox, "longitud", "latitud", 1);
+    const bboxFilter = bboxClause(bbox, "o.longitude", "o.latitude", 1);
 
     const result = await this.pool.query<OfferMapRow>(
       `
-        SELECT id, title, product_name, category, quantity_available::text,
-               unit, price_amount::text, currency,
-               available_from, available_until, punto_entrega,
-               status, productor, contact_phone,
-               longitud, latitud
-        FROM v_mapa_ofertas
-        WHERE 1=1 ${bboxFilter.sql}
-
-        UNION ALL
-
-        SELECT o.id, o.title, o.product_name, o.category, o.quantity_available::text,
-               o.unit, o.price_amount::text, o.currency,
-               o.available_from, o.available_until, NULL AS punto_entrega,
+        SELECT o.id,
+               o.title,
+               o.product_name,
+               o.category,
+               o.quantity_available::text,
+               o.unit,
+               o.price_amount::text,
+               o.currency,
+               o.available_from,
+               o.available_until,
+               NULL::text                  AS punto_entrega,
                o.status,
-               p.organization_name AS productor, p.contact_phone,
-               o.longitude::text AS longitud, o.latitude::text AS latitud
+               p.organization_name         AS productor,
+               p.contact_phone,
+               o.longitude::text           AS longitud,
+               o.latitude::text            AS latitud
         FROM offers o
         JOIN producers p ON o.producer_id = p.id
         WHERE o.status = 'published'
           AND o.deleted_at IS NULL
-          AND o.latitude IS NOT NULL AND o.longitude IS NOT NULL
-          AND NOT EXISTS (
-            SELECT 1 FROM v_mapa_ofertas v WHERE v.id = o.id
-          )
-          ${bboxFilter.sql.replace(/\$(\d+)/g, (_, n) => `$${Number(n) + bboxFilter.params.length}`)}
+          AND o.latitude  IS NOT NULL
+          AND o.longitude IS NOT NULL
+          ${bboxFilter.sql}
+        ORDER BY o.created_at DESC
       `,
-      [...bboxFilter.params, ...bboxFilter.params]
+      bboxFilter.params
     );
 
     const features = result.rows.map((r) =>
@@ -269,19 +269,36 @@ export class PostgresMapRepository implements MapRepository {
     return featureCollection(features);
   }
 
-  // ── Canteens (uses v_mapa_comedores view) ──
+  // ── Canteens (mapped from institutions table — no view dependency) ──
 
   async getCanteens(bbox?: MapBboxFilter): Promise<GeoJsonFeatureCollection<GeoJsonPoint, MapCanteenProperties>> {
-    const bboxFilter = bboxClause(bbox, "longitud", "latitud", 1);
+    const bboxFilter = bboxClause(bbox, "i.longitude", "i.latitude", 1);
 
     const result = await this.pool.query<CanteenMapRow>(
       `
-        SELECT id, nombre, tipo, direccion, capacidad_diaria,
-               beneficiarios_actuales, horario_atencion, responsable, telefono,
-               estado, zona, comuna, municipio, departamento,
-               longitud, latitud
-        FROM v_mapa_comedores
-        WHERE 1=1 ${bboxFilter.sql}
+        SELECT i.id::text                  AS id,
+               i.name                     AS nombre,
+               i.institution_type         AS tipo,
+               COALESCE(i.address, i.municipality_name) AS direccion,
+               i.beneficiary_count        AS capacidad_diaria,
+               i.beneficiary_count        AS beneficiarios_actuales,
+               NULL::text                 AS horario_atencion,
+               i.contact_name             AS responsable,
+               i.contact_phone            AS telefono,
+               i.status                   AS estado,
+               NULL::text                 AS zona,
+               NULL::text                 AS comuna,
+               i.municipality_name        AS municipio,
+               NULL::text                 AS departamento,
+               i.longitude::text          AS longitud,
+               i.latitude::text           AS latitud
+        FROM institutions i
+        WHERE i.deleted_at IS NULL
+          AND i.status = 'active'
+          AND i.latitude  IS NOT NULL
+          AND i.longitude IS NOT NULL
+          ${bboxFilter.sql}
+        ORDER BY i.created_at DESC
       `,
       bboxFilter.params
     );
@@ -315,8 +332,8 @@ export class PostgresMapRepository implements MapRepository {
 
     const result = await this.pool.query<RescueMapRow>(
       `
-        SELECT id, product_name, quantity::text, unit, status,
-               scheduled_date, latitude::text, longitude::text
+        SELECT id, product_name, quantity_rescued::text AS quantity, unit, status,
+               scheduled_at AS scheduled_date, latitude::text, longitude::text
         FROM rescues
         WHERE deleted_at IS NULL
           AND latitude IS NOT NULL AND longitude IS NOT NULL
@@ -346,8 +363,8 @@ export class PostgresMapRepository implements MapRepository {
 
     const result = await this.pool.query<IncidentMapRow>(
       `
-        SELECT id, title, category, severity, status,
-               created_at AS reported_at, latitude::text, longitude::text
+        SELECT id, title, incident_type AS category, severity, status,
+               occurred_at AS reported_at, latitude::text, longitude::text
         FROM incidents
         WHERE deleted_at IS NULL
           AND latitude IS NOT NULL AND longitude IS NOT NULL
@@ -405,7 +422,7 @@ export class PostgresMapRepository implements MapRepository {
     return featureCollection(features);
   }
 
-  // ── Nearby Producers (PostGIS proximity) ──
+  // ── Nearby Producers (inline Haversine — no PostGIS required) ──
 
   async getNearbyProducers(query: NearbyQuery): Promise<GeoJsonFeatureCollection<GeoJsonPoint, NearbyProducerProperties>> {
     const radiusKm = query.radiusKm;
@@ -414,28 +431,40 @@ export class PostgresMapRepository implements MapRepository {
       `
         SELECT
           p.id,
-          p.organization_name AS nombre,
-          p.producer_type AS tipo,
+          p.organization_name  AS nombre,
+          p.producer_type      AS tipo,
           p.contact_name,
           p.contact_phone,
           p.product_categories,
           p.status,
-          z.nombre AS zona,
-          c.nombre AS comuna,
-          m.nombre AS municipio,
-          d.nombre AS departamento,
-          p.longitude::text AS longitud,
-          p.latitude::text AS latitud,
-          ROUND(haversine_km(p.latitude, p.longitude, $2, $1) * 1000)::text AS distancia_metros
+          NULL::text           AS zona,
+          NULL::text           AS comuna,
+          p.municipality_name  AS municipio,
+          NULL::text           AS departamento,
+          p.longitude::text    AS longitud,
+          p.latitude::text     AS latitud,
+          ROUND(
+            6371000 * acos(
+              LEAST(1.0,
+                cos(radians($2)) * cos(radians(p.latitude))
+                  * cos(radians(p.longitude) - radians($1))
+                + sin(radians($2)) * sin(radians(p.latitude))
+              )
+            )
+          )::text              AS distancia_metros
         FROM producers p
-        LEFT JOIN zona z ON p.zona_id = z.id
-        LEFT JOIN comuna c ON p.comuna_id = c.id
-        LEFT JOIN municipio m ON p.municipio_id = m.id
-        LEFT JOIN departamento d ON m.departamento_id = d.id
         WHERE p.deleted_at IS NULL
-          AND p.latitude IS NOT NULL
+          AND p.latitude  IS NOT NULL
           AND p.longitude IS NOT NULL
-          AND haversine_km(p.latitude, p.longitude, $2, $1) <= $3
+          AND (
+            6371 * acos(
+              LEAST(1.0,
+                cos(radians($2)) * cos(radians(p.latitude))
+                  * cos(radians(p.longitude) - radians($1))
+                + sin(radians($2)) * sin(radians(p.latitude))
+              )
+            )
+          ) <= $3
         ORDER BY distancia_metros ASC
       `,
       [query.lng, query.lat, radiusKm]
