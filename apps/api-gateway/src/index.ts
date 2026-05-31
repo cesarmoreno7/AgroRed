@@ -2,7 +2,7 @@ import { buildApp } from "./app.js";
 import { loadEnv } from "./config/env.js";
 import { createPostgresPool } from "./infrastructure/persistence/postgres.js";
 import type { Redis } from "ioredis";
-import { getRedisClient, closeRedis, checkRedis } from "../../../apps/shared/redis/RedisClient.js";
+import { getRedisClient, closeRedis, checkRedis } from "./infrastructure/redis/RedisClient.js";
 import { logError, logInfo, logWarn } from "./shared/logger.js";
 
 const env = loadEnv();
