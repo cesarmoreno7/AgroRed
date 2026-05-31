@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { fetchGeofences, registerGeofence, updateGeofence } from "../services/logistics";
 import { GeofenceMap } from "../components/GeofenceMap";
+import { api } from "../services/api";
 import { useAuth } from "../hooks/useAuth";
 
 const ZONE_TYPES = [
@@ -21,22 +22,37 @@ const inp: React.CSSProperties = { width: "100%", padding: "10px 14px", backgrou
 const lbl: React.CSSProperties = { display: "block", fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" };
 const empty = { zoneName: "", zoneType: "delivery", centerLat: "", centerLng: "", radiusM: "", metadata: "" };
 
+const ORDER_STATUS_COLOR: Record<string, [string, string]> = {
+  scheduled:  ["#60a5fa", "Programada"],
+  in_transit: ["#facc15", "En tránsito"],
+  delivered:  ["#4ade80", "Entregada"],
+  failed:     ["#f87171", "Fallida"],
+  cancelled:  ["#94a3b8", "Cancelada"],
+};
+
 export function LogisticsPage() {
   const { user } = useAuth();
-  const [zones, setZones]           = useState<any[]>([]);
-  const [search, setSearch]         = useState("");
-  const [showForm, setShowForm]     = useState(false);
-  const [loading, setLoading]       = useState(false);
-  const [error, setError]           = useState<string | null>(null);
-  const [form, setForm]             = useState({ ...empty });
-  const [editingId, setEditingId]   = useState<string | null>(null);
-  const [editForm, setEditForm]     = useState({ ...empty });
+  const [zones, setZones]             = useState<any[]>([]);
+  const [orders, setOrders]           = useState<any[]>([]);
+  const [search, setSearch]           = useState("");
+  const [showForm, setShowForm]       = useState(false);
+  const [loading, setLoading]         = useState(false);
+  const [error, setError]             = useState<string | null>(null);
+  const [form, setForm]               = useState({ ...empty });
+  const [editingId, setEditingId]     = useState<string | null>(null);
+  const [editForm, setEditForm]       = useState({ ...empty });
   const [editLoading, setEditLoading] = useState(false);
-  const [editError, setEditError]   = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editError, setEditError]     = useState<string | null>(null);
+  const [selectedId, setSelectedId]   = useState<string | null>(null);
 
   useEffect(() => {
     fetchGeofences().then(r => { if (r.ok) setZones(r.data); });
+    api<any>("/api/v1/logistics?limit=50").then(r => {
+      if (r.ok) {
+        const list = Array.isArray(r.data) ? r.data : (r.data as any).data ?? [];
+        setOrders(list);
+      }
+    });
   }, []);
 
   const filtered = useMemo(() => {
@@ -240,6 +256,57 @@ export function LogisticsPage() {
         {filtered.length === 0 && (
           <div style={{ gridColumn: "1/-1", padding: 40, textAlign: "center", color: "rgba(255,255,255,0.25)", fontSize: 14 }}>
             {search ? `Sin resultados para "${search}"` : "No hay geocercas definidas."}
+          </div>
+        )}
+      </div>
+
+      {/* ── Sección: Órdenes logísticas ── */}
+      <div style={{ marginTop: 8 }}>
+        <h2 style={{ margin: "0 0 14px", fontSize: 18, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
+          <span>🚛</span> Órdenes logísticas
+          <span style={{ fontSize: 12, fontWeight: 400, color: "rgba(255,255,255,0.3)", marginLeft: 6 }}>{orders.length} registros</span>
+        </h2>
+
+        {orders.length === 0 ? (
+          <div style={{ padding: "28px 20px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: 13 }}>
+            No hay órdenes logísticas registradas aún. Usa <code style={{ background: "rgba(255,255,255,0.08)", padding: "2px 8px", borderRadius: 6, color: "#fb923c" }}>POST /api/v1/logistics/register</code> para crear una.
+          </div>
+        ) : (
+          <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, overflow: "hidden" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                  {["Origen → Destino", "Producto", "Cantidad", "Recogida", "Entrega", "Modo", "Estado"].map(h => (
+                    <th key={h} style={{ padding: "12px 14px", textAlign: "left", fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700, whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {orders.slice(0, 20).map((o, i) => {
+                  const [sc, sl] = ORDER_STATUS_COLOR[o.status] ?? ["#94a3b8", o.status];
+                  return (
+                    <tr key={o.id || i} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)" }}>
+                      <td style={{ padding: "10px 14px" }}>
+                        <div style={{ color: "#fff", fontWeight: 600, fontSize: 12 }}>{o.originLocationName ?? "—"}</div>
+                        <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>→ {o.destinationOrganizationName ?? "—"}</div>
+                      </td>
+                      <td style={{ padding: "10px 14px", color: "#94a3b8" }}>{o.municipalityName ?? "—"}</td>
+                      <td style={{ padding: "10px 14px", color: "#fff", fontWeight: 600 }}>{o.quantityAssigned?.toLocaleString?.() ?? "—"} kg</td>
+                      <td style={{ padding: "10px 14px", color: "rgba(255,255,255,0.5)", fontSize: 11 }}>
+                        {o.scheduledPickupAt ? new Date(o.scheduledPickupAt).toLocaleDateString("es-CO") : "—"}
+                      </td>
+                      <td style={{ padding: "10px 14px", color: "rgba(255,255,255,0.5)", fontSize: 11 }}>
+                        {o.scheduledDeliveryAt ? new Date(o.scheduledDeliveryAt).toLocaleDateString("es-CO") : "—"}
+                      </td>
+                      <td style={{ padding: "10px 14px", color: "#94a3b8" }}>{o.routeMode ?? "—"}</td>
+                      <td style={{ padding: "10px 14px" }}>
+                        <span style={{ padding: "3px 8px", borderRadius: 20, fontSize: 10, fontWeight: 700, background: `${sc}18`, color: sc, border: `1px solid ${sc}33` }}>{sl}</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

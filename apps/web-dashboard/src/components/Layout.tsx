@@ -45,10 +45,11 @@ export function Layout({ children }: Props) {
     { to: "/rescues",      icon: "♻️", label: "Rescates",               module: "rescue-service" },
     { to: "/demands",      icon: "🍽️", label: "Demandas",               module: "demand-service" },
     { to: "/institutions", icon: "🏛️", label: "Instituciones",          module: "institution-service" },
+    { to: "/origins",      icon: "🏪", label: "Orígenes Aliados",       module: "origins-service" },
     { to: "/inventory",    icon: "📊", label: "Inventario",             module: "inventory-service" },
     { to: "/fleet",        icon: "🚚", label: "Flota en tiempo real",   module: "logistics-service" },
     { to: "/logistics",    icon: "🗂️", label: "Geocercas logísticas",   module: "logistics-service" },
-    { to: "/incidents",    icon: "🚨", label: "Incidencias Sociales",   module: "incident-service" },
+    { to: "/incidents",    icon: "⚠️", label: "Incidencias Sociales",   module: "incident-service" },
     { to: "/notifications",icon: "🔔", label: "Notificaciones",         module: "notification-service" },
     { to: "/auctions",     icon: "🏷️", label: "Subastas",               module: "auction-service" },
     { to: "/alerts",       icon: "🚨", label: "Alertas IRAT",            module: "analytics-service" },
@@ -59,8 +60,9 @@ export function Layout({ children }: Props) {
   const moduleAccess: Record<string, string[]> = {
     admin_municipal: [
       "user-service", "producer-service", "offer-service", "rescue-service", "demand-service",
-      "institution-service", "inventory-service", "logistics-service", "incident-service",
-      "notification-service", "auction-service", "analytics-service", "ml-service"
+      "institution-service", "origins-service", "inventory-service", "logistics-service",
+      "incident-service", "notification-service", "auction-service", "analytics-service",
+      "ml-service"
     ],
     territorial_analyst: [
       "producer-service", "offer-service", "rescue-service", "demand-service",
@@ -76,7 +78,8 @@ export function Layout({ children }: Props) {
       "offer-service", "rescue-service", "demand-service", "auction-service"
     ],
     producer: [
-      "producer-service", "rescue-service", "offer-service", "auction-service"
+      "producer-service", "rescue-service", "offer-service", "auction-service",
+      "incident-service"
     ],
     supermarket: [
       "offer-service", "auction-service"

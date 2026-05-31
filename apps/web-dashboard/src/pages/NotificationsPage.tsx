@@ -156,6 +156,54 @@ export function NotificationsPage() {
           </tbody>
         </table>
       </div>
+
+      {/* ── Guía de integración con plataformas externas ── */}
+      <div style={{ background: "rgba(244,114,182,0.04)", border: "1px solid rgba(244,114,182,0.12)", borderRadius: 16, padding: 24 }}>
+        <h2 style={{ margin: "0 0 18px", fontSize: 17, fontWeight: 700, color: "#f472b6", display: "flex", alignItems: "center", gap: 8 }}>
+          🔗 Integración con plataformas externas
+        </h2>
+        <p style={{ margin: "0 0 20px", fontSize: 13, color: "rgba(255,255,255,0.5)", lineHeight: 1.6 }}>
+          AgroRed puede enviar notificaciones a sistemas externos mediante el endpoint de notificaciones. Configura el canal deseado y conecta tu herramienta favorita.
+        </p>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          {[
+            { icon: "📧", title: "Email / SMTP", color: "#60a5fa", channel: "email",
+              desc: "Envío directo por SMTP. Configura SMTP_HOST, SMTP_PORT, SMTP_USER y SMTP_PASS en las variables de entorno del notification-service.",
+              example: `POST /api/v1/notifications/register\n{\n  "notificationChannel": "email",\n  "recipientLabel": "admin@municipio.gov.co",\n  "title": "Alerta de inventario",\n  "message": "Stock crítico en Bodega Norte",\n  "scheduledFor": "2026-06-01T08:00:00Z",\n  "offerId": "<uuid>"\n}` },
+            { icon: "💬", title: "SMS / Twilio", color: "#4ade80", channel: "sms",
+              desc: "Integra Twilio o cualquier proveedor SMS en el notification-service. Agrega TWILIO_SID y TWILIO_TOKEN al entorno.",
+              example: `POST /api/v1/notifications/register\n{\n  "notificationChannel": "sms",\n  "recipientLabel": "+573001234567",\n  "title": "Alerta AgroRed",\n  "message": "Rescate programado para mañana 8am",\n  "scheduledFor": "2026-06-01T07:00:00Z",\n  "incidentId": "<uuid>"\n}` },
+            { icon: "📱", title: "WhatsApp / Meta", color: "#22d3ee", channel: "whatsapp",
+              desc: "Usa la API de WhatsApp Business (Meta) o Twilio WhatsApp. Configura WHATSAPP_TOKEN y WHATSAPP_PHONE_ID en el entorno.",
+              example: `POST /api/v1/notifications/register\n{\n  "notificationChannel": "whatsapp",\n  "recipientLabel": "3001234567",\n  "title": "Subasta activa",\n  "message": "Papa criolla - cierra en 2h - oferta desde $1.800/kg",\n  "scheduledFor": "2026-06-01T10:00:00Z",\n  "offerId": "<uuid>"\n}` },
+            { icon: "🔔", title: "In-App / WebSocket", color: "#f472b6", channel: "in_app",
+              desc: "Notificaciones en tiempo real dentro del dashboard. El sistema publica eventos en Redis que el frontend consume vía WebSocket o polling.",
+              example: `POST /api/v1/notifications/register\n{\n  "notificationChannel": "in_app",\n  "recipientLabel": "admin@agrored.co",\n  "title": "Nuevo productor registrado",\n  "message": "Finca El Paraíso se unió a Bogotá D.C.",\n  "scheduledFor": "2026-06-01T09:00:00Z",\n  "logisticsOrderId": "<uuid>"\n}` },
+          ].map(card => (
+            <div key={card.channel} style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${card.color}22`, borderRadius: 12, padding: 18 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                <span style={{ fontSize: 22 }}>{card.icon}</span>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>{card.title}</div>
+                  <span style={{ padding: "2px 8px", borderRadius: 20, fontSize: 10, fontWeight: 700, background: `${card.color}18`, color: card.color }}>{card.channel}</span>
+                </div>
+              </div>
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", lineHeight: 1.6, marginBottom: 12 }}>{card.desc}</p>
+              <pre style={{ background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: "10px 12px", fontSize: 10, color: "#a5b4fc", overflowX: "auto", margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+                {card.example}
+              </pre>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ marginTop: 20, padding: "14px 18px", background: "rgba(255,255,255,0.03)", borderRadius: 10, fontSize: 12, color: "rgba(255,255,255,0.4)", lineHeight: 1.7 }}>
+          <strong style={{ color: "rgba(255,255,255,0.7)" }}>Reglas del sistema:</strong>{" "}
+          Toda notificación debe referenciar al menos un recurso: <code style={{ color: "#f472b6" }}>incidentId</code>, <code style={{ color: "#f472b6" }}>logisticsOrderId</code> u <code style={{ color: "#f472b6" }}>offerId</code>.
+          El campo <code style={{ color: "#f472b6" }}>scheduledFor</code> define cuándo el notification-service intenta el envío.
+          El campo <code style={{ color: "#f472b6" }}>recipientLabel</code> puede ser email, número de teléfono o nombre de usuario según el canal.
+        </div>
+      </div>
     </div>
   );
 }

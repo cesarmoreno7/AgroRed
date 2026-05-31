@@ -21,6 +21,9 @@ style.textContent = `
   input:focus { border-color: rgba(74,222,128,0.4) !important; }
   button:hover:not(:disabled) { transform: translateY(-1px); }
   a:hover { color: rgba(255,255,255,0.8) !important; }
+  select { color: #fff !important; appearance: auto; }
+  select option { background: #0e0e1a !important; color: #fff !important; }
+  select:focus { border-color: rgba(74,222,128,0.4) !important; outline: none; }
 `;
 document.head.appendChild(style);
 

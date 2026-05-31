@@ -20,6 +20,7 @@ import { MLPage } from "./pages/MLPage";
 import { AIChatPage } from "./pages/AIChatPage";
 import { InstitutionsPage } from "./pages/InstitutionsPage";
 import { AlertsPage } from "./pages/AlertsPage";
+import { OriginsPage } from "./pages/OriginsPage";
 import type { ReactNode } from "react";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -59,6 +60,7 @@ export default function App() {
           <Route path="/institutions" element={<ProtectedRoute><ModuleGuard module="institution-service"><InstitutionsPage /></ModuleGuard></ProtectedRoute>} />
           <Route path="/alerts" element={<ProtectedRoute><ModuleGuard module="analytics-service"><AlertsPage /></ModuleGuard></ProtectedRoute>} />
           <Route path="/ai-copilot" element={<ProtectedRoute><ModuleGuard module="user-service"><AIChatPage /></ModuleGuard></ProtectedRoute>} />
+          <Route path="/origins" element={<ProtectedRoute><ModuleGuard module="origins-service"><OriginsPage /></ModuleGuard></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

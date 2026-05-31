@@ -13,6 +13,7 @@ import { createHealthRouter } from "./interface/http/routes/health.js";
 import { createAnalyticsRouter } from "./interface/http/routes/analytics.js";
 import { createMapRouter } from "./interface/http/routes/map.js";
 import { createInstitutionalRouter } from "./interface/http/routes/institutional.js";
+import { createOriginsRouter } from "./interface/http/routes/origins.js";
 import { logError, logInfo } from "./shared/logger.js";
 import { notFoundHandler, globalErrorHandler } from "./interface/http/response.js";
 import { traceabilityMiddleware } from "./shared/traceability.js";
@@ -81,6 +82,7 @@ async function main(): Promise<void> {
   app.use(createAnalyticsRouter(repository, cache));
   app.use(createMapRouter(mapRepository));
   app.use(createInstitutionalRouter(institutionalRepository));
+  app.use(createOriginsRouter(pool));
   app.use(notFoundHandler);
   app.use(globalErrorHandler);
 
