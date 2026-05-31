@@ -256,7 +256,7 @@ export function createIncidentsRouter(repository: IncidentRepository, auditLogge
           tenantId: req.body?.tenantId ?? undefined,
           serviceName: "incident-service",
           entityName: "incidents",
-          entityId: req.params.id,
+          entityId: String(req.params.id),
           actionName: "incident.prioritized",
           actorId: typeof req.headers["x-user-id"] === "string" ? req.headers["x-user-id"] : undefined,
           correlationId: typeof req.headers["x-correlation-id"] === "string" ? req.headers["x-correlation-id"] : undefined,
