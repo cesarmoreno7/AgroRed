@@ -19,11 +19,6 @@ envVarGroups:
         generateValue: true
       - key: INTERNAL_API_KEY
         generateValue: true
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: agrored-redis
-          property: connectionString
       - key: USER_SERVICE_URL
         value: http://agrored-user-service:3001
       - key: PRODUCER_SERVICE_URL
@@ -72,6 +67,7 @@ services:
   - type: redis
     name: agrored-redis
     plan: free
+    ipAllowList: []
 
   # ── Internal Microservices (Private Services) ──
   - type: pserv
@@ -83,6 +79,11 @@ services:
       - fromGroup: shared-agrored-config
       - key: PORT
         value: 3001
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: agrored-redis
+          property: connectionString
 
   - type: pserv
     name: agrored-producer-service
@@ -93,6 +94,11 @@ services:
       - fromGroup: shared-agrored-config
       - key: PORT
         value: 3002
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: agrored-redis
+          property: connectionString
 
   - type: pserv
     name: agrored-offer-service
@@ -103,6 +109,11 @@ services:
       - fromGroup: shared-agrored-config
       - key: PORT
         value: 3003
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: agrored-redis
+          property: connectionString
 
   - type: pserv
     name: agrored-rescue-service
@@ -113,6 +124,11 @@ services:
       - fromGroup: shared-agrored-config
       - key: PORT
         value: 3004
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: agrored-redis
+          property: connectionString
 
   - type: pserv
     name: agrored-demand-service
@@ -123,6 +139,11 @@ services:
       - fromGroup: shared-agrored-config
       - key: PORT
         value: 3005
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: agrored-redis
+          property: connectionString
 
   - type: pserv
     name: agrored-inventory-service
@@ -133,6 +154,11 @@ services:
       - fromGroup: shared-agrored-config
       - key: PORT
         value: 3006
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: agrored-redis
+          property: connectionString
 
   - type: pserv
     name: agrored-logistics-service
@@ -143,6 +169,11 @@ services:
       - fromGroup: shared-agrored-config
       - key: PORT
         value: 3007
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: agrored-redis
+          property: connectionString
 
   - type: pserv
     name: agrored-incident-service
@@ -153,6 +184,11 @@ services:
       - fromGroup: shared-agrored-config
       - key: PORT
         value: 3008
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: agrored-redis
+          property: connectionString
 
   - type: pserv
     name: agrored-analytics-service
@@ -163,6 +199,11 @@ services:
       - fromGroup: shared-agrored-config
       - key: PORT
         value: 3009
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: agrored-redis
+          property: connectionString
 
   - type: pserv
     name: agrored-notification-service
@@ -173,6 +214,11 @@ services:
       - fromGroup: shared-agrored-config
       - key: PORT
         value: 3010
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: agrored-redis
+          property: connectionString
 
   - type: pserv
     name: agrored-ml-service
@@ -183,6 +229,11 @@ services:
       - fromGroup: shared-agrored-config
       - key: PORT
         value: 3011
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: agrored-redis
+          property: connectionString
 
   - type: pserv
     name: agrored-automation-service
@@ -193,6 +244,11 @@ services:
       - fromGroup: shared-agrored-config
       - key: PORT
         value: 3012
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: agrored-redis
+          property: connectionString
 
   - type: pserv
     name: agrored-auction-service
@@ -203,6 +259,11 @@ services:
       - fromGroup: shared-agrored-config
       - key: PORT
         value: 3013
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: agrored-redis
+          property: connectionString
 
   # ── Public API Gateway (Web Service) ──
   - type: web
@@ -218,6 +279,11 @@ services:
         value: https://agrored-web-dashboard.onrender.com
       - key: API_GATEWAY_ORIGIN
         value: https://agrored-api-gateway.onrender.com
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: agrored-redis
+          property: connectionString
 
   # ── Public Web Dashboard (Static Site) ──
   - type: web
