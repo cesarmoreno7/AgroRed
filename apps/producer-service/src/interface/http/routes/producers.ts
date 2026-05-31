@@ -96,10 +96,15 @@ export function createProducersRouter(repository: ProducerRepository): Router {
   }));
 
   router.get("/api/v1/producers", asyncHandler(async (req, res) => {
-    const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "20"), 10) || 20));
+    const page  = Math.max(1, parseInt(String(req.query.page  ?? "1"),   10) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "100"), 10) || 100));
     const tenantId = req.headers["x-tenant-id"] as string | undefined;
-    const result = await repository.list({ page, limit }, tenantId ?? null);
+    const userRole = req.headers["x-user-role"]  as string | undefined;
+
+    // admin_municipal has cross-tenant visibility for operational oversight
+    const filterTenantId = userRole === "admin_municipal" ? null : (tenantId ?? null);
+
+    const result = await repository.list({ page, limit }, filterTenantId);
     return sendPaginatedSuccess(res, result.data.map(toProducerResponse), { total: result.total, page: result.page, limit: result.limit });
   }));
 
@@ -154,6 +159,43 @@ export function createProducersRouter(repository: ProducerRepository): Router {
     latitude: z.coerce.number().min(-90).max(90).nullable().optional(),
     longitude: z.coerce.number().min(-180).max(180).nullable().optional()
   }).refine((d) => Object.keys(d).length > 0, { message: "At least one field must be provided." });
+
+  // Accept both PUT (full replace) and PATCH (partial update) with the same handler
+  router.patch("/api/v1/producers/:id", asyncHandler(async (req, res) => {
+    const parsed = updateProducerSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return sendError(res, 400, "INVALID_PRODUCER_PAYLOAD", "Payload inválido para edición de productor.");
+    }
+
+    const producer = await repository.findById(String(req.params.id));
+    if (!producer) return sendError(res, 404, "PRODUCER_NOT_FOUND", "Productor no encontrado.");
+
+    const tenantId = req.headers["x-tenant-id"] as string | undefined;
+    if (tenantId && producer.tenantId !== tenantId) {
+      return sendError(res, 404, "PRODUCER_NOT_FOUND", "Productor no encontrado.");
+    }
+
+    const data = parsed.data;
+    const updated = new Producer({
+      id: producer.id,
+      tenantId: producer.tenantId,
+      userId: producer.userId,
+      municipalityName: producer.municipalityName,
+      status: producer.status,
+      createdAt: producer.createdAt,
+      producerType: data.producerType ?? producer.producerType,
+      organizationName: data.organizationName ?? producer.organizationName,
+      contactName: data.contactName ?? producer.contactName,
+      contactPhone: data.contactPhone ?? producer.contactPhone,
+      zoneType: data.zoneType ?? producer.zoneType,
+      productCategories: data.productCategories ?? producer.productCategories,
+      latitude: "latitude" in data ? data.latitude : producer.latitude,
+      longitude: "longitude" in data ? data.longitude : producer.longitude
+    });
+
+    await repository.update(updated);
+    return sendSuccess(res, toProducerResponse(updated));
+  }));
 
   router.put("/api/v1/producers/:id", asyncHandler(async (req, res) => {
     const parsed = updateProducerSchema.safeParse(req.body);

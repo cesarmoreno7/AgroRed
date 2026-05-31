@@ -76,8 +76,8 @@ export interface BboxParams {
 
 // ── API functions ─────────────────────────────────────────────
 
-export function fetchProducers(): Promise<ApiResult<ProducerRecord[]>> {
-  return api<ProducerRecord[]>("/api/v1/producers");
+export function fetchProducers(limit = 100): Promise<ApiResult<ProducerRecord[]>> {
+  return api<ProducerRecord[]>("/api/v1/producers", { params: { limit } });
 }
 
 export function registerProducer(
