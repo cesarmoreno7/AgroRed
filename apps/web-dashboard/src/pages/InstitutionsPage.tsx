@@ -358,7 +358,7 @@ export function InstitutionsPage() {
             {filtered.map((inst, i) => {
               const typeObj = INSTITUTION_TYPES.find(t => t.value === inst.institutionType);
               const typeColor = TYPE_COLOR[inst.institutionType] ?? "#94a3b8";
-              const [sc, sl] = STATUS_CONFIG[inst.status] ?? ["#94a3b8", inst.status];
+              const [sc] = STATUS_CONFIG[inst.status] ?? ["#94a3b8", inst.status];
               const isEditing = editingId === inst.id;
               return (
                 <tr key={inst.id || i}

@@ -75,6 +75,7 @@ export function MLPage() {
         <div style={{ display: "flex", gap: 10 }}>
           {(["critical","high","medium","low"] as const).map(p => {
             const cfg = PRIORITY_CONFIG[p];
+            if (!cfg) return null;
             return (
               <button key={p} onClick={() => setFilterPriority(filterPriority === p ? "all" : p)}
                 style={{ flex: 1, background: filterPriority === p ? `${cfg.color}18` : "rgba(255,255,255,0.03)", border: `1px solid ${filterPriority === p ? cfg.color + "44" : "rgba(255,255,255,0.07)"}`, borderRadius: 12, padding: "14px 16px", cursor: "pointer", color: "#fff", textAlign: "left", transition: "all 0.15s" }}>

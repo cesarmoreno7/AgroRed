@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { fetchActiveResources } from "../services/dashboard";
 import { getToken } from "../services/api";
@@ -18,8 +18,6 @@ export function FleetPage() {
   const [resources, setResources] = useState<CurrentPosition[]>([]);
   const [loading, setLoading]     = useState(true);
   const [liveMode, setLiveMode]   = useState(false);
-  const sseRef = useRef<EventSource | null>(null);
-
   // ── Initial load + fallback polling every 15 s ──
   const load = useCallback(async () => {
     const res = await fetchActiveResources(user?.tenantId);

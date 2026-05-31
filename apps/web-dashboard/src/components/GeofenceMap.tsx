@@ -39,6 +39,7 @@ function FitToZones({ zones }: { zones: GeofenceZone[] }) {
     if (withCoords.length === 0) return;
     if (withCoords.length === 1) {
       const z = withCoords[0];
+      if (!z) return;
       map.setView([z.centerLat!, z.centerLng!], 14);
       return;
     }

@@ -24,7 +24,7 @@ export function OperationsRing({ operations }: Props) {
   };
 
   const data = ITEMS.map((i) => ({ name: i.label, value: operations[i.key], color: i.color }));
-  const total = data.reduce((s, d) => s + d.value, 0);
+  const total = data.reduce((s, d) => s + (d.value ?? 0), 0);
 
   return (
     <div style={panel}>
