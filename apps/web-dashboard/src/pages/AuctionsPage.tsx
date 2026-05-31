@@ -149,7 +149,7 @@ export function AuctionsPage() {
     if (!isProducer || producers.length === 0) return;
     const mine = producers.find(p => p.userId === user?.id);
     if (mine) setForm(f => ({ ...f, producerId: mine.id, municipalityName: mine.municipalityName, latitude: String(mine.latitude ?? ""), longitude: String(mine.longitude ?? "") }));
-    else if (producers.length === 1) setForm(f => ({ ...f, producerId: producers[0].id, municipalityName: producers[0].municipalityName, latitude: String(producers[0].latitude ?? ""), longitude: String(producers[0].longitude ?? "") }));
+    else if (producers.length === 1) { const p0 = producers[0]; if (p0) setForm(f => ({ ...f, producerId: p0.id, municipalityName: p0.municipalityName, latitude: String(p0.latitude ?? ""), longitude: String(p0.longitude ?? "") })); }
   }, [producers, isProducer, user?.id]);
 
   // ── Form helpers ──────────────────────────────────────────────────────────
