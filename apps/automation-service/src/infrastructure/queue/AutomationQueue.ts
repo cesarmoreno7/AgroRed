@@ -1,14 +1,15 @@
 import { Queue, Worker, type Job } from "bullmq";
-import type Redis from "ioredis";
+import { Redis } from "ioredis";
 import type { AutomationRepository } from "../../domain/ports/AutomationRepository.js";
 import { ExecuteAutomationRun } from "../../application/use-cases/ExecuteAutomationRun.js";
+import type { AutomationTriggerSource } from "../../domain/value-objects/AutomationTriggerSource.js";
 import { logError, logInfo } from "../../shared/logger.js";
 
 const QUEUE_NAME = "automation-run";
 
 export interface AutomationJobData {
   tenantId: string;
-  triggerSource: string;
+  triggerSource: AutomationTriggerSource;
   incidentId?: string | null;
   logisticsOrderId?: string | null;
   notes?: string | null;
