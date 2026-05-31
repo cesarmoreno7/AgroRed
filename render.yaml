@@ -45,6 +45,8 @@ envVarGroups:
         value: http://agrored-automation-service:3012
       - key: AUCTION_SERVICE_URL
         value: http://agrored-auction-service:3013
+      - key: INSTITUTION_SERVICE_URL
+        value: http://agrored-institution-service:3014
       - key: EMAIL_USER
         sync: false
       - key: EMAIL_PASS
@@ -259,6 +261,21 @@ services:
       - fromGroup: shared-agrored-config
       - key: PORT
         value: 3013
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: agrored-redis
+          property: connectionString
+
+  - type: pserv
+    name: agrored-institution-service
+    env: node
+    buildCommand: npm install && npm run build:institution
+    startCommand: npm run start:institution
+    envVars:
+      - fromGroup: shared-agrored-config
+      - key: PORT
+        value: 3014
       - key: REDIS_URL
         fromService:
           type: redis
