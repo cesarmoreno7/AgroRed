@@ -42,9 +42,10 @@ process.on("unhandledRejection", (reason) => {
   process.exit(1);
 });
 
-const server = app.listen(env.API_GATEWAY_PORT, () => {
+const port = Number(process.env.PORT) || env.API_GATEWAY_PORT;
+const server = app.listen(port, () => {
   logInfo("gateway.started", {
-    port: env.API_GATEWAY_PORT,
+    port,
     nodeEnv: env.NODE_ENV
   });
 });
