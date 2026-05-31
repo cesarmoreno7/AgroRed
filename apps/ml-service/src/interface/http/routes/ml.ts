@@ -3,7 +3,7 @@ import { z } from "zod";
 import { GetDecisionSupport } from "../../../application/use-cases/GetDecisionSupport.js";
 import { GetRecommendations } from "../../../application/use-cases/GetRecommendations.js";
 import type { DecisionSupportRepository } from "../../../domain/ports/DecisionSupportRepository.js";
-import type { RedisCache } from "../../../../shared/redis/RedisCache.js";
+import type { RedisCache } from "../../../../../shared/redis/RedisCache.js";
 import { asyncHandler, sendError, sendSuccess } from "../response.js";
 
 const mlQuerySchema = z.object({

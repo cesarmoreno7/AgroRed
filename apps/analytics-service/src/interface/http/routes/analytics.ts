@@ -3,7 +3,7 @@ import { z } from "zod";
 import { GetAnalyticsSummary } from "../../../application/use-cases/GetAnalyticsSummary.js";
 import { GetTerritorialOverview } from "../../../application/use-cases/GetTerritorialOverview.js";
 import type { AnalyticsRepository } from "../../../domain/ports/AnalyticsRepository.js";
-import type { RedisCache } from "../../../../shared/redis/RedisCache.js";
+import type { RedisCache } from "../../../../../shared/redis/RedisCache.js";
 import { asyncHandler, sendError, sendSuccess } from "../response.js";
 import { sendPdf } from "../pdf.js";
 
