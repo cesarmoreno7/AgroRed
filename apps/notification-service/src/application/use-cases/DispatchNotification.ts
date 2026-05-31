@@ -25,24 +25,27 @@ export class DispatchNotification {
 
     const result = await this.sender.send(notification);
 
+    const dispatchStatus = result.success ? "sent" as const : "failed" as const;
+
     const updatedNotification = new Notification({
       id: notification.id,
       tenantId: notification.tenantId,
       incidentId: notification.incidentId,
       logisticsOrderId: notification.logisticsOrderId,
+      offerId: notification.offerId,
       notificationChannel: notification.notificationChannel,
       recipientLabel: notification.recipientLabel,
       title: notification.title,
       message: notification.message,
       scheduledFor: notification.scheduledFor,
-      status: result.success ? "sent" : "failed",
+      status: dispatchStatus,
       createdAt: notification.createdAt
     });
 
     await this.repository.updateStatus(updatedNotification.id, updatedNotification.status);
 
     return {
-      status: updatedNotification.status,
+      status: dispatchStatus,
       errorMessage: result.errorMessage
     };
   }

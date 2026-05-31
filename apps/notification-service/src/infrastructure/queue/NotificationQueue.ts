@@ -1,5 +1,5 @@
 import { Queue, Worker, type Job } from "bullmq";
-import type Redis from "ioredis";
+import { Redis } from "ioredis";
 import type { NotificationRepository } from "../../domain/ports/NotificationRepository.js";
 import type { NotificationSender } from "../../domain/ports/NotificationSender.js";
 import { DispatchNotification } from "../../application/use-cases/DispatchNotification.js";
