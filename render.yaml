@@ -1,0 +1,230 @@
+version: "1"
+
+envVarGroups:
+  - name: shared-agrored-config
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: POSTGRES_HOST
+        sync: false
+      - key: POSTGRES_PORT
+        sync: false
+      - key: POSTGRES_DB
+        sync: false
+      - key: POSTGRES_USER
+        sync: false
+      - key: POSTGRES_PASSWORD
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: INTERNAL_API_KEY
+        generateValue: true
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: agrored-redis
+          property: connectionString
+      - key: USER_SERVICE_URL
+        value: http://agrored-user-service:3001
+      - key: PRODUCER_SERVICE_URL
+        value: http://agrored-producer-service:3002
+      - key: OFFER_SERVICE_URL
+        value: http://agrored-offer-service:3003
+      - key: RESCUE_SERVICE_URL
+        value: http://agrored-rescue-service:3004
+      - key: DEMAND_SERVICE_URL
+        value: http://agrored-demand-service:3005
+      - key: INVENTORY_SERVICE_URL
+        value: http://agrored-inventory-service:3006
+      - key: LOGISTICS_SERVICE_URL
+        value: http://agrored-logistics-service:3007
+      - key: INCIDENT_SERVICE_URL
+        value: http://agrored-incident-service:3008
+      - key: NOTIFICATION_SERVICE_URL
+        value: http://agrored-notification-service:3010
+      - key: ANALYTICS_SERVICE_URL
+        value: http://agrored-analytics-service:3009
+      - key: ML_SERVICE_URL
+        value: http://agrored-ml-service:3011
+      - key: AUTOMATION_SERVICE_URL
+        value: http://agrored-automation-service:3012
+      - key: AUCTION_SERVICE_URL
+        value: http://agrored-auction-service:3013
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_SECURE
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+
+services:
+  # ── Cache (Render Managed Redis) ──
+  - type: redis
+    name: agrored-redis
+    plan: free
+
+  # ── Internal Microservices (Private Services) ──
+  - type: pserv
+    name: agrored-user-service
+    env: node
+    buildCommand: npm install && npm run build:user
+    startCommand: npm run start:user
+    envVars:
+      - fromGroup: shared-agrored-config
+      - key: PORT
+        value: 3001
+
+  - type: pserv
+    name: agrored-producer-service
+    env: node
+    buildCommand: npm install && npm run build:producer
+    startCommand: npm run start:producer
+    envVars:
+      - fromGroup: shared-agrored-config
+      - key: PORT
+        value: 3002
+
+  - type: pserv
+    name: agrored-offer-service
+    env: node
+    buildCommand: npm install && npm run build:offer
+    startCommand: npm run start:offer
+    envVars:
+      - fromGroup: shared-agrored-config
+      - key: PORT
+        value: 3003
+
+  - type: pserv
+    name: agrored-rescue-service
+    env: node
+    buildCommand: npm install && npm run build:rescue
+    startCommand: npm run start:rescue
+    envVars:
+      - fromGroup: shared-agrored-config
+      - key: PORT
+        value: 3004
+
+  - type: pserv
+    name: agrored-demand-service
+    env: node
+    buildCommand: npm install && npm run build:demand
+    startCommand: npm run start:demand
+    envVars:
+      - fromGroup: shared-agrored-config
+      - key: PORT
+        value: 3005
+
+  - type: pserv
+    name: agrored-inventory-service
+    env: node
+    buildCommand: npm install && npm run build:inventory
+    startCommand: npm run start:inventory
+    envVars:
+      - fromGroup: shared-agrored-config
+      - key: PORT
+        value: 3006
+
+  - type: pserv
+    name: agrored-logistics-service
+    env: node
+    buildCommand: npm install && npm run build:logistics
+    startCommand: npm run start:logistics
+    envVars:
+      - fromGroup: shared-agrored-config
+      - key: PORT
+        value: 3007
+
+  - type: pserv
+    name: agrored-incident-service
+    env: node
+    buildCommand: npm install && npm run build:incident
+    startCommand: npm run start:incident
+    envVars:
+      - fromGroup: shared-agrored-config
+      - key: PORT
+        value: 3008
+
+  - type: pserv
+    name: agrored-analytics-service
+    env: node
+    buildCommand: npm install && npm run build:analytics
+    startCommand: npm run start:analytics
+    envVars:
+      - fromGroup: shared-agrored-config
+      - key: PORT
+        value: 3009
+
+  - type: pserv
+    name: agrored-notification-service
+    env: node
+    buildCommand: npm install && npm run build:notification
+    startCommand: npm run start:notification
+    envVars:
+      - fromGroup: shared-agrored-config
+      - key: PORT
+        value: 3010
+
+  - type: pserv
+    name: agrored-ml-service
+    env: node
+    buildCommand: npm install && npm run build:ml
+    startCommand: npm run start:ml
+    envVars:
+      - fromGroup: shared-agrored-config
+      - key: PORT
+        value: 3011
+
+  - type: pserv
+    name: agrored-automation-service
+    env: node
+    buildCommand: npm install && npm run build:automation
+    startCommand: npm run start:automation
+    envVars:
+      - fromGroup: shared-agrored-config
+      - key: PORT
+        value: 3012
+
+  - type: pserv
+    name: agrored-auction-service
+    env: node
+    buildCommand: npm install && npm run build:auction
+    startCommand: npm run start:auction
+    envVars:
+      - fromGroup: shared-agrored-config
+      - key: PORT
+        value: 3013
+
+  # ── Public API Gateway (Web Service) ──
+  - type: web
+    name: agrored-api-gateway
+    env: node
+    buildCommand: npm install && npm run build:gateway
+    startCommand: npm run start:gateway
+    envVars:
+      - fromGroup: shared-agrored-config
+      - key: API_GATEWAY_PORT
+        value: 8080
+      - key: API_GATEWAY_CORS_ORIGIN
+        value: https://agrored-web-dashboard.onrender.com
+      - key: API_GATEWAY_ORIGIN
+        value: https://agrored-api-gateway.onrender.com
+
+  # ── Public Web Dashboard (Static Site) ──
+  - type: web
+    name: agrored-web-dashboard
+    env: static
+    buildCommand: npm install && npm run build:dashboard
+    staticPublishPath: apps/web-dashboard/dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://agrored-api-gateway.onrender.com
