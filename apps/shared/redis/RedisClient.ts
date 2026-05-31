@@ -1,6 +1,4 @@
-
-import type Redis from "ioredis";
-import RedisClass from "ioredis";
+import { Redis } from "ioredis";
 
 let instance: Redis | null = null;
 
@@ -19,7 +17,7 @@ export function getRedisClient(options: RedisOptions = {}): Redis {
 
   const url = options.url || process.env.REDIS_URL || "redis://localhost:6379";
 
-  instance = new RedisClass(url, {
+  instance = new Redis(url, {
     maxRetriesPerRequest: options.maxRetriesPerRequest ?? 3,
     lazyConnect: options.lazyConnect ?? false,
     retryStrategy(times: number) {
@@ -38,7 +36,7 @@ export function getRedisClient(options: RedisOptions = {}): Redis {
 export function createRedisConnection(options: RedisOptions = {}): Redis {
   const url = options.url || process.env.REDIS_URL || "redis://localhost:6379";
 
-  return new RedisClass(url, {
+  return new Redis(url, {
     maxRetriesPerRequest: options.maxRetriesPerRequest ?? null,
     lazyConnect: options.lazyConnect ?? false,
     retryStrategy(times: number) {

@@ -1,5 +1,4 @@
-import type Redis from "ioredis";
-import RedisClass from "ioredis";
+import { Redis } from "ioredis";
 import { createRedisConnection } from "./RedisClient.js";
 
 export interface EventPayload {
