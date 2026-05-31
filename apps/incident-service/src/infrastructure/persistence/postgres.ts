@@ -1,4 +1,4 @@
-import { Pool } from "pg";
+﻿import { Pool } from "pg";
 import type { AppEnv } from "../../config/env.js";
 import { logError } from "../../shared/logger.js";
 
@@ -9,6 +9,7 @@ export function createPostgresPool(env: AppEnv): Pool {
     database: env.POSTGRES_DB,
     user: env.POSTGRES_USER,
     password: env.POSTGRES_PASSWORD,
+    ssl: env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
     max: 10,
     idleTimeoutMillis: 30_000
   });
@@ -23,3 +24,4 @@ export function createPostgresPool(env: AppEnv): Pool {
 export async function checkPostgres(pool: Pool): Promise<void> {
   await pool.query("SELECT 1");
 }
+
