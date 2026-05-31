@@ -75,7 +75,7 @@ services:
   - type: pserv
     name: agrored-user-service
     env: node
-    buildCommand: npm install && npm run build:user
+    buildCommand: npm install --include=dev && npm run build:user
     startCommand: npm run start:user
     envVars:
       - fromGroup: shared-agrored-config
@@ -90,7 +90,7 @@ services:
   - type: pserv
     name: agrored-producer-service
     env: node
-    buildCommand: npm install && npm run build:producer
+    buildCommand: npm install --include=dev && npm run build:producer
     startCommand: npm run start:producer
     envVars:
       - fromGroup: shared-agrored-config
@@ -105,7 +105,7 @@ services:
   - type: pserv
     name: agrored-offer-service
     env: node
-    buildCommand: npm install && npm run build:offer
+    buildCommand: npm install --include=dev && npm run build:offer
     startCommand: npm run start:offer
     envVars:
       - fromGroup: shared-agrored-config
@@ -120,7 +120,7 @@ services:
   - type: pserv
     name: agrored-rescue-service
     env: node
-    buildCommand: npm install && npm run build:rescue
+    buildCommand: npm install --include=dev && npm run build:rescue
     startCommand: npm run start:rescue
     envVars:
       - fromGroup: shared-agrored-config
@@ -135,7 +135,7 @@ services:
   - type: pserv
     name: agrored-demand-service
     env: node
-    buildCommand: npm install && npm run build:demand
+    buildCommand: npm install --include=dev && npm run build:demand
     startCommand: npm run start:demand
     envVars:
       - fromGroup: shared-agrored-config
@@ -150,7 +150,7 @@ services:
   - type: pserv
     name: agrored-inventory-service
     env: node
-    buildCommand: npm install && npm run build:inventory
+    buildCommand: npm install --include=dev && npm run build:inventory
     startCommand: npm run start:inventory
     envVars:
       - fromGroup: shared-agrored-config
@@ -165,7 +165,7 @@ services:
   - type: pserv
     name: agrored-logistics-service
     env: node
-    buildCommand: npm install && npm run build:logistics
+    buildCommand: npm install --include=dev && npm run build:logistics
     startCommand: npm run start:logistics
     envVars:
       - fromGroup: shared-agrored-config
@@ -180,7 +180,7 @@ services:
   - type: pserv
     name: agrored-incident-service
     env: node
-    buildCommand: npm install && npm run build:incident
+    buildCommand: npm install --include=dev && npm run build:incident
     startCommand: npm run start:incident
     envVars:
       - fromGroup: shared-agrored-config
@@ -195,7 +195,7 @@ services:
   - type: pserv
     name: agrored-analytics-service
     env: node
-    buildCommand: npm install && npm run build:analytics
+    buildCommand: npm install --include=dev && npm run build:analytics
     startCommand: npm run start:analytics
     envVars:
       - fromGroup: shared-agrored-config
@@ -210,7 +210,7 @@ services:
   - type: pserv
     name: agrored-notification-service
     env: node
-    buildCommand: npm install && npm run build:notification
+    buildCommand: npm install --include=dev && npm run build:notification
     startCommand: npm run start:notification
     envVars:
       - fromGroup: shared-agrored-config
@@ -225,7 +225,7 @@ services:
   - type: pserv
     name: agrored-ml-service
     env: node
-    buildCommand: npm install && npm run build:ml
+    buildCommand: npm install --include=dev && npm run build:ml
     startCommand: npm run start:ml
     envVars:
       - fromGroup: shared-agrored-config
@@ -240,7 +240,7 @@ services:
   - type: pserv
     name: agrored-automation-service
     env: node
-    buildCommand: npm install && npm run build:automation
+    buildCommand: npm install --include=dev && npm run build:automation
     startCommand: npm run start:automation
     envVars:
       - fromGroup: shared-agrored-config
@@ -255,7 +255,7 @@ services:
   - type: pserv
     name: agrored-auction-service
     env: node
-    buildCommand: npm install && npm run build:auction
+    buildCommand: npm install --include=dev && npm run build:auction
     startCommand: npm run start:auction
     envVars:
       - fromGroup: shared-agrored-config
@@ -270,7 +270,7 @@ services:
   - type: pserv
     name: agrored-institution-service
     env: node
-    buildCommand: npm install && npm run build:institution
+    buildCommand: npm install --include=dev && npm run build:institution
     startCommand: npm run start:institution
     envVars:
       - fromGroup: shared-agrored-config
@@ -286,7 +286,7 @@ services:
   - type: web
     name: agrored-api-gateway
     env: node
-    buildCommand: npm install && npm run build:gateway
+    buildCommand: npm install --include=dev && npm run build:gateway
     startCommand: npm run start:gateway
     envVars:
       - fromGroup: shared-agrored-config
@@ -306,7 +306,7 @@ services:
   - type: web
     name: agrored-web-dashboard
     env: static
-    buildCommand: npm install && npm run build:dashboard
+    buildCommand: npm install --include=dev && npm run build:dashboard
     staticPublishPath: apps/web-dashboard/dist
     envVars:
       - key: VITE_API_BASE_URL
