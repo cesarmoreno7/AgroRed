@@ -1,6 +1,6 @@
-import rateLimit from "express-rate-limit";
+﻿import rateLimit from "express-rate-limit";
 import RedisStore from "rate-limit-redis";
-import type Redis from "ioredis";
+import { Redis } from "ioredis";
 import { sendError } from "../routes/../response.js";
 import type { Request, Response } from "express";
 
@@ -18,7 +18,9 @@ export function createRateLimiters(redis?: Redis): RateLimiters {
   const storeFactory = (prefix: string) =>
     redis
       ? new RedisStore({
-          sendCommand: (...args: string[]) => redis.call(...(args as [string, ...string[]])),
+          // redis.call returns Promise<unknown>; cast to satisfy rate-limit-redis's SendCommandFn
+          sendCommand: (async (...args: string[]) =>
+            redis.call(...(args as [string, ...string[]]))) as unknown as (...args: string[]) => Promise<string>,
           prefix: `rl:${prefix}:`
         })
       : undefined;
@@ -47,3 +49,4 @@ export function createRateLimiters(redis?: Redis): RateLimiters {
 
   return { globalRateLimiter, authRateLimiter };
 }
+

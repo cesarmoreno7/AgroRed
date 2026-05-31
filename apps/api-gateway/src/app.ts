@@ -1,8 +1,8 @@
-import cors from "cors";
+﻿import cors from "cors";
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import helmet from "helmet";
 import type { Pool } from "pg";
-import type Redis from "ioredis";
+import { Redis } from "ioredis";
 import type { AppEnv } from "./config/env.js";
 import { loadEnv } from "./config/env.js";
 import { buildServiceRegistry } from "./infrastructure/http/serviceRegistry.js";
@@ -97,4 +97,5 @@ export function buildApp(
 
   return app;
 }
+
 

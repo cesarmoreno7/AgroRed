@@ -1,4 +1,4 @@
-import type Redis from "ioredis";
+﻿import { Redis } from "ioredis";
 
 const PREFIX = "bl:";
 
@@ -25,3 +25,4 @@ export class TokenBlacklist {
     return result !== null;
   }
 }
+
