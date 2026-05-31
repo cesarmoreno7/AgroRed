@@ -152,6 +152,32 @@ async function seed(): Promise<void> {
       console.log(`✓ Tenant: ${t.name} (Antioquia)`);
     }
 
+    // ── Usuarios por tenant de Antioquia ─────────────────────────────────────
+    const antioquia_users = [
+      // Rionegro
+      { id: "51000000-0000-0000-0000-000000000001", tenantId: TENANT_RIONEGRO_ID,  email: "admin@rionegro.agrored.co",      fullName: "Admin Rionegro",           role: "admin_municipal",    password: "Admin@1234!" },
+      { id: "51000000-0000-0000-0000-000000000002", tenantId: TENANT_RIONEGRO_ID,  email: "productor@rionegro.agrored.co",  fullName: "Pedro Rionegro",           role: "producer",           password: "Prod@1234!"  },
+      { id: "51000000-0000-0000-0000-000000000003", tenantId: TENANT_RIONEGRO_ID,  email: "analista@rionegro.agrored.co",   fullName: "Ana Rionegro",             role: "territorial_analyst",password: "Ana@1234!"   },
+      // Santa Rosa de Osos
+      { id: "52000000-0000-0000-0000-000000000001", tenantId: TENANT_SANTAROSA_ID, email: "admin@santarosa.agrored.co",     fullName: "Admin Santa Rosa",         role: "admin_municipal",    password: "Admin@1234!" },
+      { id: "52000000-0000-0000-0000-000000000002", tenantId: TENANT_SANTAROSA_ID, email: "productor@santarosa.agrored.co", fullName: "Luis Santa Rosa",          role: "producer",           password: "Prod@1234!"  },
+      { id: "52000000-0000-0000-0000-000000000003", tenantId: TENANT_SANTAROSA_ID, email: "cocina@santarosa.agrored.co",    fullName: "Cocina Comunitaria Rosa",  role: "community_kitchen",  password: "Cocina@1234!"},
+      // San Roque
+      { id: "53000000-0000-0000-0000-000000000001", tenantId: TENANT_SANROQUE_ID,  email: "admin@sanroque.agrored.co",      fullName: "Admin San Roque",          role: "admin_municipal",    password: "Admin@1234!" },
+      { id: "53000000-0000-0000-0000-000000000002", tenantId: TENANT_SANROQUE_ID,  email: "productor@sanroque.agrored.co",  fullName: "Jorge San Roque",          role: "producer",           password: "Prod@1234!"  },
+      { id: "53000000-0000-0000-0000-000000000003", tenantId: TENANT_SANROQUE_ID,  email: "operador@sanroque.agrored.co",   fullName: "Logística San Roque",      role: "logistics_operator", password: "Oper@1234!"  },
+    ];
+
+    for (const u of antioquia_users) {
+      const hash = await bcrypt.hash(u.password, SALT);
+      await client.query(`
+        INSERT INTO public.users (id, tenant_id, email, full_name, role, password_hash, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = EXCLUDED.role
+      `, [u.id, u.tenantId, u.email, u.fullName, u.role, hash]);
+      console.log(`✓ Usuario: ${u.email} (${u.role})`);
+    }
+
     // ── Productores con coordenadas — Antioquia ──────────────────────────────
     const antioquiaProducers = [
       // Rionegro — Oriente antioqueño, zona frutícola
@@ -197,32 +223,6 @@ async function seed(): Promise<void> {
         ) ON CONFLICT (id) DO UPDATE SET latitude = EXCLUDED.latitude, longitude = EXCLUDED.longitude
       `, [d.id, d.tenantId, d.org, d.product, d.cat, d.qty, d.muni, d.lat, d.lng]);
       console.log(`✓ Demanda: ${d.org} (${d.muni}) lat=${d.lat} lng=${d.lng}`);
-    }
-
-    // ── Usuarios por tenant de Antioquia ─────────────────────────────────────
-    const antioquia_users = [
-      // Rionegro
-      { id: "51000000-0000-0000-0000-000000000001", tenantId: TENANT_RIONEGRO_ID,  email: "admin@rionegro.agrored.co",      fullName: "Admin Rionegro",           role: "admin_municipal",    password: "Admin@1234!" },
-      { id: "51000000-0000-0000-0000-000000000002", tenantId: TENANT_RIONEGRO_ID,  email: "productor@rionegro.agrored.co",  fullName: "Pedro Rionegro",           role: "producer",           password: "Prod@1234!"  },
-      { id: "51000000-0000-0000-0000-000000000003", tenantId: TENANT_RIONEGRO_ID,  email: "analista@rionegro.agrored.co",   fullName: "Ana Rionegro",             role: "territorial_analyst",password: "Ana@1234!"   },
-      // Santa Rosa de Osos
-      { id: "52000000-0000-0000-0000-000000000001", tenantId: TENANT_SANTAROSA_ID, email: "admin@santarosa.agrored.co",     fullName: "Admin Santa Rosa",         role: "admin_municipal",    password: "Admin@1234!" },
-      { id: "52000000-0000-0000-0000-000000000002", tenantId: TENANT_SANTAROSA_ID, email: "productor@santarosa.agrored.co", fullName: "Luis Santa Rosa",          role: "producer",           password: "Prod@1234!"  },
-      { id: "52000000-0000-0000-0000-000000000003", tenantId: TENANT_SANTAROSA_ID, email: "cocina@santarosa.agrored.co",    fullName: "Cocina Comunitaria Rosa",  role: "community_kitchen",  password: "Cocina@1234!"},
-      // San Roque
-      { id: "53000000-0000-0000-0000-000000000001", tenantId: TENANT_SANROQUE_ID,  email: "admin@sanroque.agrored.co",      fullName: "Admin San Roque",          role: "admin_municipal",    password: "Admin@1234!" },
-      { id: "53000000-0000-0000-0000-000000000002", tenantId: TENANT_SANROQUE_ID,  email: "productor@sanroque.agrored.co",  fullName: "Jorge San Roque",          role: "producer",           password: "Prod@1234!"  },
-      { id: "53000000-0000-0000-0000-000000000003", tenantId: TENANT_SANROQUE_ID,  email: "operador@sanroque.agrored.co",   fullName: "Logística San Roque",      role: "logistics_operator", password: "Oper@1234!"  },
-    ];
-
-    for (const u of antioquia_users) {
-      const hash = await bcrypt.hash(u.password, SALT);
-      await client.query(`
-        INSERT INTO public.users (id, tenant_id, email, full_name, role, password_hash, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, NOW())
-        ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = EXCLUDED.role
-      `, [u.id, u.tenantId, u.email, u.fullName, u.role, hash]);
-      console.log(`✓ Usuario: ${u.email} (${u.role})`);
     }
 
     console.log("\n✓ Seed completado.\n");
