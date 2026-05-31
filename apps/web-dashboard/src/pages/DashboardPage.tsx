@@ -16,9 +16,12 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [updated, setUpdated] = useState<Date | null>(null);
 
+  // admin_municipal sees global data; others see their tenant
+  const summaryTenantId = user?.role === "admin_municipal" ? undefined : user?.tenantId;
+
   const load = useCallback(async () => {
     const [s, t, f] = await Promise.all([
-      fetchSummary(user?.tenantId),
+      fetchSummary(summaryTenantId),
       fetchTerritorialOverview(),
       fetchActiveResources(user?.tenantId),
     ]);
@@ -27,7 +30,7 @@ export function DashboardPage() {
     if (f.ok) setFleet(Array.isArray(f.data) ? f.data : []);
     setUpdated(new Date());
     setLoading(false);
-  }, [user?.tenantId]);
+  }, [summaryTenantId, user?.tenantId]);
 
   useEffect(() => {
     load();
@@ -37,8 +40,28 @@ export function DashboardPage() {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh" }}>
-        <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 14, animation: "pulse 1.5s infinite" }}>Cargando tablero institucional…</div>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "60vh", gap: 12 }}>
+        <div style={{ fontSize: 32 }}>⏳</div>
+        <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>Cargando tablero institucional…</div>
+        <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 12 }}>Consultando base de datos…</div>
+      </div>
+    );
+  }
+
+  if (!summary && !loading) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "60vh", gap: 16 }}>
+        <div style={{ fontSize: 40 }}>⚠️</div>
+        <div style={{ color: "#f87171", fontSize: 16, fontWeight: 600 }}>No se pudo cargar el tablero</div>
+        <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, maxWidth: 380, textAlign: "center" }}>
+          El servicio de analítica no está disponible en este momento. Verifica que el analytics-service esté desplegado correctamente.
+        </div>
+        <button
+          onClick={load}
+          style={{ marginTop: 8, padding: "10px 24px", background: "rgba(74,222,128,0.15)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.3)", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 600 }}
+        >
+          ↺ Reintentar
+        </button>
       </div>
     );
   }
@@ -64,7 +87,7 @@ export function DashboardPage() {
             Tablero de Control Institucional
           </h1>
           <p style={{ margin: 0, fontSize: 14, color: "rgba(255,255,255,0.5)" }}>
-            {summary?.tenantName ?? "Vista global"} · Gobernanza Alimentaria Activa
+            {user?.role === "admin_municipal" ? "Vista global · Todos los municipios" : (summary?.tenantName ?? "Vista global")} · Gobernanza Alimentaria Activa
           </p>
         </div>
         {updated && (
@@ -105,12 +128,16 @@ export function DashboardPage() {
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginTop: 6 }}>Beneficiarios en programas activos</div>
           </div>
 
-          <KpiCard value={fleet.length} label="Rutas Activas" icon="🚚" color="#f472b6" />
+          <KpiCard value={fleet.length} label="Recursos en Ruta" icon="🚚" color="#f472b6" />
           <KpiCard value={summary.operations.openIncidents} label="Incidentes Abiertos" icon="⚠️" color="#ef4444" />
-          <KpiCard value={summary.operations.availableInventoryUnits} label="Inventario Disponible" icon="📦" color="#22d3ee" />
-          <KpiCard value={summary.operations.openDemands} label="Demanda Institucional" icon="🍽️" color="#f59e0b" />
+          <KpiCard value={summary.operations.availableInventoryUnits} label="Inventario Disponible (kg)" icon="📦" color="#22d3ee" />
+          <KpiCard value={summary.operations.openDemands} label="Demandas Abiertas" icon="🍽️" color="#f59e0b" />
           <KpiCard value={summary.operations.scheduledRescues} label="Rescates Programados" icon="♻️" color="#a78bfa" />
           <KpiCard value={summary.totals.producersActive} label="Productores Activos" icon="🌾" color="#4ade80" />
+          <KpiCard value={summary.totals.offers} label="Ofertas Publicadas" icon="📋" color="#60a5fa" />
+          <KpiCard value={summary.totals.auctions} label="Subastas Registradas" icon="🏷️" color="#fb923c" />
+          <KpiCard value={summary.operations.scheduledLogistics} label="Logística Programada" icon="🗂️" color="#34d399" />
+          <KpiCard value={summary.totals.users} label="Usuarios del Sistema" icon="👤" color="#818cf8" />
         </div>
       )}
 

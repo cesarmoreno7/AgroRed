@@ -75,15 +75,32 @@ export class PostgresAnalyticsRepository implements AnalyticsRepository {
           (SELECT COUNT(*) FROM public.logistics_orders WHERE deleted_at IS NULL AND status = 'scheduled' AND ($1::uuid IS NULL OR tenant_id = $1))::text AS scheduled_logistics,
           (SELECT COUNT(*) FROM public.incidents WHERE deleted_at IS NULL AND status = 'open' AND ($1::uuid IS NULL OR tenant_id = $1))::text AS open_incidents,
           (SELECT COUNT(*) FROM public.notifications WHERE deleted_at IS NULL AND status = 'pending' AND ($1::uuid IS NULL OR tenant_id = $1))::text AS pending_notifications,
-          (SELECT irat_score::text FROM public.v_irat_municipal v
-             WHERE ($1::uuid IS NULL OR v.tenant_id = $1)
-             ORDER BY irat_score DESC LIMIT 1) AS irat_score,
-          (SELECT CASE WHEN total_beneficiaries > 0
-                       THEN ROUND(program_coverage * 100.0 / total_beneficiaries)
+          -- IRAT aproximado: incidentes y demandas abiertas vs oferta y rescates activos
+          GREATEST(0, LEAST(100,
+            (SELECT COALESCE(COUNT(*), 0) * 12 FROM public.incidents
+               WHERE deleted_at IS NULL AND status = 'open'
+               AND ($1::uuid IS NULL OR tenant_id = $1))
+            + (SELECT COALESCE(COUNT(*), 0) * 4  FROM public.demands
+               WHERE deleted_at IS NULL AND status = 'open'
+               AND ($1::uuid IS NULL OR tenant_id = $1))
+            - (SELECT COALESCE(COUNT(*), 0) * 6  FROM public.offers
+               WHERE deleted_at IS NULL AND status = 'published'
+               AND ($1::uuid IS NULL OR tenant_id = $1))
+            - (SELECT COALESCE(COUNT(*), 0) * 8  FROM public.rescues
+               WHERE deleted_at IS NULL AND status = 'scheduled'
+               AND ($1::uuid IS NULL OR tenant_id = $1))
+            - (SELECT COALESCE(COUNT(*), 0) * 2  FROM public.producers
+               WHERE deleted_at IS NULL AND status = 'active'
+               AND ($1::uuid IS NULL OR tenant_id = $1))
+          ))::text AS irat_score,
+          -- Cobertura de programas: % beneficiarios cubiertos sobre objetivo total
+          (SELECT CASE WHEN COALESCE(SUM(target_population), 0) > 0
+                       THEN LEAST(100, ROUND(100.0 * COALESCE(SUM(current_coverage), 0)
+                                             / SUM(target_population)))
                        ELSE 0 END::text
-             FROM public.v_irat_municipal v
-             WHERE ($1::uuid IS NULL OR v.tenant_id = $1)
-             ORDER BY irat_score DESC LIMIT 1) AS program_coverage
+             FROM public.food_programs
+             WHERE status = 'active'
+             AND ($1::uuid IS NULL OR tenant_id = $1)) AS program_coverage
       `,
       [tenantId]
     );
