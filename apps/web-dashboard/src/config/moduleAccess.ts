@@ -1,0 +1,62 @@
+/**
+ * Single source of truth for role-based module access.
+ * Used by both Layout.tsx (menu visibility) and useModuleAccess.ts (route guard).
+ */
+export const MODULE_ACCESS: Record<string, string[]> = {
+  admin_municipal: [
+    "user-service",
+    "producer-service",
+    "offer-service",
+    "rescue-service",
+    "demand-service",
+    "institution-service",
+    "origins-service",
+    "inventory-service",
+    "logistics-service",
+    "incident-service",
+    "notification-service",
+    "auction-service",
+    "analytics-service",
+    "ml-service",
+  ],
+  territorial_analyst: [
+    "producer-service",
+    "offer-service",
+    "rescue-service",
+    "demand-service",
+    "institution-service",
+    "logistics-service",
+    "incident-service",
+    "auction-service",
+    "analytics-service",
+    "ml-service",
+  ],
+  logistics_operator: [
+    "producer-service",
+    "offer-service",
+    "rescue-service",
+    "demand-service",
+    "inventory-service",
+    "logistics-service",
+    "incident-service",
+    "notification-service",
+    "auction-service",
+  ],
+  community_kitchen: [
+    "offer-service",
+    "rescue-service",
+    "demand-service",
+    "auction-service",
+  ],
+  producer: [
+    "producer-service",
+    "rescue-service",
+    "offer-service",
+    "auction-service",
+    "incident-service",
+  ],
+  supermarket: [
+    "offer-service",
+    "auction-service",
+  ],
+};

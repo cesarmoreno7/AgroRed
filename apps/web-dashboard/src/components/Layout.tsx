@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { NavLink } from "react-router-dom";
+import { MODULE_ACCESS } from "../config/moduleAccess";
 
 interface Props {
   children: ReactNode;
@@ -57,38 +58,9 @@ export function Layout({ children }: Props) {
     { to: "/ai-copilot",   icon: "✨", label: "Copiloto IA",            module: "user-service" },
   ];
 
-  const moduleAccess: Record<string, string[]> = {
-    admin_municipal: [
-      "user-service", "producer-service", "offer-service", "rescue-service", "demand-service",
-      "institution-service", "origins-service", "inventory-service", "logistics-service",
-      "incident-service", "notification-service", "auction-service", "analytics-service",
-      "ml-service"
-    ],
-    territorial_analyst: [
-      "producer-service", "offer-service", "rescue-service", "demand-service",
-      "institution-service", "logistics-service", "incident-service", "auction-service",
-      "analytics-service", "ml-service"
-    ],
-    logistics_operator: [
-      "producer-service", "offer-service", "rescue-service", "demand-service",
-      "inventory-service", "logistics-service", "incident-service", "notification-service",
-      "auction-service"
-    ],
-    community_kitchen: [
-      "offer-service", "rescue-service", "demand-service", "auction-service"
-    ],
-    producer: [
-      "producer-service", "rescue-service", "offer-service", "auction-service",
-      "incident-service"
-    ],
-    supermarket: [
-      "offer-service", "auction-service"
-    ],
-  };
-
   const navItems = user?.role
     ? allMenuItems.filter((item) =>
-        !item.module || (moduleAccess[user.role]?.includes(item.module))
+        !item.module || (MODULE_ACCESS[user.role]?.includes(item.module))
       )
     : [];
 
