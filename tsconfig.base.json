@@ -10,13 +10,10 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "ignoreDeprecations": "5.0",
     "typeRoots": [
       "./node_modules/@types",
       "./apps/**/src/shared",
       "./apps/**/src/shared/**/*.d.ts"
-    ],
-    "baseUrl": "./"
+    ]
   }
 }
-

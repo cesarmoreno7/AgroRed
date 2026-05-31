@@ -1,11 +1,11 @@
-{
+﻿{
   "name": "@agrored/institution-service",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "tsx --watch src/index.ts",
-    "start": "node dist/index.js",
+    "start": "node dist/institution-service/src/index.js",
     "build": "tsc -p tsconfig.json",
     "lint": "tsc --noEmit -p tsconfig.json",
     "test": "jest"

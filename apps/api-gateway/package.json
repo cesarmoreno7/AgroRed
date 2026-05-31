@@ -1,11 +1,11 @@
-{
+﻿{
   "name": "@agrored/api-gateway",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "tsx --watch --env-file=../../.env src/index.ts",
-    "start": "node dist/index.js",
+    "start": "node dist/api-gateway/src/index.js",
     "build": "tsc -p tsconfig.json",
     "lint": "tsc --noEmit -p tsconfig.json"
   },
