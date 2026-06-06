@@ -68,12 +68,19 @@ export function createProductsRouter(pool: Pool): Router {
       paramIdx++;
     }
 
-    const result = await pool.query(
-      `SELECT * FROM public.product_catalog ${whereClause} ORDER BY category ASC, name ASC`,
-      params
-    );
-
-    return sendSuccess(res, result.rows.map(mapRow));
+    try {
+      const result = await pool.query(
+        `SELECT * FROM public.product_catalog ${whereClause} ORDER BY category ASC, name ASC`,
+        params
+      );
+      return sendSuccess(res, result.rows.map(mapRow));
+    } catch (err: any) {
+      if (err?.code === "42P01") {
+        // Table does not exist — migration pending
+        return sendError(res, 503, "PRODUCT_CATALOG_UNAVAILABLE", "El catálogo de productos no está disponible. La migración de base de datos está pendiente.");
+      }
+      return sendError(res, 500, "PRODUCT_CATALOG_FETCH_FAILED", "No fue posible obtener el catálogo de productos.");
+    }
   }));
 
   // POST /api/v1/products/catalog — create product
@@ -126,23 +133,30 @@ export function createProductsRouter(pool: Pool): Router {
     sets.push(`updated_at = NOW()`);
     vals.push(req.params.id);
 
-    const result = await pool.query(
-      `UPDATE public.product_catalog SET ${sets.join(", ")} WHERE id = $${i} RETURNING *`,
-      vals
-    );
-
-    if (result.rowCount === 0) return sendError(res, 404, "PRODUCT_NOT_FOUND", "Producto no encontrado.");
-    return sendSuccess(res, mapRow(result.rows[0]));
+    try {
+      const result = await pool.query(
+        `UPDATE public.product_catalog SET ${sets.join(", ")} WHERE id = $${i} RETURNING *`,
+        vals
+      );
+      if (result.rowCount === 0) return sendError(res, 404, "PRODUCT_NOT_FOUND", "Producto no encontrado.");
+      return sendSuccess(res, mapRow(result.rows[0]));
+    } catch {
+      return sendError(res, 500, "PRODUCT_UPDATE_FAILED", "No fue posible actualizar el producto.");
+    }
   }));
 
   // DELETE /api/v1/products/catalog/:id — soft delete (set is_active = false)
   router.delete("/api/v1/products/catalog/:id", asyncHandler(async (req, res) => {
-    const result = await pool.query(
-      `UPDATE public.product_catalog SET is_active = FALSE, updated_at = NOW() WHERE id = $1 RETURNING id`,
-      [req.params.id]
-    );
-    if (result.rowCount === 0) return sendError(res, 404, "PRODUCT_NOT_FOUND", "Producto no encontrado.");
-    return res.status(204).send();
+    try {
+      const result = await pool.query(
+        `UPDATE public.product_catalog SET is_active = FALSE, updated_at = NOW() WHERE id = $1 RETURNING id`,
+        [req.params.id]
+      );
+      if (result.rowCount === 0) return sendError(res, 404, "PRODUCT_NOT_FOUND", "Producto no encontrado.");
+      return res.status(204).send();
+    } catch {
+      return sendError(res, 500, "PRODUCT_DELETE_FAILED", "No fue posible eliminar el producto.");
+    }
   }));
 
   return router;

@@ -120,26 +120,45 @@ export function createLogisticsRouter(repository: LogisticsOrderRepository, audi
   }));
 
   router.get("/api/v1/logistics/:id", asyncHandler(async (req, res) => {
-    const order = await repository.findById(String(req.params.id));
-
-    if (!order) {
-      return sendError(res, 404, "LOGISTICS_ORDER_NOT_FOUND", "Orden logistica no encontrada.");
+    const id = String(req.params.id);
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!UUID_RE.test(id)) {
+      return sendError(res, 400, "INVALID_ORDER_ID", "El identificador de orden debe ser un UUID válido.");
     }
 
-    const tenantId = req.headers["x-tenant-id"] as string | undefined;
-    if (tenantId && order.tenantId !== tenantId) {
-      return sendError(res, 404, "LOGISTICS_ORDER_NOT_FOUND", "Operacion logistica no encontrada.");
-    }
+    try {
+      const order = await repository.findById(id);
 
-    return sendSuccess(res, toLogisticsResponse(order));
+      if (!order) {
+        return sendError(res, 404, "LOGISTICS_ORDER_NOT_FOUND", "Orden logistica no encontrada.");
+      }
+
+      const tenantId = req.headers["x-tenant-id"] as string | undefined;
+      if (tenantId && order.tenantId !== tenantId) {
+        return sendError(res, 404, "LOGISTICS_ORDER_NOT_FOUND", "Operacion logistica no encontrada.");
+      }
+
+      return sendSuccess(res, toLogisticsResponse(order));
+    } catch (error) {
+      return sendError(res, 500, "LOGISTICS_ORDER_FETCH_FAILED", "No fue posible obtener la orden logistica.");
+    }
   }));
 
   router.patch("/api/v1/logistics/:id", asyncHandler(async (req, res) => {
-    const existing = await repository.findById(String(req.params.id));
-    if (!existing) return sendError(res, 404, "LOGISTICS_NOT_FOUND", "Geocerca no encontrada.");
-    const updated = await repository.patch(String(req.params.id), req.body as Record<string, unknown>);
-    if (!updated) return sendError(res, 404, "LOGISTICS_NOT_FOUND", "Geocerca no encontrada.");
-    return sendSuccess(res, toLogisticsResponse(updated));
+    const id = String(req.params.id);
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!UUID_RE.test(id)) {
+      return sendError(res, 400, "INVALID_ORDER_ID", "El identificador de orden debe ser un UUID válido.");
+    }
+    try {
+      const existing = await repository.findById(id);
+      if (!existing) return sendError(res, 404, "LOGISTICS_NOT_FOUND", "Geocerca no encontrada.");
+      const updated = await repository.patch(id, req.body as Record<string, unknown>);
+      if (!updated) return sendError(res, 404, "LOGISTICS_NOT_FOUND", "Geocerca no encontrada.");
+      return sendSuccess(res, toLogisticsResponse(updated));
+    } catch (error) {
+      return sendError(res, 500, "LOGISTICS_ORDER_UPDATE_FAILED", "No fue posible actualizar la orden logistica.");
+    }
   }));
 
   return router;

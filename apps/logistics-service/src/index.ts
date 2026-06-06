@@ -41,9 +41,12 @@ async function main(): Promise<void> {
       }
     })
   );
-  app.use(createLogisticsRouter(repository, auditLogger));
+  // Tracking and resource routes must be registered BEFORE the generic
+  // logistics orders router, because GET /api/v1/logistics/:id would
+  // otherwise shadow GET /api/v1/logistics/resources (and other named paths).
   app.use(createTrackingRouter(trackingRepository, auditLogger));
   app.use(createRoutePlanningRouter(routePlanRepository, osrmRouting));
+  app.use(createLogisticsRouter(repository, auditLogger));
   app.use(notFoundHandler);
   app.use(globalErrorHandler);
 
