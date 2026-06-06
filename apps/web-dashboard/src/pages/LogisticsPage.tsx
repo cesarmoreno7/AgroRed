@@ -51,6 +51,10 @@ export function LogisticsPage() {
   const [orderForm, setOrderForm]         = useState({ ...emptyOrder });
   const [orderLoading, setOrderLoading]   = useState(false);
   const [orderError, setOrderError]       = useState<string | null>(null);
+  
+  const [producersList, setProducersList] = useState<any[]>([]);
+  const [institutionsList, setInstitutionsList] = useState<any[]>([]);
+  const [originType, setOriginType] = useState<"producer" | "institution">("producer");
 
   useEffect(() => {
     fetchGeofences().then(r => { if (r.ok) setZones(r.data); });
@@ -64,6 +68,18 @@ export function LogisticsPage() {
       if (r.ok) {
         const list = Array.isArray(r.data) ? r.data : (r.data as any).data ?? [];
         setInventoryList(list);
+      }
+    });
+    api<any>("/api/v1/producers?limit=100").then(r => {
+      if (r.ok) {
+        const list = Array.isArray(r.data) ? r.data : (r.data as any).data ?? [];
+        setProducersList(list);
+      }
+    });
+    api<any>("/api/v1/institutions?limit=100").then(r => {
+      if (r.ok) {
+        const list = Array.isArray(r.data) ? r.data : (r.data as any).data ?? [];
+        setInstitutionsList(list);
       }
     });
   }, []);
@@ -337,8 +353,36 @@ export function LogisticsPage() {
                     <option value="river">Fluvial</option>
                   </select>
                 </div>
-                <div><label style={lbl}>Origen (Nombre) *</label><input style={inp} value={orderForm.originLocationName} onChange={e => setO("originLocationName", e.target.value)} required placeholder="Ej. Bodega Central" /></div>
-                <div><label style={lbl}>Destino (Organización) *</label><input style={inp} value={orderForm.destinationOrganizationName} onChange={e => setO("destinationOrganizationName", e.target.value)} required placeholder="Ej. Comedor Escolar" /></div>
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <label style={{ ...lbl, marginBottom: 0 }}>Origen (Nombre) *</label>
+                    <div style={{ display: "flex", gap: 10, fontSize: 11, color: "rgba(255,255,255,0.6)" }}>
+                      <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+                        <input type="radio" name="origType" checked={originType === "producer"} onChange={() => { setOriginType("producer"); setO("originLocationName", ""); }} /> Productor
+                      </label>
+                      <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+                        <input type="radio" name="origType" checked={originType === "institution"} onChange={() => { setOriginType("institution"); setO("originLocationName", ""); }} /> Institución
+                      </label>
+                    </div>
+                  </div>
+                  <select style={inp} value={orderForm.originLocationName} onChange={e => setO("originLocationName", e.target.value)} required>
+                    <option value="">Selecciona el origen...</option>
+                    {originType === "producer" ? (
+                      producersList.map(p => <option key={p.id} value={p.organizationName || p.contactName}>{p.organizationName || p.contactName}</option>)
+                    ) : (
+                      institutionsList.map(i => <option key={i.id} value={i.name}>{i.name}</option>)
+                    )}
+                  </select>
+                </div>
+                <div>
+                  <label style={lbl}>Destino (Organización) *</label>
+                  <select style={inp} value={orderForm.destinationOrganizationName} onChange={e => setO("destinationOrganizationName", e.target.value)} required>
+                    <option value="">Selecciona el destino...</option>
+                    {institutionsList.map(i => (
+                      <option key={i.id} value={i.name}>{i.name}</option>
+                    ))}
+                  </select>
+                </div>
                 <div><label style={lbl}>Dirección de Destino *</label><input style={inp} value={orderForm.destinationAddress} onChange={e => setO("destinationAddress", e.target.value)} required placeholder="Ej. Calle 123 #45-67" /></div>
                 <div><label style={lbl}>Municipio *</label><input style={inp} value={orderForm.municipalityName} onChange={e => setO("municipalityName", e.target.value)} required placeholder="Ej. Bogotá" /></div>
                 <div><label style={lbl}>Fecha/Hora Recogida *</label><input style={inp} type="datetime-local" value={orderForm.scheduledPickupAt} onChange={e => setO("scheduledPickupAt", e.target.value)} required /></div>
