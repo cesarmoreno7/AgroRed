@@ -268,8 +268,19 @@ export function LogisticsPage() {
         </h2>
 
         {orders.length === 0 ? (
-          <div style={{ padding: "28px 20px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: 13 }}>
-            No hay órdenes logísticas registradas aún. Usa <code style={{ background: "rgba(255,255,255,0.08)", padding: "2px 8px", borderRadius: 6, color: "#fb923c" }}>POST /api/v1/logistics/register</code> para crear una.
+          <div style={{ padding: "48px 20px", background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.1)", borderRadius: 16, textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 220 }}>
+            <div style={{ width: 68, height: 68, background: "rgba(251,146,60,0.1)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, marginBottom: 18, border: "1px solid rgba(251,146,60,0.2)" }}>
+              🚛
+            </div>
+            <h3 style={{ margin: "0 0 10px", fontSize: 17, fontWeight: 700, color: "#fff" }}>Sin órdenes logísticas activas</h3>
+            <p style={{ margin: "0 0 24px", fontSize: 13, color: "rgba(255,255,255,0.45)", maxWidth: 420, lineHeight: 1.5 }}>
+              Aún no se han registrado órdenes de transporte o envíos en el sistema. Las órdenes aparecerán aquí una vez que se programen despachos o recogidas.
+            </p>
+            <button 
+              onClick={() => alert("Funcionalidad de creación manual de órdenes en desarrollo. Por favor, utiliza la API externa.")}
+              style={{ background: "linear-gradient(135deg,#fb923c,#f59e0b)", color: "#0a0a12", border: "none", borderRadius: 10, padding: "12px 28px", fontWeight: 700, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", gap: 8, transition: "transform 0.1s", boxShadow: "0 4px 12px rgba(245,158,11,0.2)" }}>
+              <span>+</span> Crear nueva orden
+            </button>
           </div>
         ) : (
           <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, overflow: "hidden" }}>
