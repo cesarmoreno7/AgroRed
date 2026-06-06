@@ -7,7 +7,7 @@ interface Props {
   onClose: () => void;
 }
 
-export function FleetManagerModal({ tenantId, onClose }: Props) {
+export function FleetManager({ tenantId, onClose }: Props) {
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const [formMode, setFormMode] = useState<"list" | "create" | "edit">("list");
