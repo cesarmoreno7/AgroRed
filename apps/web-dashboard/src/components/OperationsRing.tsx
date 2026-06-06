@@ -21,6 +21,10 @@ export function OperationsRing({ operations }: Props) {
     borderRadius: 16,
     padding: 24,
     backdropFilter: "blur(10px)",
+    height: "100%",
+    minHeight: 286,
+    display: "flex",
+    flexDirection: "column",
   };
 
   const data = ITEMS.map((i) => ({ name: i.label, value: operations[i.key], color: i.color }));
@@ -31,7 +35,7 @@ export function OperationsRing({ operations }: Props) {
       <h3 style={{ margin: "0 0 18px", fontSize: 15, fontWeight: 600, color: "rgba(255,255,255,0.85)", letterSpacing: "0.02em" }}>
         Operaciones activas
       </h3>
-      <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 20, flex: 1, minWidth: 0, flexWrap: "wrap" }}>
         <div style={{ position: "relative", width: 160, height: 160 }}>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
@@ -56,7 +60,7 @@ export function OperationsRing({ operations }: Props) {
             <div style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.06em" }}>total</div>
           </div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1, minWidth: 160 }}>
           {data.map((d) => (
             <div key={d.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: d.color }} />

@@ -19,6 +19,10 @@ export function ActiveFleet({ resources }: Props) {
     borderRadius: 16,
     padding: 24,
     backdropFilter: "blur(10px)",
+    height: "100%",
+    minHeight: 286,
+    display: "flex",
+    flexDirection: "column",
   };
 
   return (
@@ -33,7 +37,7 @@ export function ActiveFleet({ resources }: Props) {
       {resources.length === 0 ? (
         <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, margin: 0 }}>Sin recursos activos en este momento</p>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, overflowY: "auto", paddingRight: 4, flex: 1 }}>
           {resources.map((r) => (
             <div
               key={r.recursoId}

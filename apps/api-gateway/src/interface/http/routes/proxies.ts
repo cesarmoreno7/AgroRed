@@ -30,8 +30,8 @@ export function registerServiceProxies(app: Express, services: ServiceRouteDefin
       createProxyMiddleware<Request, Response>({
         target: service.target,
         changeOrigin: true,
-        proxyTimeout: 5_000,
-        timeout: 5_000,
+        proxyTimeout: 60_000,
+        timeout: 60_000,
         pathRewrite: (_path, req) => req.originalUrl,
         on: {
           proxyReq: (proxyReq, req) => {

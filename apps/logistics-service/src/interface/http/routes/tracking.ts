@@ -21,6 +21,7 @@ const registerResourceSchema = z.object({
   tipo: z.enum(RESOURCE_TYPES),
   placa: z.string().max(20).optional().nullable(),
   telefono: z.string().max(20).optional().nullable(),
+  estado: z.enum(RESOURCE_STATUSES).optional().default("disponible"),
   latitude: z.coerce.number().min(-90).max(90).optional().nullable(),
   longitude: z.coerce.number().min(-180).max(180).optional().nullable(),
   metadata: z.record(z.unknown()).optional(),

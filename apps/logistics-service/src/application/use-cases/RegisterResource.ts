@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Resource } from "../../domain/entities/Resource.js";
 import type { TrackingRepository } from "../../domain/ports/TrackingRepository.js";
-import type { ResourceType } from "../../domain/value-objects/TrackingTypes.js";
+import type { ResourceStatus, ResourceType } from "../../domain/value-objects/TrackingTypes.js";
 
 export interface RegisterResourceCommand {
   tenantId: string;
@@ -10,6 +10,7 @@ export interface RegisterResourceCommand {
   tipo: ResourceType;
   placa?: string | null;
   telefono?: string | null;
+  estado?: ResourceStatus;
   latitude?: number | null;
   longitude?: number | null;
   metadata?: Record<string, unknown>;
@@ -27,7 +28,7 @@ export class RegisterResource {
       tipo: command.tipo,
       placa: command.placa ?? null,
       telefono: command.telefono ?? null,
-      estado: "disponible",
+      estado: command.estado ?? "disponible",
       latitude: command.latitude ?? null,
       longitude: command.longitude ?? null,
       metadata: command.metadata ?? {},

@@ -37,6 +37,10 @@ function buildUrl(path: string, params?: Record<string, string | number | undefi
   return url.toString();
 }
 
+export function buildApiUrl(path: string, params?: Record<string, string | number | undefined>): string {
+  return buildUrl(path, params);
+}
+
 export async function api<T = unknown>(path: string, opts: RequestOptions = {}): Promise<ApiResult<T>> {
   const { method = "GET", body, params } = opts;
   const headers: Record<string, string> = {};
@@ -55,15 +59,15 @@ export async function api<T = unknown>(path: string, opts: RequestOptions = {}):
       signal: controller.signal,
     });
     clearTimeout(tid);
-    const json = await res.json();
+    const json = res.status === 204 ? null : await res.json().catch(() => null);
     if (!res.ok) {
       // Emit session-expired event so AuthProvider can auto-logout
       if (res.status === 401) {
         window.dispatchEvent(new CustomEvent("agrored:session_expired"));
       }
-      return { ok: false, status: res.status, code: json.error?.code ?? "UNKNOWN", message: json.error?.message ?? "Error" };
+      return { ok: false, status: res.status, code: json?.error?.code ?? "UNKNOWN", message: json?.error?.message ?? "Error" };
     }
-    return { ok: true, status: res.status, data: (json.data ?? json) as T };
+    return { ok: true, status: res.status, data: (json?.data ?? json) as T };
   } catch {
     clearTimeout(tid);
     return { ok: false, status: 0, code: "NETWORK_ERROR", message: "Error de conexión" };

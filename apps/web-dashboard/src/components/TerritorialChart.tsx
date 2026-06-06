@@ -15,6 +15,10 @@ export function TerritorialChart({ data }: Props) {
     borderRadius: 16,
     padding: 24,
     backdropFilter: "blur(10px)",
+    height: "100%",
+    minHeight: 380,
+    display: "flex",
+    flexDirection: "column",
   };
 
   const chartData = data.map((d) => ({
@@ -34,7 +38,8 @@ export function TerritorialChart({ data }: Props) {
       {data.length === 0 ? (
         <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 13 }}>Sin datos territoriales</p>
       ) : (
-        <ResponsiveContainer width="100%" height={280}>
+        <div style={{ flex: 1, minHeight: 300 }}>
+        <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} barGap={2}>
             <XAxis dataKey="name" tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 11 }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fill: "rgba(255,255,255,0.25)", fontSize: 10 }} axisLine={false} tickLine={false} width={35} />
@@ -57,6 +62,7 @@ export function TerritorialChart({ data }: Props) {
             <Bar dataKey="demandas" name="Demandas" radius={[4, 4, 0, 0]} fill="#f59e0b" fillOpacity={0.55} />
           </BarChart>
         </ResponsiveContainer>
+        </div>
       )}
     </div>
   );

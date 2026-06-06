@@ -111,7 +111,7 @@ export function DashboardPage() {
 
       {/* ── KPI estratégicos: IRAT + Cobertura ── */}
       {summary && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div className="dashboard-feature-grid" style={{ display: "grid", gap: 16 }}>
           {/* IRAT */}
           <div style={{ ...glass, padding: 24, position: "relative", overflow: "hidden", borderColor: `${iratColor}22` }}>
             <div style={{ position: "absolute", top: -30, right: -20, fontSize: 110, opacity: 0.04, lineHeight: 1 }}>🚨</div>
@@ -172,35 +172,46 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* ── Mid row: Balance operativo + Flota ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-        {summary && (
-          <div style={{ ...glass, padding: 24 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)", marginBottom: 16 }}>Balance Operativo</div>
-            <OperationsRing operations={summary.operations} />
-          </div>
-        )}
-        <div style={{ ...glass, padding: 24 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)", marginBottom: 16 }}>Seguimiento Logístico</div>
+      {/* ── Mid row: Balance operativo + Flota activa ── */}
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 14 }}>
+          Balance Operativo
+        </div>
+        <div className="dashboard-lower-grid" style={{ display: "grid", gap: 20, alignItems: "stretch" }}>
+          {summary && <OperationsRing operations={summary.operations} />}
           <ActiveFleet resources={fleet} />
         </div>
       </div>
 
       {/* ── Bottom row: Visión territorial + Totales ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20, paddingBottom: 32 }}>
-        <div style={{ ...glass, padding: 24 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)", marginBottom: 16 }}>Visión Territorial</div>
-          <TerritorialChart data={territorial} />
+      <div style={{ paddingBottom: 32 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 14 }}>
+          Vista Territorial
         </div>
-        {summary && (
-          <div style={{ ...glass, padding: 24 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)", marginBottom: 16 }}>Totales del Sistema</div>
-            <TotalsTable totals={summary.totals} />
-          </div>
-        )}
+        <div className="dashboard-bottom-grid" style={{ display: "grid", gap: 20, alignItems: "stretch" }}>
+          <TerritorialChart data={territorial} />
+          {summary && <TotalsTable totals={summary.totals} />}
+        </div>
       </div>
 
       <style>{`
+        .dashboard-feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .dashboard-lower-grid   { grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); }
+        .dashboard-bottom-grid  { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+        @media (max-width: 1024px) {
+          .dashboard-lower-grid  { grid-template-columns: 1fr 1fr; }
+          .dashboard-bottom-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 820px) {
+          .dashboard-feature-grid,
+          .dashboard-lower-grid,
+          .dashboard-bottom-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+        @media (max-width: 620px) {
+          .dashboard-feature-grid > div { padding: 18px !important; }
+        }
         @keyframes fadeIn  { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
         @keyframes pulse   { 0%,100% { opacity:1 } 50% { opacity:0.4 } }
         @keyframes spin    { to { transform:rotate(360deg) } }

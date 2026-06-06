@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { fetchActiveResources } from "../services/dashboard";
-import { getToken } from "../services/api";
+import { buildApiUrl, getToken } from "../services/api";
 import { FleetMap } from "../components/FleetMap";
 import { FleetManager } from "../components/FleetManager";
 import type { CurrentPosition } from "../types";
@@ -41,7 +41,7 @@ export function FleetPage() {
 
     async function connectSSE() {
       try {
-        const res = await fetch("/api/v1/logistics/tracking/stream", {
+        const res = await fetch(buildApiUrl("/api/v1/logistics/tracking/stream"), {
           headers: { Authorization: `Bearer ${token}` },
           signal: controller.signal,
         });
@@ -119,7 +119,7 @@ export function FleetPage() {
       <FleetMap resources={resources} />
 
       {/* CRUD Manager */}
-      <FleetManager tenantId={user?.tenantId} />
+      <FleetManager tenantId={user?.role === "admin_municipal" ? undefined : user?.tenantId} />
 
       {/* KPIs */}
       {resources.length > 0 && (
