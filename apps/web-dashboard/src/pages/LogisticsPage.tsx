@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { fetchGeofences, registerGeofence, updateGeofence } from "../services/logistics";
+import { fetchGeofences, registerGeofence, updateGeofence, registerLogisticsOrder } from "../services/logistics";
 import { GeofenceMap } from "../components/GeofenceMap";
 import { api } from "../services/api";
 import { useAuth } from "../hooks/useAuth";
@@ -21,6 +21,7 @@ const ZONE_ICON: Record<string, string> = {
 const inp: React.CSSProperties = { width: "100%", padding: "10px 14px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, color: "#fff", fontSize: 13, outline: "none", boxSizing: "border-box" };
 const lbl: React.CSSProperties = { display: "block", fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" };
 const empty = { zoneName: "", zoneType: "delivery", centerLat: "", centerLng: "", radiusM: "", metadata: "" };
+const emptyOrder = { inventoryItemId: "", routeMode: "road", originLocationName: "", destinationOrganizationName: "", destinationAddress: "", scheduledPickupAt: "", scheduledDeliveryAt: "", quantityAssigned: "", municipalityName: "", notes: "" };
 
 const ORDER_STATUS_COLOR: Record<string, [string, string]> = {
   scheduled:  ["#60a5fa", "Programada"],
@@ -34,6 +35,7 @@ export function LogisticsPage() {
   const { user } = useAuth();
   const [zones, setZones]             = useState<any[]>([]);
   const [orders, setOrders]           = useState<any[]>([]);
+  const [inventoryList, setInventoryList] = useState<any[]>([]);
   const [search, setSearch]           = useState("");
   const [showForm, setShowForm]       = useState(false);
   const [loading, setLoading]         = useState(false);
@@ -45,12 +47,23 @@ export function LogisticsPage() {
   const [editError, setEditError]     = useState<string | null>(null);
   const [selectedId, setSelectedId]   = useState<string | null>(null);
 
+  const [showOrderForm, setShowOrderForm] = useState(false);
+  const [orderForm, setOrderForm]         = useState({ ...emptyOrder });
+  const [orderLoading, setOrderLoading]   = useState(false);
+  const [orderError, setOrderError]       = useState<string | null>(null);
+
   useEffect(() => {
     fetchGeofences().then(r => { if (r.ok) setZones(r.data); });
     api<any>("/api/v1/logistics?limit=50").then(r => {
       if (r.ok) {
         const list = Array.isArray(r.data) ? r.data : (r.data as any).data ?? [];
         setOrders(list);
+      }
+    });
+    api<any>("/api/v1/inventory?limit=100").then(r => {
+      if (r.ok) {
+        const list = Array.isArray(r.data) ? r.data : (r.data as any).data ?? [];
+        setInventoryList(list);
       }
     });
   }, []);
@@ -65,6 +78,7 @@ export function LogisticsPage() {
 
   const set  = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
   const setE = (k: string, v: string) => setEditForm(f => ({ ...f, [k]: v }));
+  const setO = (k: string, v: string) => setOrderForm(f => ({ ...f, [k]: v }));
 
   const handleEdit = (record: any) => {
     setEditingId(record.id);
@@ -118,6 +132,32 @@ export function LogisticsPage() {
     setLoading(false);
     if (res.ok) { setZones(u => [res.data, ...u]); setForm({ ...empty }); setShowForm(false); }
     else setError((res as any).message);
+  };
+
+  const handleOrderSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setOrderLoading(true); setOrderError(null);
+    const res = await registerLogisticsOrder({
+      tenantId: user?.tenantId ?? "",
+      inventoryItemId: orderForm.inventoryItemId,
+      routeMode: orderForm.routeMode,
+      originLocationName: orderForm.originLocationName,
+      destinationOrganizationName: orderForm.destinationOrganizationName,
+      destinationAddress: orderForm.destinationAddress,
+      scheduledPickupAt: new Date(orderForm.scheduledPickupAt).toISOString(),
+      scheduledDeliveryAt: new Date(orderForm.scheduledDeliveryAt).toISOString(),
+      quantityAssigned: parseFloat(orderForm.quantityAssigned),
+      municipalityName: orderForm.municipalityName,
+      notes: orderForm.notes || undefined,
+    });
+    setOrderLoading(false);
+    if (res.ok) { 
+      setOrders(u => [res.data, ...u]); 
+      setOrderForm({ ...emptyOrder }); 
+      setShowOrderForm(false); 
+    } else {
+      setOrderError((res as any).message);
+    }
   };
 
   return (
@@ -262,12 +302,58 @@ export function LogisticsPage() {
 
       {/* ── Sección: Órdenes logísticas ── */}
       <div style={{ marginTop: 8 }}>
-        <h2 style={{ margin: "0 0 14px", fontSize: 18, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
-          <span>🚛</span> Órdenes logísticas
-          <span style={{ fontSize: 12, fontWeight: 400, color: "rgba(255,255,255,0.3)", marginLeft: 6 }}>{orders.length} registros</span>
-        </h2>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
+            <span>🚛</span> Órdenes logísticas
+            <span style={{ fontSize: 12, fontWeight: 400, color: "rgba(255,255,255,0.3)", marginLeft: 6 }}>{orders.length} registros</span>
+          </h2>
+          <button 
+            onClick={() => setShowOrderForm(v => !v)}
+            style={{ background: showOrderForm ? "rgba(255,255,255,0.07)" : "linear-gradient(135deg,#fb923c,#f59e0b)", color: showOrderForm ? "rgba(255,255,255,0.6)" : "#0a0a12", border: "none", borderRadius: 10, padding: "8px 16px", fontWeight: 700, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", gap: 6, transition: "transform 0.1s" }}>
+            {showOrderForm ? "✕ Cancelar" : "+ Crear nueva orden"}
+          </button>
+        </div>
 
-        {orders.length === 0 ? (
+        {showOrderForm && (
+          <div style={{ background: "rgba(251,146,60,0.04)", border: "1px solid rgba(251,146,60,0.15)", borderRadius: 16, padding: 24, marginBottom: 20 }}>
+            <h3 style={{ margin: "0 0 20px", fontSize: 16, fontWeight: 700, color: "#fb923c" }}>Nueva Orden Logística</h3>
+            <form onSubmit={handleOrderSubmit}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
+                <div>
+                  <label style={lbl}>Inventario / Producto *</label>
+                  <select style={inp} value={orderForm.inventoryItemId} onChange={e => setO("inventoryItemId", e.target.value)} required>
+                    <option value="">Selecciona un producto disponible...</option>
+                    {inventoryList.filter(i => Number(i.quantityOnHand) > 0).map(i => (
+                      <option key={i.id} value={i.id}>{i.productName} ({i.quantityOnHand} {i.unit})</option>
+                    ))}
+                  </select>
+                </div>
+                <div><label style={lbl}>Cantidad a enviar (kg) *</label><input style={inp} type="number" min="1" value={orderForm.quantityAssigned} onChange={e => setO("quantityAssigned", e.target.value)} required /></div>
+                <div>
+                  <label style={lbl}>Modo de ruta *</label>
+                  <select style={inp} value={orderForm.routeMode} onChange={e => setO("routeMode", e.target.value)} required>
+                    <option value="road">Terrestre (Camión)</option>
+                    <option value="drone">Dron aéreo</option>
+                    <option value="river">Fluvial</option>
+                  </select>
+                </div>
+                <div><label style={lbl}>Origen (Nombre) *</label><input style={inp} value={orderForm.originLocationName} onChange={e => setO("originLocationName", e.target.value)} required placeholder="Ej. Bodega Central" /></div>
+                <div><label style={lbl}>Destino (Organización) *</label><input style={inp} value={orderForm.destinationOrganizationName} onChange={e => setO("destinationOrganizationName", e.target.value)} required placeholder="Ej. Comedor Escolar" /></div>
+                <div><label style={lbl}>Dirección de Destino *</label><input style={inp} value={orderForm.destinationAddress} onChange={e => setO("destinationAddress", e.target.value)} required placeholder="Ej. Calle 123 #45-67" /></div>
+                <div><label style={lbl}>Municipio *</label><input style={inp} value={orderForm.municipalityName} onChange={e => setO("municipalityName", e.target.value)} required placeholder="Ej. Bogotá" /></div>
+                <div><label style={lbl}>Fecha/Hora Recogida *</label><input style={inp} type="datetime-local" value={orderForm.scheduledPickupAt} onChange={e => setO("scheduledPickupAt", e.target.value)} required /></div>
+                <div><label style={lbl}>Fecha/Hora Entrega *</label><input style={inp} type="datetime-local" value={orderForm.scheduledDeliveryAt} onChange={e => setO("scheduledDeliveryAt", e.target.value)} required /></div>
+                <div style={{ gridColumn: "span 3" }}><label style={lbl}>Notas</label><input style={inp} value={orderForm.notes} onChange={e => setO("notes", e.target.value)} placeholder="Instrucciones de entrega..." /></div>
+              </div>
+              {orderError && <div style={{ color: "#f87171", fontSize: 13, marginBottom: 14, padding: "8px 12px", background: "rgba(248,113,113,0.08)", borderRadius: 8 }}>{orderError}</div>}
+              <button type="submit" disabled={orderLoading} style={{ background: "linear-gradient(135deg,#fb923c,#f59e0b)", color: "#0a0a12", border: "none", borderRadius: 10, padding: "11px 28px", fontWeight: 700, cursor: "pointer", fontSize: 14 }}>
+                {orderLoading ? "Creando..." : "Crear orden"}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {!showOrderForm && orders.length === 0 ? (
           <div style={{ padding: "48px 20px", background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.1)", borderRadius: 16, textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 220 }}>
             <div style={{ width: 68, height: 68, background: "rgba(251,146,60,0.1)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, marginBottom: 18, border: "1px solid rgba(251,146,60,0.2)" }}>
               🚛
@@ -277,12 +363,13 @@ export function LogisticsPage() {
               Aún no se han registrado órdenes de transporte o envíos en el sistema. Las órdenes aparecerán aquí una vez que se programen despachos o recogidas.
             </p>
             <button 
-              onClick={() => alert("Funcionalidad de creación manual de órdenes en desarrollo. Por favor, utiliza la API externa.")}
+              onClick={() => setShowOrderForm(true)}
               style={{ background: "linear-gradient(135deg,#fb923c,#f59e0b)", color: "#0a0a12", border: "none", borderRadius: 10, padding: "12px 28px", fontWeight: 700, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", gap: 8, transition: "transform 0.1s", boxShadow: "0 4px 12px rgba(245,158,11,0.2)" }}>
               <span>+</span> Crear nueva orden
             </button>
           </div>
         ) : (
+          orders.length > 0 && (
           <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, overflow: "hidden" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
               <thead>
@@ -319,6 +406,7 @@ export function LogisticsPage() {
               </tbody>
             </table>
           </div>
+          )
         )}
       </div>
     </div>

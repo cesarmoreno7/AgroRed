@@ -9,3 +9,7 @@ export function registerGeofence(data: any) {
 export function updateGeofence(id: string, data: any) {
   return api<any>(`/api/v1/logistics/geofences/${id}`, { method: "PATCH", body: data });
 }
+
+export function registerLogisticsOrder(data: any) {
+  return api<any>("/api/v1/logistics/register", { method: "POST", body: data });
+}
