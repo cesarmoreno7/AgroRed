@@ -41,7 +41,11 @@ export function createAnalyticsRouter(repository: AnalyticsRepository, cache?: R
   const CACHE_TTL = 300; // 5 minutes
 
   router.get("/api/v1/analytics/summary", asyncHandler(async (req, res) => {
-    const tenantId = (req.headers["x-tenant-id"] as string | undefined) ?? (req.query.tenantId ? String(req.query.tenantId) : undefined);
+    const userRole  = req.headers["x-user-role"] as string | undefined;
+    // admin_municipal sees global data across all tenants
+    const tenantId  = userRole === "admin_municipal"
+      ? undefined
+      : (req.headers["x-tenant-id"] as string | undefined) ?? (req.query.tenantId ? String(req.query.tenantId) : undefined);
     const format = String(req.query.format ?? "json").toLowerCase();
 
     try {
