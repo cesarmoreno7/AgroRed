@@ -35,8 +35,6 @@ const MENU_GROUPS: MenuGroup[] = [
       { to: "/territorial",    icon: "🗺️", label: "Mapa Territorial",    module: "logistics-service" },
       { to: "/institutions",  icon: "🏛️", label: "Instituciones",        module: "institution-service" },
       { to: "/origins",       icon: "🏪", label: "Orígenes Aliados",     module: "origins-service" },
-      { to: "/departments",   icon: "🗾", label: "Departamentos",         },
-      { to: "/municipalities",icon: "📍", label: "Municipios",            },
     ],
   },
   {
@@ -63,6 +61,8 @@ const MENU_GROUPS: MenuGroup[] = [
       { to: "/organizations", icon: "🏢", label: "Organizaciones",      module: "catalog-service" },
       { to: "/products",      icon: "🥦", label: "Productos",           module: "catalog-service" },
       { to: "/categories",    icon: "🏷️", label: "Categorías",          module: "catalog-service" },
+      { to: "/departments",   icon: "🗾", label: "Departamentos",         },
+      { to: "/municipalities",icon: "📍", label: "Municipios",            },
     ],
   },
   {
