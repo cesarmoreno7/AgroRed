@@ -16,7 +16,7 @@ async function run() {
   console.log("🌱 Insertando dos geocercas logísticas de prueba...");
   try {
     // We assume there's a tenant, let's just use a dummy one or null if not enforced, or get the first one
-    const tenantRes = await pool.query(`SELECT id FROM "Tenants" LIMIT 1`);
+    const tenantRes = await pool.query(`SELECT id FROM public.tenants LIMIT 1`);
     const tenantId = tenantRes.rows[0]?.id;
 
     if (!tenantId) {
@@ -46,7 +46,7 @@ async function run() {
 
     for (const g of geofences) {
       await pool.query(
-        `INSERT INTO "Geofences" (id, "tenantId", "zoneName", "zoneType", "centerLat", "centerLng", "radiusM", metadata, "isActive", "createdAt", "updatedAt") 
+        `INSERT INTO public.geofence_zones (id, tenant_id, zone_name, zone_type, center_lat, center_lng, radius_m, metadata, is_active, created_at, updated_at) 
          VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, true, NOW(), NOW())`,
         [g.tenantId, g.zoneName, g.zoneType, g.centerLat, g.centerLng, g.radiusM, g.metadata]
       );
