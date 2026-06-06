@@ -75,6 +75,8 @@ export interface TrackingRepository {
   findResourceById(id: string): Promise<Resource | null>;
   listResources(params: PaginationParams, tenantId?: string): Promise<PaginatedResult<Resource>>;
   updateResourceStatus(id: string, estado: ResourceStatus): Promise<void>;
+  updateResource(id: string, updates: Partial<Omit<Resource, "id" | "tenantId" | "createdAt">>): Promise<Resource | null>;
+  deleteResource(id: string): Promise<void>;
 
   // GPS Tracking
   recordPosition(point: TrackingPoint): Promise<void>;

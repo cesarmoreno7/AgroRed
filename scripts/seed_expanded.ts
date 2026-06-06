@@ -23,6 +23,7 @@ const pool = new pg.Pool({
   user: process.env.POSTGRES_USER ?? "777",
   password: process.env.POSTGRES_PASSWORD ?? "777",
   connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
 });
 
 // ===== Config knobs =====

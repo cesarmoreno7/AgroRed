@@ -26,13 +26,14 @@ export class GetRecommendations {
   private buildRecommendations(report: MlDecisionSupportReport): MlRecommendation[] {
     const recommendations: MlRecommendation[] = [];
     const { inputs, scores } = report;
+    const loc = report.tenantName ? `en el área de ${report.tenantName}` : "en el territorio";
 
     if (scores.supplyCoverageScore < 50) {
       recommendations.push({
         priority: "high",
         actionCode: "activate_supply",
         title: "Activar oferta complementaria",
-        rationale: "La cobertura actual de inventario no alcanza la demanda abierta del territorio."
+        rationale: `Se ha detectado escasez de inventario ${loc}. Solo se cuenta con ${inputs.availableInventoryUnits} unidades disponibles para una demanda abierta de ${inputs.openDemandUnits}. Contacta a productores de la zona de inmediato.`
       });
     }
 
@@ -41,7 +42,7 @@ export class GetRecommendations {
         priority: "high",
         actionCode: "schedule_logistics",
         title: "Programar operacion logistica",
-        rationale: "Hay demanda abierta sin operaciones logisticas programadas para atenderla."
+        rationale: `Existen ${inputs.openDemandUnits} pedidos pendientes sin transporte asignado ${loc}. Asigna vehículos a las rutas de entrega para evitar retrasos en los comedores/instituciones.`
       });
     }
 
@@ -50,7 +51,7 @@ export class GetRecommendations {
         priority: this.resolveIncidentPriority(report.classification),
         actionCode: "stabilize_operations",
         title: "Estabilizar operacion territorial",
-        rationale: "Existen incidencias abiertas que afectan la continuidad del abastecimiento y la entrega."
+        rationale: `Hay ${inputs.openIncidents} incidentes (como bloqueos de vías o clima adverso) reportados ${loc}. Desvía los vehículos o avisa a las instituciones destinatarias.`
       });
     }
 
@@ -59,7 +60,7 @@ export class GetRecommendations {
         priority: "medium",
         actionCode: "dispatch_notifications",
         title: "Despachar notificaciones pendientes",
-        rationale: "Hay alertas pendientes de entrega a actores clave del flujo operativo."
+        rationale: `Existen ${inputs.pendingNotifications} alertas pendientes de entrega a conductores o instituciones ${loc}. Revisa los canales de SMS/Email para mantener la coordinación.`
       });
     }
 
@@ -68,7 +69,7 @@ export class GetRecommendations {
         priority: "medium",
         actionCode: "rebalance_inventory",
         title: "Rebalancear inventario",
-        rationale: "El inventario reservado supera el disponible y puede tensionar el cumplimiento de la demanda."
+        rationale: `El inventario reservado (${inputs.reservedInventoryUnits}) supera el inventario físicamente disponible (${inputs.availableInventoryUnits}) ${loc}. Ajusta el inventario o cancela reservas no críticas.`
       });
     }
 
@@ -77,7 +78,7 @@ export class GetRecommendations {
         priority: "low",
         actionCode: "maintain_monitoring",
         title: "Mantener monitoreo operativo",
-        rationale: "Los indicadores actuales no muestran tension critica; conviene sostener seguimiento preventivo."
+        rationale: `Los indicadores actuales ${loc} no muestran tensión crítica. Se sugiere sostener un seguimiento preventivo de la flota y el inventario.`
       });
     }
 

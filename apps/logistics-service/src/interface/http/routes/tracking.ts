@@ -8,7 +8,7 @@ import type { Resource } from "../../../domain/entities/Resource.js";
 import type { TrackingPoint } from "../../../domain/entities/TrackingPoint.js";
 import type { TrackingRepository, CurrentPosition, DeliveryEventRecord, GeofenceZone, GeofenceCheckResult, EtaEstimate } from "../../../domain/ports/TrackingRepository.js";
 import type { AuditLogger } from "../../../shared/audit.js";
-import { RESOURCE_TYPES } from "../../../domain/value-objects/TrackingTypes.js";
+import { RESOURCE_TYPES, RESOURCE_STATUSES } from "../../../domain/value-objects/TrackingTypes.js";
 import { DELIVERY_EVENTS, TRACKING_EVENTS } from "../../../domain/value-objects/TrackingTypes.js";
 import { asyncHandler, sendError, sendPaginatedSuccess, sendSuccess } from "../response.js";
 
@@ -247,6 +247,43 @@ export function createTrackingRouter(repository: TrackingRepository, auditLogger
       return sendError(res, 404, "RESOURCE_NOT_FOUND", "Recurso logistico no encontrado.");
     }
     return sendSuccess(res, toResourceResponse(resource));
+  }));
+
+  const updateResourceSchema = z.object({
+    nombre: z.string().min(2).optional(),
+    tipo: z.enum(RESOURCE_TYPES).optional(),
+    placa: z.string().max(20).optional().nullable(),
+    telefono: z.string().max(20).optional().nullable(),
+    estado: z.enum(RESOURCE_STATUSES).optional(),
+  }).refine(d => Object.keys(d).length > 0, { message: "Al menos un campo requerido." });
+
+  // PATCH /api/v1/logistics/resources/:id
+  router.patch("/api/v1/logistics/resources/:id", asyncHandler(async (req, res) => {
+    const parsed = updateResourceSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return sendError(res, 400, "INVALID_RESOURCE_UPDATE", "Payload invalido para actualizar recurso.");
+    }
+
+    try {
+      const resource = await repository.updateResource(String(req.params.id), parsed.data);
+      if (!resource) return sendError(res, 404, "RESOURCE_NOT_FOUND", "Recurso logistico no encontrado.");
+      return sendSuccess(res, toResourceResponse(resource));
+    } catch (error) {
+      return sendError(res, 500, "RESOURCE_UPDATE_FAILED", "No fue posible actualizar el recurso.");
+    }
+  }));
+
+  // DELETE /api/v1/logistics/resources/:id
+  router.delete("/api/v1/logistics/resources/:id", asyncHandler(async (req, res) => {
+    try {
+      const resource = await repository.findResourceById(String(req.params.id));
+      if (!resource) return sendError(res, 404, "RESOURCE_NOT_FOUND", "Recurso logistico no encontrado.");
+      
+      await repository.deleteResource(resource.id);
+      return res.status(204).send();
+    } catch (error) {
+      return sendError(res, 500, "RESOURCE_DELETE_FAILED", "No fue posible eliminar el recurso.");
+    }
   }));
 
   // ═══════════════════════════════════════════

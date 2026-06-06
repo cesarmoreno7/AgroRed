@@ -4,6 +4,7 @@ import { fetchActiveResources } from "../services/dashboard";
 import { getToken } from "../services/api";
 import { ActiveFleet } from "../components/ActiveFleet";
 import { FleetMap } from "../components/FleetMap";
+import { FleetManagerModal } from "../components/FleetManagerModal";
 import type { CurrentPosition } from "../types";
 
 const STATUS_DOT: Record<string, string> = {
@@ -18,6 +19,7 @@ export function FleetPage() {
   const [resources, setResources] = useState<CurrentPosition[]>([]);
   const [loading, setLoading]     = useState(true);
   const [liveMode, setLiveMode]   = useState(false);
+  const [managerOpen, setManagerOpen] = useState(false);
   // ── Initial load + fallback polling every 15 s ──
   const load = useCallback(async () => {
     const res = await fetchActiveResources(user?.tenantId);
@@ -101,19 +103,27 @@ export function FleetPage() {
           </p>
         </div>
 
-        {/* Live indicator */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.04)", border: `1px solid ${liveMode ? "rgba(74,222,128,0.3)" : "rgba(255,255,255,0.08)"}`, borderRadius: 24, padding: "8px 16px" }}>
-          <span style={{
-            display: "block", width: 8, height: 8, borderRadius: "50%",
-            background: liveMode ? "#4ade80" : "#6b7280",
-            boxShadow: liveMode ? "0 0 6px #4ade80" : "none",
-            animation: liveMode ? "pulse 1.5s infinite" : "none",
-          }} />
-          <span style={{ fontSize: 12, color: liveMode ? "#4ade80" : "rgba(255,255,255,0.35)", fontWeight: 600 }}>
-            {liveMode ? "En vivo" : "Polling 15 s"}
-          </span>
+        {/* Actions & Live indicator */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button onClick={() => setManagerOpen(true)} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "8px 16px", color: "#fff", cursor: "pointer", fontWeight: 600, fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
+            <span>⚙️</span> Administrar Flota
+          </button>
+          
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.04)", border: `1px solid ${liveMode ? "rgba(74,222,128,0.3)" : "rgba(255,255,255,0.08)"}`, borderRadius: 24, padding: "8px 16px" }}>
+            <span style={{
+              display: "block", width: 8, height: 8, borderRadius: "50%",
+              background: liveMode ? "#4ade80" : "#6b7280",
+              boxShadow: liveMode ? "0 0 6px #4ade80" : "none",
+              animation: liveMode ? "pulse 1.5s infinite" : "none",
+            }} />
+            <span style={{ fontSize: 12, color: liveMode ? "#4ade80" : "rgba(255,255,255,0.35)", fontWeight: 600 }}>
+              {liveMode ? "En vivo" : "Polling 15 s"}
+            </span>
+          </div>
         </div>
       </div>
+
+      {managerOpen && <FleetManagerModal tenantId={user?.tenantId} onClose={() => setManagerOpen(false)} />}
 
       {/* Mapa */}
       <FleetMap resources={resources} />

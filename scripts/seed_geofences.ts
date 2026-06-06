@@ -10,6 +10,7 @@ const pool = new Pool({
   database: process.env.POSTGRES_DB || "agrored",
   user: process.env.POSTGRES_USER || "agrored_user",
   password: process.env.POSTGRES_PASSWORD || "change_me_in_production!!",
+  ssl: { rejectUnauthorized: false }
 });
 
 async function run() {

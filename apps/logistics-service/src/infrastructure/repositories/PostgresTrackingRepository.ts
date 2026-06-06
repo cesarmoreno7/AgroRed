@@ -170,6 +170,43 @@ export class PostgresTrackingRepository implements TrackingRepository {
     );
   }
 
+  async updateResource(id: string, updates: Partial<Omit<Resource, "id" | "tenantId" | "createdAt">>): Promise<Resource | null> {
+    const COLS: Record<string, string> = {
+      nombre: "nombre",
+      tipo: "tipo",
+      placa: "placa",
+      telefono: "telefono",
+      estado: "estado",
+    };
+    const sets: string[] = [];
+    const vals: unknown[] = [];
+    let i = 1;
+
+    for (const [k, v] of Object.entries(updates)) {
+      if (COLS[k]) {
+        sets.push(`${COLS[k]} = $${i++}`);
+        vals.push(v);
+      }
+    }
+
+    if (sets.length === 0) return this.findResourceById(id);
+
+    sets.push(`updated_at = NOW()`);
+    vals.push(id);
+
+    await this.pool.query(
+      `UPDATE public.recursos SET ${sets.join(", ")} WHERE id = $${i} AND deleted_at IS NULL`,
+      vals
+    );
+
+    return this.findResourceById(id);
+  }
+
+  async deleteResource(id: string): Promise<void> {
+    await this.pool.query(`UPDATE public.recursos SET deleted_at = NOW() WHERE id = $1`, [id]);
+    await this.pool.query(`DELETE FROM public.tracking_actual WHERE recurso_id = $1`, [id]);
+  }
+
   // ── GPS Tracking ──
 
   async recordPosition(point: TrackingPoint): Promise<void> {

@@ -78,3 +78,18 @@ export interface CurrentPosition {
   ordenId: string | null;
   actualizadoAt: string;
 }
+
+export interface Resource {
+  id: string;
+  tenantId: string;
+  userId: string | null;
+  nombre: string;
+  tipo: string;
+  placa: string | null;
+  telefono: string | null;
+  estado: string;
+  latitude: number | null;
+  longitude: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
