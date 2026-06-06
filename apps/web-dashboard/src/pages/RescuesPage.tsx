@@ -319,113 +319,87 @@ export function RescuesPage() {
 
       {/* New rescue form */}
       {showForm && (
-        <div style={{ background: "rgba(167,139,250,0.04)", border: "1px solid rgba(167,139,250,0.15)", borderRadius: 16, padding: 24 }}>
-          <h3 style={{ margin: "0 0 20px", fontSize: 16, fontWeight: 700, color: "#a78bfa" }}>Nuevo rescate</h3>
-          <form onSubmit={handleSubmit}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
-              {/* Origen */}
-              <div>
-                <label style={lbl}>Origen de los alimentos</label>
-                <select style={inp} value={form.originId} onChange={e => set("originId", e.target.value)}>
-                  <option value="">— Sin origen asignado —</option>
-                  {origins.map((o: any) => <option key={o.id} value={o.id}>{o.name} ({o.municipalityName})</option>)}
-                </select>
-              </div>
-              {/* Canal */}
-              <div>
-                <label style={lbl}>Canal *</label>
-                <select style={inp} value={form.rescueChannel} onChange={e => set("rescueChannel", e.target.value)}>
-                  {CHANNELS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                </select>
-              </div>
-              {/* Productor */}
-              <div>
-                <label style={lbl}>ID Productor *</label>
-                <select style={inp} value={form.producerId} onChange={e => set("producerId", e.target.value)} required>
-                  <option value="">— Seleccione productor —</option>
-                  {producers.map((p: any) => (
-                    <option key={p.id} value={p.id}>{p.organizationName} — {p.municipalityName}</option>
-                  ))}
-                </select>
-              </div>
-              {/* Organización destino */}
-              <div style={{ gridColumn: "span 2" }}>
-                <label style={lbl}>Organización destino *</label>
-                <input style={inp} value={form.destinationOrganizationName} onChange={e => set("destinationOrganizationName", e.target.value)} required />
-              </div>
-              {/* ID Oferta */}
-              <div>
-                <label style={lbl}>ID Oferta</label>
-                <input style={inp} value={form.offerId} onChange={e => set("offerId", e.target.value)} />
-              </div>
-              {/* Categoría + Producto */}
-              <CatProdSelects cat={form.category} prod={form.productName} onCat={handleCategoryChange} onProd={v => set("productName", v)} />
-              {/* Unidad */}
-              <div>
-                <label style={lbl}>Unidad *</label>
-                <select style={inp} value={form.unit} onChange={e => set("unit", e.target.value)} required>
-                  {["kg","libra","tonelada","und","litro","arroba","bulto"].map(u => <option key={u} value={u}>{u}</option>)}
-                </select>
-              </div>
-              {/* Cantidad */}
-              <div>
-                <label style={lbl}>Cantidad *</label>
-                <input style={inp} type="number" min="0.01" step="0.01" value={form.quantityRescued} onChange={e => set("quantityRescued", e.target.value)} required />
-              </div>
-              {/* Fecha */}
-              <div>
-                <label style={lbl}>Fecha programada *</label>
-                <input style={inp} type="date" value={form.scheduledAt} onChange={e => set("scheduledAt", e.target.value)} required />
-              </div>
-              {/* Beneficiarios */}
-              <div>
-                <label style={lbl}>Beneficiarios *</label>
-                <input style={inp} type="number" min="1" value={form.beneficiaryCount} onChange={e => set("beneficiaryCount", e.target.value)} required />
-              </div>
-              {/* Departamento + Municipio */}
-              <DeptMuniSelects deptCode={form.departmentCode} muniName={form.municipalityName} onDept={handleDeptChange} onMuni={v => set("municipalityName", v)} required />
-              {/* Coordenadas */}
-              <div>
-                <label style={lbl}>Latitud</label>
-                <input style={inp} type="number" step="0.0001" value={form.latitude} onChange={e => set("latitude", e.target.value)} />
-              </div>
-              <div>
-                <label style={lbl}>Longitud</label>
-                <input style={inp} type="number" step="0.0001" value={form.longitude} onChange={e => set("longitude", e.target.value)} />
-              </div>
-              {/* Notas */}
-              <div style={{ gridColumn: "span 3" }}>
-                <label style={lbl}>Notas</label>
-                <input style={inp} value={form.notes} onChange={e => set("notes", e.target.value)} />
-              </div>
+        <form onSubmit={handleSubmit} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 16, padding: 24 }}>
+          <h3 style={{ margin: "0 0 20px", fontSize: 16, fontWeight: 700 }}>+ Nuevo rescate</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div>
+              <label style={lbl}>Origen de los alimentos *</label>
+              <select style={inp} value={form.originId} onChange={e => set("originId", e.target.value)} required>
+                <option value="">— Seleccione un origen —</option>
+                {origins.map(o => <option key={o.id} value={o.id}>{o.name} ({o.municipalityName})</option>)}
+              </select>
             </div>
-            {error && <div style={{ color: "#f87171", fontSize: 13, marginBottom: 14, padding: "8px 12px", background: "rgba(248,113,113,0.08)", borderRadius: 8 }}>{error}</div>}
-            <button type="submit" disabled={loading} style={{ background: "linear-gradient(135deg,#a78bfa,#f472b6)", color: "#fff", border: "none", borderRadius: 10, padding: "11px 28px", fontWeight: 700, cursor: "pointer", fontSize: 14 }}>
-              {loading ? "Guardando…" : "Registrar rescate"}
-            </button>
-          </form>
-        </div>
+            <div>
+              <label style={lbl}>Canal de rescate *</label>
+              <select style={inp} value={form.rescueChannel} onChange={e => set("rescueChannel", e.target.value)}>
+                {CHANNELS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={lbl}>ID Productor *</label>
+              <select style={inp} value={form.producerId} onChange={e => set("producerId", e.target.value)} required>
+                <option value="">— Seleccione productor —</option>
+                {producers.map((p: any) => (
+                  <option key={p.id} value={p.id}>{p.organizationName} — {p.municipalityName}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ gridColumn: "span 2" }}>
+              <label style={lbl}>Organización destino *</label>
+              <input style={inp} value={form.destinationOrganizationName} onChange={e => set("destinationOrganizationName", e.target.value)} required />
+            </div>
+            <div>
+              <label style={lbl}>ID Oferta</label>
+              <input style={inp} value={form.offerId} onChange={e => set("offerId", e.target.value)} />
+            </div>
+            <CatProdSelects cat={form.category} prod={form.productName} onCat={handleCategoryChange} onProd={v => set("productName", v)} />
+            <div>
+              <label style={lbl}>Unidad *</label>
+              <select style={inp} value={form.unit} onChange={e => set("unit", e.target.value)} required>
+                {["kg","libra","tonelada","und","litro","arroba","bulto"].map(u => <option key={u} value={u}>{u}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={lbl}>Cantidad *</label>
+              <input style={inp} type="number" min="0.01" step="0.01" value={form.quantityRescued} onChange={e => set("quantityRescued", e.target.value)} required />
+            </div>
+            <div>
+              <label style={lbl}>Fecha programada *</label>
+              <input style={inp} type="date" value={form.scheduledAt} onChange={e => set("scheduledAt", e.target.value)} required />
+            </div>
+            <div>
+              <label style={lbl}>Beneficiarios *</label>
+              <input style={inp} type="number" min="1" value={form.beneficiaryCount} onChange={e => set("beneficiaryCount", e.target.value)} required />
+            </div>
+            <DeptMuniSelects deptCode={form.departmentCode} muniName={form.municipalityName} onDept={handleDeptChange} onMuni={v => set("municipalityName", v)} required />
+            <div style={{ gridColumn: "span 3" }}>
+              <label style={lbl}>Notas</label>
+              <input style={inp} value={form.notes} onChange={e => set("notes", e.target.value)} />
+            </div>
+          </div>
+          {error && <div style={{ color: "#f87171", fontSize: 13, marginBottom: 14, padding: "8px 12px", background: "rgba(248,113,113,0.08)", borderRadius: 8 }}>{error}</div>}
+          <button type="submit" disabled={loading} style={{ background: "linear-gradient(135deg,#a78bfa,#f472b6)", color: "#fff", border: "none", borderRadius: 10, padding: "11px 28px", fontWeight: 700, cursor: "pointer", fontSize: 14 }}>
+            {loading ? "Guardando…" : "Registrar rescate"}
+          </button>
+        </form>
       )}
 
       {/* Edit panel */}
       {editingId && (
-        <div style={{ background: "rgba(245,158,11,0.04)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 16, padding: 24 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#f59e0b" }}>✏️ Editando rescate</h3>
-            <button onClick={() => setEditingId(null)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 18 }}>✕</button>
-          </div>
+        <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 16, padding: 24 }}>
+          <h3 style={{ margin: "0 0 20px", fontSize: 16, fontWeight: 700 }}>✏️ Editando rescate</h3>
           <form onSubmit={handleUpdate}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
               <div>
-                <label style={lbl}>Origen de los alimentos</label>
-                <select style={inp} value={editForm.originId} onChange={e => setE("originId", e.target.value)}>
-                  <option value="">— Sin origen —</option>
-                  {origins.map((o: any) => <option key={o.id} value={o.id}>{o.name} ({o.municipalityName})</option>)}
+                <label style={lbl}>Origen de los alimentos *</label>
+                <select style={inp} value={editForm.originId} onChange={e => setE("originId", e.target.value)} required>
+                  <option value="">— Seleccione un origen —</option>
+                  {origins.map(o => <option key={o.id} value={o.id}>{o.name} ({o.municipalityName})</option>)}
                 </select>
               </div>
               <div>
-                <label style={lbl}>Canal</label>
-                <select style={inp} value={editForm.rescueChannel} onChange={e => setE("rescueChannel", e.target.value)}>
+                <label style={lbl}>Canal de rescate *</label>
+                <select style={inp} value={editForm.rescueChannel} onChange={e => setE("rescueChannel", e.target.value)} required>
                   {CHANNELS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </select>
               </div>
