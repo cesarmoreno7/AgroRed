@@ -25,6 +25,8 @@ import { ChannelsPage } from "./pages/ChannelsPage";
 import { OrganizationsPage } from "./pages/OrganizationsPage";
 import { ProductsPage } from "./pages/ProductsPage";
 import { CategoriesPage } from "./pages/CategoriesPage";
+import { DepartmentsPage } from "./pages/DepartmentsPage";
+import { MunicipalitiesPage } from "./pages/MunicipalitiesPage";
 import type { ReactNode } from "react";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -69,6 +71,8 @@ export default function App() {
           <Route path="/organizations" element={<ProtectedRoute><ModuleGuard module="catalog-service"><OrganizationsPage /></ModuleGuard></ProtectedRoute>} />
           <Route path="/products"      element={<ProtectedRoute><ModuleGuard module="catalog-service"><ProductsPage /></ModuleGuard></ProtectedRoute>} />
           <Route path="/categories"    element={<ProtectedRoute><ModuleGuard module="catalog-service"><CategoriesPage /></ModuleGuard></ProtectedRoute>} />
+          <Route path="/departments"   element={<ProtectedRoute><DepartmentsPage /></ProtectedRoute>} />
+          <Route path="/municipalities" element={<ProtectedRoute><MunicipalitiesPage /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

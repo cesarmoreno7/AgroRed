@@ -8,6 +8,7 @@ import { PostgresDemandQueryAdapter } from "./infrastructure/adapters/PostgresDe
 import { HttpNotificationAdapter } from "./infrastructure/adapters/HttpNotificationAdapter.js";
 import { createHealthRouter } from "./interface/http/routes/health.js";
 import { createOffersRouter } from "./interface/http/routes/offers.js";
+import { createProductsRouter } from "./interface/http/routes/products.js";
 import { createAuditLogger } from "./shared/audit.js";
 import { logError, logInfo } from "./shared/logger.js";
 import { notFoundHandler, globalErrorHandler } from "./interface/http/response.js";
@@ -40,6 +41,7 @@ async function main(): Promise<void> {
     })
   );
   app.use(createOffersRouter(repository, demandQuery, notificationAdapter, eventBus, auditLogger));
+  app.use(createProductsRouter(pool));
   app.use(notFoundHandler);
   app.use(globalErrorHandler);
 

@@ -5,6 +5,7 @@ export interface ServiceRouteDefinition {
     | "users"
     | "producers"
     | "offers"
+    | "products"
     | "rescues"
     | "demands"
     | "inventory"
@@ -43,6 +44,13 @@ export function buildServiceRegistry(env: AppEnv): ServiceRouteDefinition[] {
       name: "offer-service",
       description: "Oferta alimentaria disponible por territorio y productor.",
       pathPrefix: "/api/v1/offers",
+      target: env.OFFER_SERVICE_URL
+    },
+    {
+      key: "products",
+      name: "offer-service",
+      description: "Catálogo maestro de productos alimentarios.",
+      pathPrefix: "/api/v1/products",
       target: env.OFFER_SERVICE_URL
     },
     {

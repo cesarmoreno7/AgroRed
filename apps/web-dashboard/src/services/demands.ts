@@ -1,7 +1,7 @@
 import { api } from "./api";
 
-export function fetchDemands() {
-  return api<any[]>("/api/v1/demands");
+export function fetchDemands(limit = 500) {
+  return api<any[]>("/api/v1/demands", { params: { limit } });
 }
 export function registerDemand(data: any) {
   return api<any>("/api/v1/demands/register", { method: "POST", body: data });

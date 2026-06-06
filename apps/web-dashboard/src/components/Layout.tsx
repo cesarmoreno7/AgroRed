@@ -32,9 +32,11 @@ const MENU_GROUPS: MenuGroup[] = [
     label: "Territorio",
     icon: "🗺️",
     items: [
-      { to: "/territorial",  icon: "🗺️", label: "Mapa Territorial",    module: "logistics-service" },
-      { to: "/institutions", icon: "🏛️", label: "Instituciones",        module: "institution-service" },
-      { to: "/origins",      icon: "🏪", label: "Orígenes Aliados",     module: "origins-service" },
+      { to: "/territorial",    icon: "🗺️", label: "Mapa Territorial",    module: "logistics-service" },
+      { to: "/institutions",  icon: "🏛️", label: "Instituciones",        module: "institution-service" },
+      { to: "/origins",       icon: "🏪", label: "Orígenes Aliados",     module: "origins-service" },
+      { to: "/departments",   icon: "🗾", label: "Departamentos",         },
+      { to: "/municipalities",icon: "📍", label: "Municipios",            },
     ],
   },
   {

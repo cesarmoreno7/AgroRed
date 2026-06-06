@@ -38,6 +38,13 @@ export function registerServiceProxies(app: Express, services: ServiceRouteDefin
             if (req.correlationId) {
               proxyReq.setHeader("x-correlation-id", req.correlationId);
             }
+            // Forward internal API key so microservices' internalAuthMiddleware
+            // accepts requests that arrive via the gateway even when x-user-id
+            // headers are stripped or modified by intermediate proxies.
+            const internalKey = process.env.INTERNAL_API_KEY;
+            if (internalKey) {
+              proxyReq.setHeader("x-internal-api-key", internalKey);
+            }
             writeParsedBody(proxyReq, req);
           },
           proxyRes: (proxyRes) => {

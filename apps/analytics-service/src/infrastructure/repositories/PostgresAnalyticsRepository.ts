@@ -70,28 +70,33 @@ export class PostgresAnalyticsRepository implements AnalyticsRepository {
           (SELECT COUNT(*) FROM public.auctions WHERE deleted_at IS NULL AND ($1::uuid IS NULL OR tenant_id = $1))::text AS auctions,
           (SELECT COUNT(*) FROM public.demands WHERE deleted_at IS NULL AND status = 'open' AND ($1::uuid IS NULL OR tenant_id = $1))::text AS open_demands,
           (SELECT COUNT(*) FROM public.rescues WHERE deleted_at IS NULL AND status = 'scheduled' AND ($1::uuid IS NULL OR tenant_id = $1))::text AS scheduled_rescues,
-          (SELECT COALESCE(SUM(quantity_on_hand - quantity_reserved), 0) FROM public.inventory_items WHERE deleted_at IS NULL AND ($1::uuid IS NULL OR tenant_id = $1))::text AS available_inventory_units,
-          (SELECT COALESCE(SUM(quantity_reserved), 0) FROM public.inventory_items WHERE deleted_at IS NULL AND ($1::uuid IS NULL OR tenant_id = $1))::text AS reserved_inventory_units,
+          (SELECT COALESCE(SUM(COALESCE(quantity_on_hand, 0) - COALESCE(quantity_reserved, 0)), 0) FROM public.inventory_items WHERE deleted_at IS NULL AND status = 'available' AND ($1::uuid IS NULL OR tenant_id = $1))::text AS available_inventory_units,
+          (SELECT COALESCE(SUM(COALESCE(quantity_reserved, 0)), 0) FROM public.inventory_items WHERE deleted_at IS NULL AND ($1::uuid IS NULL OR tenant_id = $1))::text AS reserved_inventory_units,
           (SELECT COUNT(*) FROM public.logistics_orders WHERE deleted_at IS NULL AND status = 'scheduled' AND ($1::uuid IS NULL OR tenant_id = $1))::text AS scheduled_logistics,
           (SELECT COUNT(*) FROM public.incidents WHERE deleted_at IS NULL AND status = 'open' AND ($1::uuid IS NULL OR tenant_id = $1))::text AS open_incidents,
           (SELECT COUNT(*) FROM public.notifications WHERE deleted_at IS NULL AND status = 'pending' AND ($1::uuid IS NULL OR tenant_id = $1))::text AS pending_notifications,
-          -- IRAT aproximado: incidentes y demandas abiertas vs oferta y rescates activos
+          -- IRAT compuesto: pondera 5 dimensiones de seguridad alimentaria
+          -- Score alto = mayor riesgo. Base 30 + ajustes por indicadores clave.
           GREATEST(0, LEAST(100,
-            (SELECT COALESCE(COUNT(*), 0) * 12 FROM public.incidents
-               WHERE deleted_at IS NULL AND status = 'open'
-               AND ($1::uuid IS NULL OR tenant_id = $1))
-            + (SELECT COALESCE(COUNT(*), 0) * 4  FROM public.demands
-               WHERE deleted_at IS NULL AND status = 'open'
-               AND ($1::uuid IS NULL OR tenant_id = $1))
-            - (SELECT COALESCE(COUNT(*), 0) * 6  FROM public.offers
-               WHERE deleted_at IS NULL AND status = 'published'
-               AND ($1::uuid IS NULL OR tenant_id = $1))
-            - (SELECT COALESCE(COUNT(*), 0) * 8  FROM public.rescues
-               WHERE deleted_at IS NULL AND status = 'scheduled'
-               AND ($1::uuid IS NULL OR tenant_id = $1))
-            - (SELECT COALESCE(COUNT(*), 0) * 2  FROM public.producers
-               WHERE deleted_at IS NULL AND status = 'active'
-               AND ($1::uuid IS NULL OR tenant_id = $1))
+            30                                                                                    -- Base mínima de riesgo territorial
+            + LEAST(35, (SELECT COALESCE(COUNT(*), 0) * 8 FROM public.incidents                  -- +Incidentes abiertos (estabilidad)
+                WHERE deleted_at IS NULL AND status = 'open'
+                AND ($1::uuid IS NULL OR tenant_id = $1)))
+            + LEAST(20, (SELECT COALESCE(COUNT(*), 0) * 4  FROM public.demands                   -- +Demandas sin cubrir (acceso)
+                WHERE deleted_at IS NULL AND status = 'open'
+                AND ($1::uuid IS NULL OR tenant_id = $1)))
+            - LEAST(20, (SELECT COALESCE(COUNT(*), 0) * 4  FROM public.offers                    -- -Oferta publicada (disponibilidad)
+                WHERE deleted_at IS NULL AND status = 'published'
+                AND ($1::uuid IS NULL OR tenant_id = $1)))
+            - LEAST(15, (SELECT COALESCE(COUNT(*), 0) * 5  FROM public.rescues                   -- -Rescates activos (consumo)
+                WHERE deleted_at IS NULL AND status = 'scheduled'
+                AND ($1::uuid IS NULL OR tenant_id = $1)))
+            - LEAST(10, (SELECT COALESCE(COUNT(*), 0) * 2  FROM public.food_programs             -- -Programas activos (institucional)
+                WHERE status = 'active'
+                AND ($1::uuid IS NULL OR tenant_id = $1)))
+            - LEAST(10, (SELECT COALESCE(COUNT(*), 0) * 1  FROM public.producers                 -- -Productores activos (disponibilidad)
+                WHERE deleted_at IS NULL AND status = 'active'
+                AND ($1::uuid IS NULL OR tenant_id = $1)))
           ))::text AS irat_score,
           -- Cobertura de programas: % beneficiarios cubiertos sobre objetivo total
           (SELECT CASE WHEN COALESCE(SUM(target_population), 0) > 0
