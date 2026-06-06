@@ -119,7 +119,7 @@ export function FleetPage() {
       <FleetMap resources={resources} />
 
       {/* CRUD Manager */}
-      <FleetManager tenantId={user?.tenantId} onClose={() => {}} />
+      <FleetManager tenantId={user?.tenantId} />
 
       {/* KPIs */}
       {resources.length > 0 && (

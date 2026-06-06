@@ -15,7 +15,7 @@ const CATEGORIES = ["tuberculo","hortaliza","fruta","cereal","leguminosa","lacte
 const inp: React.CSSProperties = { width: "100%", padding: "10px 14px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, color: "#fff", fontSize: 13, outline: "none", boxSizing: "border-box" };
 const lbl: React.CSSProperties = { display: "block", fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" };
 
-const emptyForm = { producerId: "", title: "", productName: "", category: "hortaliza", unit: "kg", quantityAvailable: "", priceAmount: "", currency: "COP", availableFrom: "", availableUntil: "", municipalityName: "", notes: "", latitude: "", longitude: "" };
+const emptyForm = { producerId: "", title: "", productName: "", category: "hortaliza", unit: "kg", quantityAvailable: "", priceAmount: "", currency: "COP", availableFrom: "", availableUntil: "", municipalityName: "", notes: "", latitude: "", longitude: "", status: "draft" };
 
 export function OffersPage() {
   const { user } = useAuth();
@@ -58,7 +58,7 @@ export function OffersPage() {
 
   const handleEdit = (record: any) => {
     setEditingId(record.id);
-    setEditForm({ producerId: record.producerId || "", title: record.title || "", productName: record.productName || "", category: record.category || "hortaliza", unit: record.unit || "kg", quantityAvailable: String(record.quantityAvailable ?? ""), priceAmount: String(record.priceAmount ?? ""), currency: record.currency || "COP", availableFrom: record.availableFrom?.slice(0,10) || "", availableUntil: record.availableUntil?.slice(0,10) || "", municipalityName: record.municipalityName || "", notes: record.notes || "", latitude: String(record.latitude ?? ""), longitude: String(record.longitude ?? "") });
+    setEditForm({ producerId: record.producerId || "", title: record.title || "", productName: record.productName || "", category: record.category || "hortaliza", unit: record.unit || "kg", quantityAvailable: String(record.quantityAvailable ?? ""), priceAmount: String(record.priceAmount ?? ""), currency: record.currency || "COP", availableFrom: record.availableFrom?.slice(0,10) || "", availableUntil: record.availableUntil?.slice(0,10) || "", municipalityName: record.municipalityName || "", notes: record.notes || "", latitude: String(record.latitude ?? ""), longitude: String(record.longitude ?? ""), status: record.status || "draft" });
     setEditError(null); setShowForm(false);
   };
 
@@ -171,7 +171,15 @@ export function OffersPage() {
                 <label style={lbl}>Latitud</label>
                 <input style={inp} type="number" step="0.0001" value={form.latitude} onChange={e => set("latitude", e.target.value)} placeholder="6.1549" />
               </div>
-              <div style={{ gridColumn: "span 3" }}>
+              <div>
+                <label style={lbl}>Estado</label>
+                <select style={inp} value={form.status} onChange={e => set("status", e.target.value)}>
+                  <option value="draft">Borrador</option>
+                  <option value="published">Publicada</option>
+                  <option value="closed">Cerrada</option>
+                </select>
+              </div>
+              <div style={{ gridColumn: "span 2" }}>
                 <label style={lbl}>Notas</label>
                 <input style={inp} value={form.notes} onChange={e => set("notes", e.target.value)} placeholder="Observaciones adicionales (opcional)" />
               </div>
@@ -239,7 +247,15 @@ export function OffersPage() {
                 <label style={lbl}>Disponible hasta</label>
                 <input style={inp} type="date" value={editForm.availableUntil} onChange={e => setE("availableUntil", e.target.value)} />
               </div>
-              <div style={{ gridColumn: "span 3" }}>
+              <div>
+                <label style={lbl}>Estado</label>
+                <select style={inp} value={editForm.status} onChange={e => setE("status", e.target.value)}>
+                  <option value="draft">Borrador</option>
+                  <option value="published">Publicada</option>
+                  <option value="closed">Cerrada</option>
+                </select>
+              </div>
+              <div style={{ gridColumn: "span 2" }}>
                 <label style={lbl}>Notas</label>
                 <input style={inp} value={editForm.notes} onChange={e => setE("notes", e.target.value)} />
               </div>

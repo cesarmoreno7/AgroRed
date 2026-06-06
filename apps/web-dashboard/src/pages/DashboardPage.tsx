@@ -8,6 +8,14 @@ import { ActiveFleet } from "../components/ActiveFleet";
 import { TerritorialChart } from "../components/TerritorialChart";
 import type { AnalyticsSummary, TerritorialOverviewItem, CurrentPosition } from "../types";
 
+const glass: React.CSSProperties = {
+  background: "linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)",
+  backdropFilter: "blur(12px)",
+  WebkitBackdropFilter: "blur(12px)",
+  border: "1px solid rgba(255,255,255,0.07)",
+  borderRadius: 20,
+};
+
 export function DashboardPage() {
   const { user } = useAuth();
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
@@ -16,7 +24,6 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [updated, setUpdated] = useState<Date | null>(null);
 
-  // admin_municipal sees global data; others see their tenant
   const summaryTenantId = user?.role === "admin_municipal" ? undefined : user?.tenantId;
 
   const load = useCallback(async () => {
@@ -40,10 +47,9 @@ export function DashboardPage() {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "60vh", gap: 12 }}>
-        <div style={{ fontSize: 32 }}>⏳</div>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "60vh", gap: 16 }}>
+        <div style={{ width: 48, height: 48, border: "3px solid rgba(255,255,255,0.06)", borderTop: "3px solid #4ade80", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>Cargando tablero institucional…</div>
-        <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 12 }}>Consultando base de datos…</div>
       </div>
     );
   }
@@ -54,128 +60,151 @@ export function DashboardPage() {
         <div style={{ fontSize: 40 }}>⚠️</div>
         <div style={{ color: "#f87171", fontSize: 16, fontWeight: 600 }}>No se pudo cargar el tablero</div>
         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, maxWidth: 380, textAlign: "center" }}>
-          El servicio de analítica no está disponible en este momento. Verifica que el analytics-service esté desplegado correctamente.
+          El servicio de analítica no está disponible. Verifica que el analytics-service esté desplegado.
         </div>
-        <button
-          onClick={load}
-          style={{ marginTop: 8, padding: "10px 24px", background: "rgba(74,222,128,0.15)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.3)", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 600 }}
-        >
+        <button onClick={load} style={{ marginTop: 8, padding: "10px 24px", background: "rgba(74,222,128,0.12)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.3)", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
           ↺ Reintentar
         </button>
       </div>
     );
   }
 
-  // IRAT real desde v_irat_municipal (escala 0–100)
-  const iratRaw    = summary?.operations.iratScore ?? null;
-  const iratValue  = iratRaw !== null ? iratRaw.toFixed(1) : "—";
-  const iratColor  = iratRaw === null ? "#6b7280"
-                   : iratRaw >= 80 ? "#ef4444"
-                   : iratRaw >= 60 ? "#f59e0b"
-                   : iratRaw >= 40 ? "#facc15"
-                   : "#10b981";
+  const iratRaw   = summary?.operations.iratScore ?? null;
+  const iratValue = iratRaw !== null ? iratRaw.toFixed(1) : "—";
+  const iratColor = iratRaw === null ? "#6b7280"
+    : iratRaw >= 80 ? "#ef4444"
+    : iratRaw >= 60 ? "#f59e0b"
+    : iratRaw >= 40 ? "#facc15"
+    : "#10b981";
+  const iratLabel = iratRaw === null ? "Sin datos" : iratRaw >= 80 ? "Riesgo crítico" : iratRaw >= 60 ? "Riesgo alto" : iratRaw >= 40 ? "Riesgo medio" : "Riesgo bajo";
 
-  // Cobertura real: % beneficiarios cubiertos por programas activos
   const coberturaValue = summary?.operations.programCoverage ?? 0;
 
   return (
-    <div style={{ maxWidth: 1280, margin: "0 auto", animation: "fadeIn 0.5s ease-out" }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 32 }}>
+    <div style={{ maxWidth: 1300, margin: "0 auto", animation: "fadeIn 0.4s ease-out", display: "flex", flexDirection: "column", gap: 28 }}>
+
+      {/* ── Header ── */}
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h1 style={{ margin: "0 0 8px", fontSize: 32, fontWeight: 800, color: "#fff", letterSpacing: "-0.03em", background: "linear-gradient(to right, #4ade80, #3b82f6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(74,222,128,0.7)", marginBottom: 6 }}>
+            AgroRed · Gobernanza Alimentaria
+          </div>
+          <h1 style={{ margin: "0 0 6px", fontSize: 30, fontWeight: 800, letterSpacing: "-0.02em", background: "linear-gradient(120deg, #4ade80 0%, #22d3ee 50%, #818cf8 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
             Tablero de Control Institucional
           </h1>
-          <p style={{ margin: 0, fontSize: 14, color: "rgba(255,255,255,0.5)" }}>
-            {user?.role === "admin_municipal" ? "Vista global · Todos los municipios" : (summary?.tenantName ?? "Vista global")} · Gobernanza Alimentaria Activa
+          <p style={{ margin: 0, fontSize: 13, color: "rgba(255,255,255,0.45)" }}>
+            {user?.role === "admin_municipal" ? "Vista global · Todos los municipios" : (summary?.tenantName ?? "Vista del territorio")}
           </p>
         </div>
-        {updated && (
-          <div style={{ background: "rgba(255,255,255,0.05)", padding: "6px 12px", borderRadius: 20, fontSize: 12, color: "rgba(255,255,255,0.4)", display: "flex", alignItems: "center", gap: 6, backdropFilter: "blur(4px)" }}>
-            <span style={{ display: "block", width: 8, height: 8, borderRadius: "50%", background: "#4ade80", boxShadow: "0 0 8px #4ade80" }} />
-            Actualizado {updated.toLocaleTimeString()}
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          {updated && (
+            <div style={{ background: "rgba(74,222,128,0.08)", padding: "7px 14px", borderRadius: 24, fontSize: 12, color: "rgba(255,255,255,0.4)", display: "flex", alignItems: "center", gap: 7, border: "1px solid rgba(74,222,128,0.15)" }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#4ade80", boxShadow: "0 0 8px #4ade80", animation: "pulse 2s infinite", display: "block" }} />
+              {updated.toLocaleTimeString()}
+            </div>
+          )}
+          <button onClick={load} title="Actualizar" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "7px 14px", color: "rgba(255,255,255,0.5)", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+            ↺
+          </button>
+        </div>
+      </div>
+
+      {/* ── KPI estratégicos: IRAT + Cobertura ── */}
+      {summary && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          {/* IRAT */}
+          <div style={{ ...glass, padding: 24, position: "relative", overflow: "hidden", borderColor: `${iratColor}22` }}>
+            <div style={{ position: "absolute", top: -30, right: -20, fontSize: 110, opacity: 0.04, lineHeight: 1 }}>🚨</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.45)" }}>Índice IRAT</div>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: `${iratColor}18`, color: iratColor, border: `1px solid ${iratColor}33` }}>{iratLabel}</span>
+            </div>
+            <div style={{ fontSize: 44, fontWeight: 800, color: iratColor, letterSpacing: "-0.03em", lineHeight: 1 }}>
+              {iratValue}<span style={{ fontSize: 18, color: "rgba(255,255,255,0.25)", marginLeft: 4 }}>/100</span>
+            </div>
+            <div style={{ marginTop: 14, height: 6, background: "rgba(255,255,255,0.06)", borderRadius: 3, overflow: "hidden" }}>
+              <div style={{ width: `${iratRaw ?? 0}%`, height: "100%", background: `linear-gradient(to right, ${iratColor}88, ${iratColor})`, borderRadius: 3, transition: "width 0.8s ease" }} />
+            </div>
+          </div>
+          {/* Cobertura */}
+          <div style={{ ...glass, padding: 24, position: "relative", overflow: "hidden", borderColor: "rgba(96,165,250,0.15)" }}>
+            <div style={{ position: "absolute", top: -30, right: -20, fontSize: 110, opacity: 0.04, lineHeight: 1 }}>🛡️</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.45)" }}>Cobertura Programas</div>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: "rgba(96,165,250,0.12)", color: "#60a5fa", border: "1px solid rgba(96,165,250,0.25)" }}>Beneficiarios activos</span>
+            </div>
+            <div style={{ fontSize: 44, fontWeight: 800, color: "#60a5fa", letterSpacing: "-0.03em", lineHeight: 1 }}>{coberturaValue}<span style={{ fontSize: 18, color: "rgba(255,255,255,0.25)", marginLeft: 2 }}>%</span></div>
+            <div style={{ marginTop: 14, height: 6, background: "rgba(255,255,255,0.06)", borderRadius: 3, overflow: "hidden" }}>
+              <div style={{ width: `${Math.min(100, coberturaValue)}%`, height: "100%", background: "linear-gradient(to right, #3b82f688, #60a5fa)", borderRadius: 3, transition: "width 0.8s ease" }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── KPI Grid operativo ── */}
+      {summary && (
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 14 }}>Indicadores Operativos</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
+            {/* Productores — tarjeta combinada */}
+            <div style={{ ...glass, padding: "18px 20px", position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", top: -16, right: -10, fontSize: 60, opacity: 0.05 }}>🌾</div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10, fontWeight: 700 }}>Productores</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
+                <span style={{ fontSize: 30, fontWeight: 800, color: "#4ade80" }}>{summary.totals.producers}</span>
+                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>total</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80", boxShadow: "0 0 6px #4ade80", display: "inline-block" }} />
+                <span style={{ fontSize: 12, color: "#4ade80", fontWeight: 600 }}>{summary.totals.producersActive} activos</span>
+              </div>
+            </div>
+            <KpiCard value={fleet.length}                              label="Recursos en Ruta"        icon="🚚" color="#f472b6" />
+            <KpiCard value={summary.operations.openIncidents}          label="Incidentes Abiertos"     icon="⚠️" color="#ef4444" />
+            <KpiCard value={summary.operations.availableInventoryUnits} label="Inventario Disp. (kg)"  icon="📦" color="#22d3ee" />
+            <KpiCard value={summary.operations.openDemands}            label="Demandas Abiertas"       icon="🍽️" color="#f59e0b" />
+            <KpiCard value={summary.operations.scheduledRescues}       label="Rescates Programados"    icon="♻️" color="#a78bfa" />
+            <KpiCard value={summary.totals.offers}                     label="Ofertas Publicadas"      icon="📋" color="#60a5fa" />
+            <KpiCard value={summary.totals.auctions}                   label="Subastas Registradas"    icon="🏷️" color="#fb923c" />
+            <KpiCard value={summary.operations.scheduledLogistics}     label="Logística Programada"    icon="🗂️" color="#34d399" />
+            <KpiCard value={summary.totals.users}                      label="Usuarios del Sistema"    icon="👤" color="#818cf8" />
+          </div>
+        </div>
+      )}
+
+      {/* ── Mid row: Balance operativo + Flota ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+        {summary && (
+          <div style={{ ...glass, padding: 24 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)", marginBottom: 16 }}>Balance Operativo</div>
+            <OperationsRing operations={summary.operations} />
+          </div>
+        )}
+        <div style={{ ...glass, padding: 24 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)", marginBottom: 16 }}>Seguimiento Logístico</div>
+          <ActiveFleet resources={fleet} />
+        </div>
+      </div>
+
+      {/* ── Bottom row: Visión territorial + Totales ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20, paddingBottom: 32 }}>
+        <div style={{ ...glass, padding: 24 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)", marginBottom: 16 }}>Visión Territorial</div>
+          <TerritorialChart data={territorial} />
+        </div>
+        {summary && (
+          <div style={{ ...glass, padding: 24 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)", marginBottom: 16 }}>Totales del Sistema</div>
+            <TotalsTable totals={summary.totals} />
           </div>
         )}
       </div>
 
-      {/* Strategic KPI Grid */}
-      {summary && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 16, marginBottom: 32 }}>
-          {/* IRAT real desde v_irat_municipal */}
-          <div style={{ background: "linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)", borderRadius: 16, padding: 20, border: `1px solid ${iratColor}22`, position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", top: -20, right: -20, fontSize: 80, opacity: 0.05 }}>🚨</div>
-            <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, fontWeight: 500, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>Índice IRAT</div>
-            <div style={{ fontSize: 36, fontWeight: 700, color: iratColor }}>
-              {iratValue} <span style={{ fontSize: 16, color: "rgba(255,255,255,0.3)" }}>/ 100</span>
-            </div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 4 }}>
-              {iratRaw === null ? "Sin datos" : iratRaw >= 80 ? "Riesgo crítico" : iratRaw >= 60 ? "Riesgo alto" : iratRaw >= 40 ? "Riesgo medio" : "Riesgo bajo"}
-            </div>
-            {/* Bar */}
-            <div style={{ width: "100%", height: 4, background: "rgba(255,255,255,0.08)", borderRadius: 2, marginTop: 10, overflow: "hidden" }}>
-              <div style={{ width: `${iratRaw ?? 0}%`, height: "100%", background: iratColor, borderRadius: 2, transition: "width .5s" }} />
-            </div>
-          </div>
-
-          {/* Cobertura real desde programas */}
-          <div style={{ background: "linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)", borderRadius: 16, padding: 20, border: "1px solid rgba(96,165,250,0.15)", position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", top: -20, right: -20, fontSize: 80, opacity: 0.05 }}>🛡️</div>
-            <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, fontWeight: 500, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>Cobertura Programas</div>
-            <div style={{ fontSize: 36, fontWeight: 700, color: "#60a5fa" }}>{coberturaValue}%</div>
-            <div style={{ width: "100%", height: 4, background: "rgba(255,255,255,0.1)", borderRadius: 2, marginTop: 8, overflow: "hidden" }}>
-              <div style={{ width: `${Math.min(100, coberturaValue)}%`, height: "100%", background: "#60a5fa", borderRadius: 2, transition: "width .5s" }} />
-            </div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginTop: 6 }}>Beneficiarios en programas activos</div>
-          </div>
-
-          <KpiCard value={fleet.length} label="Recursos en Ruta" icon="🚚" color="#f472b6" />
-          <KpiCard value={summary.operations.openIncidents} label="Incidentes Abiertos" icon="⚠️" color="#ef4444" />
-          <KpiCard value={summary.operations.availableInventoryUnits} label="Inventario Disponible (kg)" icon="📦" color="#22d3ee" />
-          <KpiCard value={summary.operations.openDemands} label="Demandas Abiertas" icon="🍽️" color="#f59e0b" />
-          <KpiCard value={summary.operations.scheduledRescues} label="Rescates Programados" icon="♻️" color="#a78bfa" />
-          <KpiCard value={summary.totals.producersActive} label="Productores Activos" icon="🌾" color="#4ade80" />
-          <KpiCard value={summary.totals.offers} label="Ofertas Publicadas" icon="📋" color="#60a5fa" />
-          <KpiCard value={summary.totals.auctions} label="Subastas Registradas" icon="🏷️" color="#fb923c" />
-          <KpiCard value={summary.operations.scheduledLogistics} label="Logística Programada" icon="🗂️" color="#34d399" />
-          <KpiCard value={summary.totals.users} label="Usuarios del Sistema" icon="👤" color="#818cf8" />
-        </div>
-      )}
-
-      {/* Mid row: Operations ring + Fleet */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 32 }}>
-        {summary && <div style={{ background: "rgba(255,255,255,0.02)", borderRadius: 16, padding: 24, border: "1px solid rgba(255,255,255,0.05)" }}>
-           <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 600, color: "#fff" }}>Balance Operativo</h3>
-           <OperationsRing operations={summary.operations} />
-        </div>}
-        <div style={{ background: "rgba(255,255,255,0.02)", borderRadius: 16, padding: 24, border: "1px solid rgba(255,255,255,0.05)" }}>
-           <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 600, color: "#fff" }}>Seguimiento Logístico</h3>
-           <ActiveFleet resources={fleet} />
-        </div>
-      </div>
-
-      {/* Bottom row: Territorial chart + Totals table */}
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20, marginBottom: 40 }}>
-        <div style={{ background: "rgba(255,255,255,0.02)", borderRadius: 16, padding: 24, border: "1px solid rgba(255,255,255,0.05)" }}>
-           <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 600, color: "#fff" }}>Visión Territorial</h3>
-           <TerritorialChart data={territorial} />
-        </div>
-        {summary && <div style={{ background: "rgba(255,255,255,0.02)", borderRadius: 16, padding: 24, border: "1px solid rgba(255,255,255,0.05)" }}>
-           <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 600, color: "#fff" }}>Totales del Sistema</h3>
-           <TotalsTable totals={summary.totals} />
-        </div>}
-      </div>
-      
       <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
+        @keyframes fadeIn  { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
+        @keyframes pulse   { 0%,100% { opacity:1 } 50% { opacity:0.4 } }
+        @keyframes spin    { to { transform:rotate(360deg) } }
       `}</style>
     </div>
   );
 }
-

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { api } from "../services/api";
+import { fetchInstitutions } from "../services/institutions";
 import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -83,11 +84,14 @@ function FlyTo({ target }: { target: [number, number] | null }) {
 export function TerritorialPage() {
   const [producers, setProducers] = useState<Feature[]>([]);
   const [demands, setDemands] = useState<Feature[]>([]);
+  const [institutions, setInstitutions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showProducers, setShowProducers] = useState(true);
   const [showClients, setShowClients] = useState(true);
+  const [showInstitutions, setShowInstitutions] = useState(true);
   const [selectedItem, setSelectedItem] = useState<{ id: string; type: "producer" | "client"; name: string } | null>(null);
   const [selectedFeature, setSelectedFeature] = useState<Feature | null>(null);
+  const [selectedInstitution, setSelectedInstitution] = useState<any | null>(null);
   const [details, setDetails] = useState<SpatialDetails | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
@@ -99,12 +103,17 @@ export function TerritorialPage() {
 
   const loadGISData = useCallback(async () => {
     setLoading(true);
-    const [resProd, resDem] = await Promise.all([
+    const [resProd, resDem, resInst] = await Promise.all([
       api<FeatureCollection>("/api/v1/analytics/map/producers"),
       api<FeatureCollection>("/api/v1/analytics/map/demands"),
+      fetchInstitutions(),
     ]);
     if (resProd.ok) setProducers(resProd.data.features || []);
     if (resDem.ok) setDemands(resDem.data.features || []);
+    if (resInst.ok) {
+      const list: any[] = Array.isArray(resInst.data) ? resInst.data : (resInst.data as any)?.data ?? [];
+      setInstitutions(list.filter((i: any) => i.latitude != null && i.longitude != null));
+    }
     setLoading(false);
   }, []);
 
@@ -179,6 +188,7 @@ export function TerritorialPage() {
   };
 
   const handleMarkerClick = async (id: string, type: "producer" | "client", name: string, feature: Feature | null = null) => {
+    setSelectedInstitution(null);
     setSelectedItem({ id, type, name });
     setSelectedFeature(feature);
     setLoadingDetails(true);
@@ -197,6 +207,13 @@ export function TerritorialPage() {
 
   const clientIcon = useMemo(() => L.divIcon({
     html: `<div style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;background:rgba(6,182,212,0.85);border:2.5px solid #0891b2;border-radius:50%;box-shadow:0 2px 8px rgba(6,182,212,0.5);font-size:16px;">🏢</div>`,
+    className: "",
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+  }), []);
+
+  const institutionIcon = useMemo(() => L.divIcon({
+    html: `<div style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;background:rgba(139,92,246,0.85);border:2.5px solid #7c3aed;border-radius:50%;box-shadow:0 2px 8px rgba(139,92,246,0.5);font-size:16px;">🏛️</div>`,
     className: "",
     iconSize: [36, 36],
     iconAnchor: [18, 18],
@@ -229,7 +246,7 @@ export function TerritorialPage() {
               Inteligencia Territorial
             </h1>
             <p style={{ margin: 0, fontSize: 13, color: "rgba(255,255,255,0.4)" }}>
-              {producers.length} predios productores · {demands.length} instituciones clientes
+              {producers.length} predios productores · {demands.length} demandas · {institutions.length} instituciones
             </p>
           </div>
 
@@ -237,7 +254,8 @@ export function TerritorialPage() {
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
             {[
               { label: `Predios (${producers.length})`, icon: "🌾", active: showProducers, color: "#10b981", toggle: () => setShowProducers(v => !v) },
-              { label: `Instituciones (${demands.length})`, icon: "🏢", active: showClients, color: "#06b6d4", toggle: () => setShowClients(v => !v) },
+              { label: `Demandas (${demands.length})`, icon: "🏢", active: showClients, color: "#06b6d4", toggle: () => setShowClients(v => !v) },
+              { label: `Instituciones (${institutions.length})`, icon: "🏛️", active: showInstitutions, color: "#8b5cf6", toggle: () => setShowInstitutions(v => !v) },
             ].map(btn => (
               <button key={btn.label} onClick={btn.toggle} style={{
                 background: btn.active ? `${btn.color}22` : "rgba(255,255,255,0.03)",
@@ -383,6 +401,20 @@ export function TerritorialPage() {
                 />
               );
             })}
+
+            {showInstitutions && institutions.map((inst: any) => (
+              <Marker
+                key={`inst-${inst.id}`}
+                position={[inst.latitude, inst.longitude]}
+                icon={institutionIcon}
+                eventHandlers={{ click: () => {
+                  setSelectedItem(null);
+                  setSelectedFeature(null);
+                  setDetails(null);
+                  setSelectedInstitution(inst);
+                }}}
+              />
+            ))}
           </MapContainer>
         </div>
 
@@ -395,6 +427,45 @@ export function TerritorialPage() {
           display: "flex", flexDirection: "column", overflowY: "auto",
           boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
         }}>
+          {/* ── Institución seleccionada ── */}
+          {selectedInstitution && !selectedItem && (() => {
+            const inst = selectedInstitution;
+            const typeLabel: Record<string, string> = { educational: "Educativa", hospital: "Hospital", prison: "C. Penitenciario", community_canteen: "Comedor comunitario", airport: "Aeropuerto", military: "Base militar", elderly_home: "Hogar adultos mayores", shelter: "Albergue", other: "Otra" };
+            const statusColor: Record<string, string> = { active: "#10b981", pending_verification: "#f59e0b", inactive: "#6b7280" };
+            const statusLabel: Record<string, string> = { active: "Activa", pending_verification: "Pendiente", inactive: "Inactiva" };
+            return (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14, animation: "fadeIn 0.3s ease-out" }}>
+                <div style={{ background: "linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(139,92,246,0.04) 100%)", border: "1px solid rgba(139,92,246,0.25)", borderRadius: 14, padding: "16px 16px 14px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                    <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "#8b5cf6" }}>🏛️ Institución</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 20, background: `${statusColor[inst.status] ?? "#6b7280"}22`, color: statusColor[inst.status] ?? "#6b7280" }}>
+                      {statusLabel[inst.status] ?? inst.status}
+                    </span>
+                  </div>
+                  <h3 style={{ margin: "0 0 6px", fontSize: 17, fontWeight: 800, color: "#fff", lineHeight: 1.2 }}>{inst.name}</h3>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
+                    <span style={{ background: "rgba(139,92,246,0.1)", color: "#a78bfa", padding: "2px 8px", borderRadius: 20, fontWeight: 600, fontSize: 11 }}>{typeLabel[inst.institutionType] ?? inst.institutionType}</span>
+                    {inst.municipalityName && <span>📍 {inst.municipalityName}</span>}
+                  </div>
+                </div>
+                <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Información</div>
+                  {inst.contactName && <div style={{ fontSize: 13, color: "#e2e8f0" }}>👤 {inst.contactName}</div>}
+                  {inst.contactPhone && <div style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", fontFamily: "monospace" }}>📞 {inst.contactPhone}</div>}
+                  {inst.address && <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>📌 {inst.address}</div>}
+                  {inst.beneficiaryCount > 0 && (
+                    <div style={{ marginTop: 4, padding: "8px 12px", background: "rgba(139,92,246,0.08)", borderRadius: 8, fontSize: 13 }}>
+                      👥 <strong style={{ color: "#a78bfa" }}>{inst.beneficiaryCount}</strong> beneficiarios / día
+                    </div>
+                  )}
+                </div>
+                <button onClick={() => setSelectedInstitution(null)} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "7px 12px", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 12 }}>
+                  ✕ Cerrar
+                </button>
+              </div>
+            );
+          })()}
+
           {selectedItem ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 14, animation: "fadeIn 0.3s ease-out" }}>
 

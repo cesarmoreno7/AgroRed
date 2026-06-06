@@ -18,6 +18,7 @@ export const MODULE_ACCESS: Record<string, string[]> = {
     "auction-service",
     "analytics-service",
     "ml-service",
+    "catalog-service",
   ],
   territorial_analyst: [
     "producer-service",
@@ -30,6 +31,7 @@ export const MODULE_ACCESS: Record<string, string[]> = {
     "auction-service",
     "analytics-service",
     "ml-service",
+    "catalog-service",
   ],
   logistics_operator: [
     "producer-service",
@@ -41,6 +43,7 @@ export const MODULE_ACCESS: Record<string, string[]> = {
     "incident-service",
     "notification-service",
     "auction-service",
+    "catalog-service",
   ],
   community_kitchen: [
     "offer-service",
