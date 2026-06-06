@@ -24,7 +24,7 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [updated, setUpdated] = useState<Date | null>(null);
 
-  const summaryTenantId = user?.role === "admin_municipal" ? undefined : user?.tenantId;
+  const summaryTenantId = user?.tenantId;
 
   const load = useCallback(async () => {
     const [s, t, f] = await Promise.all([
@@ -93,7 +93,7 @@ export function DashboardPage() {
             Tablero de Control Institucional
           </h1>
           <p style={{ margin: 0, fontSize: 13, color: "rgba(255,255,255,0.45)" }}>
-            {user?.role === "admin_municipal" ? "Vista global · Todos los municipios" : (summary?.tenantName ?? "Vista del territorio")}
+            {summary?.tenantName ?? "Vista del territorio"}
           </p>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>

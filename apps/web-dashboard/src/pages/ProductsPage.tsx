@@ -26,7 +26,10 @@ export function ProductsPage() {
 
   const load = () => {
     setLoading(true);
-    fetchProducts(user?.tenantId).then(r => {
+    // Solo los admins pueden ver/crear productos de un tenant especifico.
+    // Para el resto de roles, solo se muestran los productos globales.
+    const tenantId = user?.tenantId;
+    fetchProducts(tenantId).then(r => {
       if (r.ok) setItems(r.data);
       else setApiError((r as any).message ?? "Error al cargar catálogo");
       setLoading(false);

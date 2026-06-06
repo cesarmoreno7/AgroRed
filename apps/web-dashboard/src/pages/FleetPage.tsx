@@ -119,7 +119,7 @@ export function FleetPage() {
       <FleetMap resources={resources} />
 
       {/* CRUD Manager */}
-      <FleetManager tenantId={user?.role === "admin_municipal" ? undefined : user?.tenantId} />
+      <FleetManager tenantId={user?.tenantId} />
 
       {/* KPIs */}
       {resources.length > 0 && (
