@@ -197,12 +197,11 @@ export class PostgresRescueRepository implements RescueRepository {
     return this.mapOriginRow(result.rows[0]);
   }
 
-  async listOrigins(tenantId: string): Promise<ReturnType<PostgresRescueRepository["mapOriginRow"]>[]> {
-    const tid = await this.resolveTenantId(tenantId);
+  async listOrigins(_tenantId?: string): Promise<ReturnType<PostgresRescueRepository["mapOriginRow"]>[]> {
+    // Los orígenes son recursos compartidos entre todos los tenants
     const result = await this.pool.query<FoodOriginRow>(
       `SELECT id, tenant_id, name, municipality_name, address, latitude, longitude, is_active, created_at
-       FROM public.food_origins WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY name ASC`,
-      [tid]
+       FROM public.food_origins WHERE deleted_at IS NULL ORDER BY name ASC`
     );
     return result.rows.map(r => this.mapOriginRow(r));
   }

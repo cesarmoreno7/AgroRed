@@ -167,15 +167,10 @@ export function createRescuesRouter(
   }));
 
   router.get("/api/v1/rescues/origins", asyncHandler(async (req, res) => {
-    const tenantId = String(req.query.tenantId ?? req.headers["x-tenant-id"] ?? "");
-    if (!tenantId) return sendError(res, 400, "MISSING_TENANT", "Se requiere tenantId o autenticación.");
     try {
-      const origins = await repository.listOrigins(tenantId);
+      const origins = await repository.listOrigins();
       return sendSuccess(res, origins);
     } catch (error) {
-      if (error instanceof Error && error.message === "TENANT_NOT_FOUND") {
-        return sendError(res, 404, "TENANT_NOT_FOUND", "Tenant no encontrado.");
-      }
       return sendError(res, 500, "ORIGINS_LIST_FAILED", "No fue posible listar orígenes.");
     }
   }));
