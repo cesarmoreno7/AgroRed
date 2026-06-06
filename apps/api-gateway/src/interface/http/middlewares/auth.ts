@@ -18,7 +18,7 @@ const PUBLIC_PATHS = [
   "/api/v1/users/recover-password",
   "/api/v1/users/reset-password",
   "/health",
-  "/api/v1/catalog"
+  "/api/v1/products/catalog"
 ];
 
 function isPublic(path: string): boolean {
