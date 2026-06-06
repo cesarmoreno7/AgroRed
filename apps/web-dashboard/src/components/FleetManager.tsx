@@ -88,22 +88,27 @@ export function FleetManager({ tenantId }: Props) {
     e.preventDefault();
     setSaving(true);
     setError(null);
+    let ok = false;
     if (formMode === "create") {
       const res = await api("/api/v1/logistics/resources/register", {
         method: "POST",
-        body: JSON.stringify({ tenantId, nombre, tipo, placa, telefono, estado }),
+        body: { tenantId, nombre, tipo, placa: placa || null, telefono: telefono || null, estado },
       });
       if (!res.ok) setError("No se pudo crear el recurso.");
+      else ok = true;
     } else if (formMode === "edit" && selectedResource) {
       const res = await api(`/api/v1/logistics/resources/${selectedResource.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ nombre, tipo, placa, telefono, estado }),
+        body: { nombre, tipo, placa: placa || null, telefono: telefono || null, estado },
       });
       if (!res.ok) setError("No se pudo actualizar el recurso.");
+      else ok = true;
     }
     setSaving(false);
-    setFormMode("list");
-    loadResources();
+    if (ok) {
+      setFormMode("list");
+      loadResources();
+    }
   };
 
   const handleDelete = async (id: string, name: string) => {
