@@ -19,6 +19,7 @@ use Agrored\Modules\Rescues\RescueModule;
 use Agrored\Modules\Auctions\AuctionModule;
 use Agrored\Modules\AiChat\AiChatModule;
 use Agrored\Modules\Automation\AutomationModule;
+use Agrored\Modules\Locations\LocationModule;
 use Agrored\Modules\Ml\MlModule;
 use Agrored\Modules\Users\UserModule;
 use Agrored\Security\Auth;
@@ -84,6 +85,7 @@ $router->get('/agrored', $welcomeHandler);
 
 HealthModule::register($router, $database);
 CatalogModule::register($router);
+LocationModule::register($router, $database);
 UserModule::register($router, $database, $jwt, $redis);
 ProducerModule::register($router, $database);
 OfferModule::register($router, $database);

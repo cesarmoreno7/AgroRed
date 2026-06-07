@@ -1,51 +1,72 @@
-# Compiled and build artifacts
-*.pyc
-__pycache__/
-*.o
-*.obj
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
 dist/
 build/
-*.class
+**/dist/
+**/build/
+
+# TypeScript
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# Environment variables
+.env
+.env.local
+.env.*
+**/.env
+**/.env.local
+**/.env.*
+
+# IDE files
+.vscode/
+.idea/
+**/.vscode/
+**/.idea/
+
+# Logs
+*.log
+**/*.log
+
+# Temporary files
+*.tmp
+**/*.tmp
+
+# Coverage
+coverage/
+**/coverage/
+*.coverage
+**/*.coverage
+
+# Python (if any Python projects exist)
+__pycache__/
+**/__pycache__/
+*.pyc
+**/*.pyc
+.venv/
+**/.venv/
+venv/
+**/venv/
+.mypy_cache/
+.pytest_cache/
+
+# Compiled binaries
 *.exe
 *.dll
 *.so
 *.a
 *.out
+**/*.exe
+**/*.dll
+**/*.so
+**/*.a
+**/*.out
 
-# Dependencies
-.venv/
-venv/
-node_modules/
-.mypy_cache/
-.pytest_cache/
-target/
-.gradle/
-
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-*.swo
-
-# Environment
-.env
-.env.local
-*.env.*
-
-# Editors
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# System files
+# OS specific
 .DS_Store
 Thumbs.db
-
-# Coverage
-coverage/
-htmlcov/
-.coverage
 
 # Compressed files
 *.zip
