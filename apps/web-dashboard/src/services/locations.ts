@@ -1051,3 +1051,31 @@ export function getDepartmentByMunicipalityName(municipalityName: string): Depar
   if (!muni) return undefined;
   return DEPARTMENTS.find(d => d.code === muni.departmentCode);
 }
+
+// API functions for dynamic loading
+export async function fetchDepartments(): Promise<Department[]> {
+  try {
+    const res = await fetch("/api/departamentos/");
+    if (!res.ok) throw new Error("Error al cargar departamentos");
+    const json = await res.json();
+    return json.data || json;
+  } catch {
+    // Fallback to static data
+    return DEPARTMENTS;
+  }
+}
+
+export async function fetchMunicipalities(departmentCode?: string): Promise<Municipality[]> {
+  try {
+    const url = departmentCode 
+      ? `/api/municipios/?departmentCode=${departmentCode}`
+      : "/api/municipios/";
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Error al cargar municipios");
+    const json = await res.json();
+    return json.data || json;
+  } catch {
+    // Fallback to static data
+    return departmentCode ? getMunicipalitiesByDepartment(departmentCode) : MUNICIPALITIES;
+  }
+}
