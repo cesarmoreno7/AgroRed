@@ -61,8 +61,17 @@ const MENU_GROUPS: MenuGroup[] = [
       { to: "/organizations", icon: "🏢", label: "Organizaciones",      module: "catalog-service" },
       { to: "/products",      icon: "🥦", label: "Productos",           module: "catalog-service" },
       { to: "/categories",    icon: "🏷️", label: "Categorías",          module: "catalog-service" },
-      { to: "/departments",   icon: "🗾", label: "Departamentos",         },
-      { to: "/municipalities",icon: "📍", label: "Municipios",            },
+    ],
+  },
+  {
+    id: "maestras",
+    label: "Tablas Maestras",
+    icon: "🗂️",
+    items: [
+      { to: "/maestras/departamentos",   icon: "🗾", label: "Departamentos" },
+      { to: "/maestras/municipios",      icon: "📍", label: "Municipios" },
+      { to: "/maestras/corregimientos",  icon: "🏘️", label: "Corregimientos" },
+      { to: "/maestras/veredas",         icon: "🌾", label: "Veredas" },
     ],
   },
   {

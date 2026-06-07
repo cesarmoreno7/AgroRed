@@ -27,6 +27,10 @@ import { ProductsPage } from "./pages/ProductsPage";
 import { CategoriesPage } from "./pages/CategoriesPage";
 import { DepartmentsPage } from "./pages/DepartmentsPage";
 import { MunicipalitiesPage } from "./pages/MunicipalitiesPage";
+import { DepartamentosMaestrasPage } from "./pages/DepartamentosMaestrasPage";
+import { MunicipiosMaestrasPage } from "./pages/MunicipiosMaestrasPage";
+import { CorregimientosMaestrasPage } from "./pages/CorregimientosMaestrasPage";
+import { VeredasMaestrasPage } from "./pages/VeredasMaestrasPage";
 import type { ReactNode } from "react";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -71,8 +75,10 @@ export default function App() {
           <Route path="/organizations" element={<ProtectedRoute><ModuleGuard module="catalog-service"><OrganizationsPage /></ModuleGuard></ProtectedRoute>} />
           <Route path="/products"      element={<ProtectedRoute><ModuleGuard module="catalog-service"><ProductsPage /></ModuleGuard></ProtectedRoute>} />
           <Route path="/categories"    element={<ProtectedRoute><ModuleGuard module="catalog-service"><CategoriesPage /></ModuleGuard></ProtectedRoute>} />
-          <Route path="/departments"   element={<ProtectedRoute><DepartmentsPage /></ProtectedRoute>} />
-          <Route path="/municipalities" element={<ProtectedRoute><MunicipalitiesPage /></ProtectedRoute>} />
+          <Route path="/maestras/departamentos" element={<ProtectedRoute><DepartamentosMaestrasPage /></ProtectedRoute>} />
+          <Route path="/maestras/municipios" element={<ProtectedRoute><MunicipiosMaestrasPage /></ProtectedRoute>} />
+          <Route path="/maestras/corregimientos" element={<ProtectedRoute><CorregimientosMaestrasPage /></ProtectedRoute>} />
+          <Route path="/maestras/veredas" element={<ProtectedRoute><VeredasMaestrasPage /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

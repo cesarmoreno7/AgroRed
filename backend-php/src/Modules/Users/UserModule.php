@@ -21,24 +21,26 @@ final class UserModule
         'MUNICIPALITY',
         'TERRITORIAL_MANAGER',
         'ADMIN',
+        'SUPERADMIN',
     ];
 
     private const MODULE_ACCESS = [
-        'analytics-service' => ['ADMIN', 'TERRITORIAL_MANAGER'],
-        'api-gateway' => ['ADMIN'],
-        'automation-service' => ['ADMIN', 'OPERATOR'],
-        'demand-service' => ['OPERATOR', 'MUNICIPALITY'],
-        'incident-service' => ['MUNICIPALITY', 'TERRITORIAL_MANAGER'],
-        'inventory-service' => ['OPERATOR', 'MUNICIPALITY'],
-        'logistics-service' => ['OPERATOR', 'MUNICIPALITY', 'TERRITORIAL_MANAGER'],
-        'ml-service' => ['ADMIN'],
-        'notification-service' => ['ADMIN', 'OPERATOR'],
-        'offer-service' => ['OPERATOR', 'MUNICIPALITY'],
-        'producer-service' => ['PRODUCER', 'ADMIN'],
-        'rescue-service' => ['PRODUCER', 'MUNICIPALITY'],
-        'auction-service' => ['PRODUCER', 'OPERATOR', 'MUNICIPALITY', 'TERRITORIAL_MANAGER', 'ADMIN'],
-        'user-service' => ['ADMIN'],
-        'web-dashboard' => ['ADMIN', 'OPERATOR', 'MUNICIPALITY', 'TERRITORIAL_MANAGER', 'PRODUCER'],
+        'analytics-service' => ['ADMIN', 'TERRITORIAL_MANAGER', 'SUPERADMIN'],
+        'api-gateway' => ['ADMIN', 'SUPERADMIN'],
+        'automation-service' => ['ADMIN', 'OPERATOR', 'SUPERADMIN'],
+        'demand-service' => ['OPERATOR', 'MUNICIPALITY', 'SUPERADMIN'],
+        'incident-service' => ['MUNICIPALITY', 'TERRITORIAL_MANAGER', 'SUPERADMIN'],
+        'inventory-service' => ['OPERATOR', 'MUNICIPALITY', 'SUPERADMIN'],
+        'logistics-service' => ['OPERATOR', 'MUNICIPALITY', 'TERRITORIAL_MANAGER', 'SUPERADMIN'],
+        'ml-service' => ['ADMIN', 'SUPERADMIN'],
+        'notification-service' => ['ADMIN', 'OPERATOR', 'SUPERADMIN'],
+        'offer-service' => ['OPERATOR', 'MUNICIPALITY', 'SUPERADMIN'],
+        'producer-service' => ['PRODUCER', 'ADMIN', 'SUPERADMIN'],
+        'rescue-service' => ['PRODUCER', 'MUNICIPALITY', 'SUPERADMIN'],
+        'auction-service' => ['PRODUCER', 'OPERATOR', 'MUNICIPALITY', 'TERRITORIAL_MANAGER', 'ADMIN', 'SUPERADMIN'],
+        'user-service' => ['ADMIN', 'SUPERADMIN'],
+        'web-dashboard' => ['ADMIN', 'OPERATOR', 'MUNICIPALITY', 'TERRITORIAL_MANAGER', 'PRODUCER', 'SUPERADMIN'],
+        'ai-copilot' => ['ADMIN', 'SUPERADMIN'], // Copiloto IA sin restricciones para SUPERADMIN
     ];
 
     public static function register(Router $router, Database $database, JwtService $jwt, ?RedisClient $redis = null): void

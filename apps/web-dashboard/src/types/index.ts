@@ -59,6 +59,18 @@ export interface User {
   role: string;
 }
 
+export type UserRole = 'ADMIN' | 'SUPERADMIN' | 'TERRITORIAL_MANAGER' | 'PRODUCER' | 'OPERATOR' | 'VIEWER';
+
+export const SUPERADMIN_ROLE = 'SUPERADMIN';
+
+export function isSuperadmin(user: User | null): boolean {
+  return user?.role === SUPERADMIN_ROLE;
+}
+
+export function isAdmin(user: User | null): boolean {
+  return user?.role === 'ADMIN' || isSuperadmin(user);
+}
+
 export interface LoginResponse {
   token: string;
   user: User;
