@@ -38,7 +38,9 @@ async function getSortedSqlFiles(dir: string): Promise<string[]> {
 }
 
 async function run(): Promise<void> {
-  const isRemote = Boolean(process.env.DATABASE_URL);
+  const isRemote =
+    Boolean(process.env.DATABASE_URL) ||
+    process.env.NODE_ENV === "production";
   const pool = new pg.Pool({
     host: process.env.POSTGRES_HOST ?? "localhost",
     port: Number(process.env.POSTGRES_PORT ?? 5432),
