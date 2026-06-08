@@ -12,7 +12,7 @@ const IRAT_LEVELS = [
 ];
 
 function getIratLevel(score: number) {
-  return IRAT_LEVELS.find(l => score >= l.min && score <= l.max) ?? IRAT_LEVELS[4];
+  return IRAT_LEVELS.find(l => score >= l.min && score <= l.max) ?? IRAT_LEVELS[4]!;
 }
 
 const DIMENSIONS = [
@@ -100,7 +100,7 @@ function IratCard({ s }: { s: any }) {
         <div style={{ marginTop: 14, borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: 12 }}>
           <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em" }}>Desglose por Dimensión IRAT</div>
           {DIMENSIONS.map(d => {
-            const val = dims[d.key];
+            const val = dims[d.key] ?? 0;
             const lv = getIratLevel(val);
             return (
               <div key={d.key} style={{ marginBottom: 10 }}>

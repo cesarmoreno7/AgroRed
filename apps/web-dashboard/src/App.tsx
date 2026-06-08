@@ -25,8 +25,6 @@ import { ChannelsPage } from "./pages/ChannelsPage";
 import { OrganizationsPage } from "./pages/OrganizationsPage";
 import { ProductsPage } from "./pages/ProductsPage";
 import { CategoriesPage } from "./pages/CategoriesPage";
-import { DepartmentsPage } from "./pages/DepartmentsPage";
-import { MunicipalitiesPage } from "./pages/MunicipalitiesPage";
 import { DepartamentosMaestrasPage } from "./pages/DepartamentosMaestrasPage";
 import { MunicipiosMaestrasPage } from "./pages/MunicipiosMaestrasPage";
 import { CorregimientosMaestrasPage } from "./pages/CorregimientosMaestrasPage";
