@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { Layout } from "./components/Layout";
 import { ModuleGuard } from "./components/ModuleGuard";
 import { LoginPage } from "./pages/LoginPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { TerritorialPage } from "./pages/TerritorialPage";
 import { FleetPage } from "./pages/FleetPage";
@@ -51,6 +53,8 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
+          <Route path="/forgot-password" element={<GuestRoute><ForgotPasswordPage /></GuestRoute>} />
+          <Route path="/reset-password" element={<GuestRoute><ResetPasswordPage /></GuestRoute>} />
           <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
           <Route path="/territorial" element={<ProtectedRoute><ModuleGuard module="logistics-service"><TerritorialPage /></ModuleGuard></ProtectedRoute>} />
           <Route path="/fleet" element={<ProtectedRoute><ModuleGuard module="logistics-service"><FleetPage /></ModuleGuard></ProtectedRoute>} />

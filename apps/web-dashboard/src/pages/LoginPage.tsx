@@ -1,4 +1,5 @@
 import { useState, type FormEvent, type CSSProperties } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 
 export function LoginPage() {
@@ -114,6 +115,15 @@ export function LoginPage() {
         <button type="submit" disabled={loading} style={{ ...btnStyle, marginTop: 22 }}>
           {loading ? "Ingresando…" : "Ingresar"}
         </button>
+
+        <div style={{ textAlign: "center", marginTop: 18 }}>
+          <Link
+            to="/forgot-password"
+            style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", textDecoration: "none" }}
+          >
+            ¿Olvidaste tu contraseña?
+          </Link>
+        </div>
       </form>
     </div>
   );
