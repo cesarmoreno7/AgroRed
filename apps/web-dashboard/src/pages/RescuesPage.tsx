@@ -63,6 +63,7 @@ export function RescuesPage() {
   const [editingOriginId, setEditingOriginId] = useState<string | null>(null);
   const [originSaving, setOriginSaving]       = useState(false);
   const [originFormError, setOriginFormError] = useState<string | null>(null);
+  const [originDept, setOriginDept]           = useState("");
 
   useEffect(() => {
     fetchRescues().then(r => { if (r.ok) setRescues(r.data); });
@@ -134,11 +135,13 @@ export function RescuesPage() {
     }
     setOriginSaving(false);
     setOriginForm({ ...emptyOrigin });
+    setOriginDept("");
   };
 
   const handleEditOrigin = (o: any) => {
     setEditingOriginId(o.id);
     setOriginForm({ name: o.name, municipalityName: o.municipalityName, address: o.address ?? "", latitude: o.latitude != null ? String(o.latitude) : "", longitude: o.longitude != null ? String(o.longitude) : "" });
+    setOriginDept(getDepartmentByMunicipalityName(o.municipalityName || "")?.code ?? "");
     setOriginFormError(null);
   };
   const handleDeleteOrigin = async (id: string) => {
@@ -276,7 +279,20 @@ export function RescuesPage() {
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 12, fontWeight: 600 }}>{editingOriginId ? "✏️ Editando origen" : "Nuevo origen"}</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
               <div><label style={lbl}>Nombre *</label><input style={inp} value={originForm.name} onChange={e => setO("name", e.target.value)} placeholder="Ej: Mercado Minorista" /></div>
-              <div><label style={lbl}>Municipio *</label><input style={inp} value={originForm.municipalityName} onChange={e => setO("municipalityName", e.target.value)} placeholder="Ej: Medellín" /></div>
+              <div>
+                <label style={lbl}>Departamento *</label>
+                <select style={inp} value={originDept} onChange={e => { setOriginDept(e.target.value); setO("municipalityName", ""); }}>
+                  <option value="">— Seleccione —</option>
+                  {DEPARTMENTS.map(d => <option key={d.code} value={d.code}>{d.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>Municipio *</label>
+                <select style={inp} value={originForm.municipalityName} onChange={e => setO("municipalityName", e.target.value)} disabled={!originDept}>
+                  <option value="">— Seleccione municipio —</option>
+                  {(originDept ? getMunicipalitiesByDepartment(originDept) : []).map(m => <option key={m.code} value={m.name}>{m.name}</option>)}
+                </select>
+              </div>
               <div><label style={lbl}>Dirección</label><input style={inp} value={originForm.address} onChange={e => setO("address", e.target.value)} /></div>
               <div><label style={lbl}>Latitud</label><input style={inp} type="number" step="0.0001" value={originForm.latitude} onChange={e => setO("latitude", e.target.value)} /></div>
               <div><label style={lbl}>Longitud</label><input style={inp} type="number" step="0.0001" value={originForm.longitude} onChange={e => setO("longitude", e.target.value)} /></div>
@@ -287,7 +303,7 @@ export function RescuesPage() {
                 {originSaving ? "Guardando…" : editingOriginId ? "Guardar cambios" : "+ Agregar origen"}
               </button>
               {editingOriginId && (
-                <button onClick={() => { setEditingOriginId(null); setOriginForm({ ...emptyOrigin }); }} style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 16px", cursor: "pointer", fontSize: 13 }}>Cancelar</button>
+                <button onClick={() => { setEditingOriginId(null); setOriginForm({ ...emptyOrigin }); setOriginDept(""); }} style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 16px", cursor: "pointer", fontSize: 13 }}>Cancelar</button>
               )}
             </div>
           </div>

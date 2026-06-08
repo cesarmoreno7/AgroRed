@@ -1,6 +1,8 @@
 import { useEffect, useState, useMemo } from "react";
 import { fetchDemands, registerDemand, updateDemand } from "../services/demands";
 import { fetchInstitutions } from "../services/institutions";
+import { fetchProducts, type ProductCatalogItem } from "../services/products";
+import { DEPARTMENTS, getMunicipalitiesByDepartment, getDepartmentByMunicipalityName } from "../services/locations";
 import { useAuth } from "../hooks/useAuth";
 
 const CHANNELS = [
@@ -38,6 +40,8 @@ const STATUS_COLOR: Record<string, [string, string]> = {
 
 const inp: React.CSSProperties = { width: "100%", padding: "10px 14px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, color: "#fff", fontSize: 13, outline: "none", boxSizing: "border-box" };
 const lbl: React.CSSProperties = { display: "block", fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" };
+const UNITS = ["kg","libra","tonelada","und","litro","arroba","bulto"];
+const CATEGORIES = ["tuberculo","hortaliza","fruta","cereal","leguminosa","lacteo","cacao","platano","yuca","otro"];
 const emptyForm = () => ({ institutionId: "", demandChannel: "community_kitchen", organizationName: "", productName: "", category: "hortaliza", unit: "kg", quantityRequired: "", neededBy: "", beneficiaryCount: "", municipalityName: "", notes: "", latitude: "", longitude: "" });
 
 export function DemandsPage() {
@@ -53,12 +57,16 @@ export function DemandsPage() {
   const [editForm, setEditForm]         = useState(emptyForm());
   const [editLoading, setEditLoading]   = useState(false);
   const [editError, setEditError]       = useState<string | null>(null);
+  const [products, setProducts]         = useState<ProductCatalogItem[]>([]);
+  const [newDept, setNewDept]           = useState("");
+  const [editDept, setEditDept]         = useState("");
 
   useEffect(() => {
     fetchDemands().then(r => { if (r.ok) setDemands(r.data); });
     fetchInstitutions().then(r => {
       if (r.ok) setInstitutions((r.data as any[]).filter((i: any) => i.status === "active"));
     });
+    fetchProducts().then(r => { if (r.ok) setProducts(r.data); });
   }, []);
 
   const filtered = useMemo(() => {
@@ -79,6 +87,9 @@ export function DemandsPage() {
       setter(f => ({ ...f, institutionId: instId }));
       return;
     }
+    const dept = getDepartmentByMunicipalityName(inst.municipalityName ?? "");
+    if (target === "new") setNewDept(dept?.code ?? "");
+    else setEditDept(dept?.code ?? "");
     setter(f => ({
       ...f,
       institutionId:    inst.id,
@@ -109,6 +120,7 @@ export function DemandsPage() {
       latitude:         String(record.latitude ?? ""),
       longitude:        String(record.longitude ?? ""),
     });
+    setEditDept(getDepartmentByMunicipalityName(record.municipalityName || "")?.code ?? "");
     setEditError(null); setShowForm(false);
   };
 
@@ -220,15 +232,42 @@ export function DemandsPage() {
                 <input style={inp} value={form.organizationName} onChange={e => set("organizationName", e.target.value)} required />
               </div>
 
-              <div><label style={lbl}>Producto *</label><input style={inp} value={form.productName} onChange={e => set("productName", e.target.value)} required /></div>
-              <div><label style={lbl}>Categoría *</label><input style={inp} value={form.category} onChange={e => set("category", e.target.value)} required /></div>
-              <div><label style={lbl}>Unidad *</label><input style={inp} value={form.unit} onChange={e => set("unit", e.target.value)} required /></div>
+              <div>
+                <label style={lbl}>Producto *</label>
+                <input style={inp} value={form.productName} list="demands-products-list" onChange={e => { const p = products.find(x => x.name === e.target.value); set("productName", e.target.value); if (p) { set("category", p.category); set("unit", p.unit); } }} required />
+                <datalist id="demands-products-list">{products.map(p => <option key={p.id} value={p.name} />)}</datalist>
+              </div>
+              <div>
+                <label style={lbl}>Categoría *</label>
+                <select style={inp} value={form.category} onChange={e => set("category", e.target.value)}>
+                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>Unidad *</label>
+                <select style={inp} value={form.unit} onChange={e => set("unit", e.target.value)}>
+                  {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </div>
 
               <div><label style={lbl}>Cantidad *</label><input style={inp} type="number" min="0.01" step="0.01" value={form.quantityRequired} onChange={e => set("quantityRequired", e.target.value)} required /></div>
               <div><label style={lbl}>Fecha límite *</label><input style={inp} type="date" value={form.neededBy} onChange={e => set("neededBy", e.target.value)} required /></div>
               <div><label style={lbl}>Beneficiarios *</label><input style={inp} type="number" min="1" value={form.beneficiaryCount} onChange={e => set("beneficiaryCount", e.target.value)} required /></div>
 
-              <div><label style={lbl}>Municipio *</label><input style={inp} value={form.municipalityName} onChange={e => set("municipalityName", e.target.value)} required /></div>
+              <div>
+                <label style={lbl}>Departamento *</label>
+                <select style={inp} value={newDept} onChange={e => { setNewDept(e.target.value); set("municipalityName", ""); }}>
+                  <option value="">— Seleccione —</option>
+                  {DEPARTMENTS.map(d => <option key={d.code} value={d.code}>{d.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>Municipio *</label>
+                <select style={inp} value={form.municipalityName} onChange={e => set("municipalityName", e.target.value)} required disabled={!newDept}>
+                  <option value="">— Seleccione municipio —</option>
+                  {(newDept ? getMunicipalitiesByDepartment(newDept) : []).map(m => <option key={m.code} value={m.name}>{m.name}</option>)}
+                </select>
+              </div>
               <div><label style={lbl}>Latitud</label><input style={inp} type="number" step="0.0001" value={form.latitude} onChange={e => set("latitude", e.target.value)} /></div>
               <div><label style={lbl}>Longitud</label><input style={inp} type="number" step="0.0001" value={form.longitude} onChange={e => set("longitude", e.target.value)} /></div>
 
@@ -267,11 +306,40 @@ export function DemandsPage() {
                 <input style={inp} value={editForm.organizationName} onChange={e => setE("organizationName", e.target.value)} />
               </div>
 
-              <div><label style={lbl}>Producto</label><input style={inp} value={editForm.productName} onChange={e => setE("productName", e.target.value)} /></div>
+              <div>
+                <label style={lbl}>Producto</label>
+                <input style={inp} value={editForm.productName} list="demands-edit-products-list" onChange={e => { const p = products.find(x => x.name === e.target.value); setE("productName", e.target.value); if (p) { setE("category", p.category); setE("unit", p.unit); } }} />
+                <datalist id="demands-edit-products-list">{products.map(p => <option key={p.id} value={p.name} />)}</datalist>
+              </div>
+              <div>
+                <label style={lbl}>Categoría</label>
+                <select style={inp} value={editForm.category} onChange={e => setE("category", e.target.value)}>
+                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>Unidad</label>
+                <select style={inp} value={editForm.unit} onChange={e => setE("unit", e.target.value)}>
+                  {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </div>
               <div><label style={lbl}>Cantidad</label><input style={inp} type="number" step="0.01" value={editForm.quantityRequired} onChange={e => setE("quantityRequired", e.target.value)} /></div>
               <div><label style={lbl}>Beneficiarios</label><input style={inp} type="number" value={editForm.beneficiaryCount} onChange={e => setE("beneficiaryCount", e.target.value)} /></div>
-              <div><label style={lbl}>Municipio</label><input style={inp} value={editForm.municipalityName} onChange={e => setE("municipalityName", e.target.value)} /></div>
               <div><label style={lbl}>Fecha límite</label><input style={inp} type="date" value={editForm.neededBy} onChange={e => setE("neededBy", e.target.value)} /></div>
+              <div>
+                <label style={lbl}>Departamento</label>
+                <select style={inp} value={editDept} onChange={e => { setEditDept(e.target.value); setE("municipalityName", ""); }}>
+                  <option value="">— Seleccione —</option>
+                  {DEPARTMENTS.map(d => <option key={d.code} value={d.code}>{d.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>Municipio</label>
+                <select style={inp} value={editForm.municipalityName} onChange={e => setE("municipalityName", e.target.value)} disabled={!editDept}>
+                  <option value="">— Seleccione municipio —</option>
+                  {(editDept ? getMunicipalitiesByDepartment(editDept) : []).map(m => <option key={m.code} value={m.name}>{m.name}</option>)}
+                </select>
+              </div>
               <div style={{ gridColumn: "span 3" }}><label style={lbl}>Notas</label><input style={inp} value={editForm.notes} onChange={e => setE("notes", e.target.value)} /></div>
             </div>
             {editError && <div style={{ color: "#f87171", fontSize: 13, marginBottom: 14, padding: "8px 12px", background: "rgba(248,113,113,0.08)", borderRadius: 8 }}>{editError}</div>}

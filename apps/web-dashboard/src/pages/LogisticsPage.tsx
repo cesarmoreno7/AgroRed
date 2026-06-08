@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { fetchGeofences, registerGeofence, updateGeofence, registerLogisticsOrder } from "../services/logistics";
 import { GeofenceMap } from "../components/GeofenceMap";
 import { api } from "../services/api";
+import { DEPARTMENTS, getMunicipalitiesByDepartment } from "../services/locations";
 import { useAuth } from "../hooks/useAuth";
 
 const ZONE_TYPES = [
@@ -51,7 +52,8 @@ export function LogisticsPage() {
   const [orderForm, setOrderForm]         = useState({ ...emptyOrder });
   const [orderLoading, setOrderLoading]   = useState(false);
   const [orderError, setOrderError]       = useState<string | null>(null);
-  
+  const [orderDept, setOrderDept]         = useState("");
+
   const [producersList, setProducersList] = useState<any[]>([]);
   const [institutionsList, setInstitutionsList] = useState<any[]>([]);
   const [originType, setOriginType] = useState<"producer" | "institution">("producer");
@@ -167,10 +169,11 @@ export function LogisticsPage() {
       notes: orderForm.notes || undefined,
     });
     setOrderLoading(false);
-    if (res.ok) { 
-      setOrders(u => [res.data, ...u]); 
-      setOrderForm({ ...emptyOrder }); 
-      setShowOrderForm(false); 
+    if (res.ok) {
+      setOrders(u => [res.data, ...u]);
+      setOrderForm({ ...emptyOrder });
+      setOrderDept("");
+      setShowOrderForm(false);
     } else {
       setOrderError((res as any).message);
     }
@@ -384,7 +387,20 @@ export function LogisticsPage() {
                   </select>
                 </div>
                 <div><label style={lbl}>Dirección de Destino *</label><input style={inp} value={orderForm.destinationAddress} onChange={e => setO("destinationAddress", e.target.value)} required placeholder="Ej. Calle 123 #45-67" /></div>
-                <div><label style={lbl}>Municipio *</label><input style={inp} value={orderForm.municipalityName} onChange={e => setO("municipalityName", e.target.value)} required placeholder="Ej. Bogotá" /></div>
+                <div>
+                  <label style={lbl}>Departamento *</label>
+                  <select style={inp} value={orderDept} onChange={e => { setOrderDept(e.target.value); setO("municipalityName", ""); }}>
+                    <option value="">— Seleccione —</option>
+                    {DEPARTMENTS.map(d => <option key={d.code} value={d.code}>{d.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={lbl}>Municipio *</label>
+                  <select style={inp} value={orderForm.municipalityName} onChange={e => setO("municipalityName", e.target.value)} required disabled={!orderDept}>
+                    <option value="">— Seleccione municipio —</option>
+                    {(orderDept ? getMunicipalitiesByDepartment(orderDept) : []).map(m => <option key={m.code} value={m.name}>{m.name}</option>)}
+                  </select>
+                </div>
                 <div><label style={lbl}>Fecha/Hora Recogida *</label><input style={inp} type="datetime-local" value={orderForm.scheduledPickupAt} onChange={e => setO("scheduledPickupAt", e.target.value)} required /></div>
                 <div><label style={lbl}>Fecha/Hora Entrega *</label><input style={inp} type="datetime-local" value={orderForm.scheduledDeliveryAt} onChange={e => setO("scheduledDeliveryAt", e.target.value)} required /></div>
                 <div style={{ gridColumn: "span 3" }}><label style={lbl}>Notas</label><input style={inp} value={orderForm.notes} onChange={e => setO("notes", e.target.value)} placeholder="Instrucciones de entrega..." /></div>

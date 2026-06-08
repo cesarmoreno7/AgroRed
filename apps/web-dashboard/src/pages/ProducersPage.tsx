@@ -3,6 +3,7 @@ import { fetchProducers, registerProducer, updateProducer } from "../services/pr
 import type { ProducerRecord, ProducerMapProperties } from "../services/producers";
 import { ProducerMap } from "../components/ProducerMap";
 import { ProducerDetailPanel } from "../components/ProducerDetailPanel";
+import { DEPARTMENTS, getMunicipalitiesByDepartment, getDepartmentByMunicipalityName } from "../services/locations";
 import { useAuth } from "../hooks/useAuth";
 
 const PRODUCER_TYPES = [
@@ -57,6 +58,8 @@ export function ProducersPage() {
   const [editForm, setEditForm] = useState({ ...emptyForm });
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [newDept, setNewDept] = useState("");
+  const [editDept, setEditDept] = useState("");
 
   // Filters
   const [filterStatus, setFilterStatus] = useState("");
@@ -111,6 +114,7 @@ export function ProducersPage() {
       latitude: p.latitude != null ? String(p.latitude) : "",
       longitude: p.longitude != null ? String(p.longitude) : "",
     });
+    setEditDept(getDepartmentByMunicipalityName(p.municipalityName || "")?.code ?? "");
     setEditError(null); setShowForm(false);
   };
 
@@ -192,8 +196,18 @@ export function ProducersPage() {
                 <input style={inp} value={form.contactPhone} onChange={e => set("contactPhone", e.target.value)} placeholder="300 000 0000" required />
               </div>
               <div>
+                <label style={lbl}>Departamento *</label>
+                <select style={inp} value={newDept} onChange={e => { setNewDept(e.target.value); set("municipalityName", ""); }}>
+                  <option value="">— Seleccione —</option>
+                  {DEPARTMENTS.map(d => <option key={d.code} value={d.code}>{d.name}</option>)}
+                </select>
+              </div>
+              <div>
                 <label style={lbl}>Municipio *</label>
-                <input style={inp} value={form.municipalityName} onChange={e => set("municipalityName", e.target.value)} placeholder="Ej: Medellín" required />
+                <select style={inp} value={form.municipalityName} onChange={e => set("municipalityName", e.target.value)} required disabled={!newDept}>
+                  <option value="">— Seleccione municipio —</option>
+                  {(newDept ? getMunicipalitiesByDepartment(newDept) : []).map(m => <option key={m.code} value={m.name}>{m.name}</option>)}
+                </select>
               </div>
               <div>
                 <label style={lbl}>Tipo de zona</label>
@@ -254,8 +268,18 @@ export function ProducersPage() {
                 <input style={inp} value={editForm.contactPhone} onChange={e => setE("contactPhone", e.target.value)} />
               </div>
               <div>
+                <label style={lbl}>Departamento</label>
+                <select style={inp} value={editDept} onChange={e => { setEditDept(e.target.value); setE("municipalityName", ""); }}>
+                  <option value="">— Seleccione —</option>
+                  {DEPARTMENTS.map(d => <option key={d.code} value={d.code}>{d.name}</option>)}
+                </select>
+              </div>
+              <div>
                 <label style={lbl}>Municipio</label>
-                <input style={inp} value={editForm.municipalityName} onChange={e => setE("municipalityName", e.target.value)} />
+                <select style={inp} value={editForm.municipalityName} onChange={e => setE("municipalityName", e.target.value)} disabled={!editDept}>
+                  <option value="">— Seleccione municipio —</option>
+                  {(editDept ? getMunicipalitiesByDepartment(editDept) : []).map(m => <option key={m.code} value={m.name}>{m.name}</option>)}
+                </select>
               </div>
               <div>
                 <label style={lbl}>Zona</label>

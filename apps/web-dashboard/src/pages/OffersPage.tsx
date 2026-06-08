@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { fetchOffers, registerOffer, updateOffer } from "../services/offers";
 import { fetchProducers } from "../services/producers";
 import type { ProducerRecord } from "../services/producers";
+import { DEPARTMENTS, getMunicipalitiesByDepartment, getDepartmentByMunicipalityName } from "../services/locations";
 import { useAuth } from "../hooks/useAuth";
 
 const STATUS_COLOR: Record<string, [string, string]> = {
@@ -11,6 +12,7 @@ const STATUS_COLOR: Record<string, [string, string]> = {
 };
 
 const CATEGORIES = ["tuberculo","hortaliza","fruta","cereal","leguminosa","lacteo","cacao","platano","yuca","otro"];
+const UNITS = ["kg","libra","tonelada","und","litro","arroba","bulto"];
 
 const inp: React.CSSProperties = { width: "100%", padding: "10px 14px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, color: "#fff", fontSize: 13, outline: "none", boxSizing: "border-box" };
 const lbl: React.CSSProperties = { display: "block", fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" };
@@ -30,6 +32,8 @@ export function OffersPage() {
   const [editForm, setEditForm] = useState({ ...emptyForm });
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [newDept, setNewDept] = useState("");
+  const [editDept, setEditDept] = useState("");
 
   useEffect(() => {
     fetchOffers().then(r => { if (r.ok) setOffers(r.data); });
@@ -59,6 +63,7 @@ export function OffersPage() {
   const handleEdit = (record: any) => {
     setEditingId(record.id);
     setEditForm({ producerId: record.producerId || "", title: record.title || "", productName: record.productName || "", category: record.category || "hortaliza", unit: record.unit || "kg", quantityAvailable: String(record.quantityAvailable ?? ""), priceAmount: String(record.priceAmount ?? ""), currency: record.currency || "COP", availableFrom: record.availableFrom?.slice(0,10) || "", availableUntil: record.availableUntil?.slice(0,10) || "", municipalityName: record.municipalityName || "", notes: record.notes || "", latitude: String(record.latitude ?? ""), longitude: String(record.longitude ?? ""), status: record.status || "draft" });
+    setEditDept(getDepartmentByMunicipalityName(record.municipalityName || "")?.code ?? "");
     setEditError(null); setShowForm(false);
   };
 
@@ -119,13 +124,23 @@ export function OffersPage() {
           <h3 style={{ margin: "0 0 20px", fontSize: 16, fontWeight: 700, color: "#4ade80" }}>Nueva oferta</h3>
           <form onSubmit={handleSubmit}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
-              <div style={{ gridColumn: "span 2" }}>
+              <div>
                 <label style={lbl}>Productor *</label>
                 <ProducerSelect value={form.producerId} onChange={v => set("producerId", v)} />
               </div>
               <div>
+                <label style={lbl}>Departamento *</label>
+                <select style={inp} value={newDept} onChange={e => { setNewDept(e.target.value); set("municipalityName", ""); }}>
+                  <option value="">— Seleccione —</option>
+                  {DEPARTMENTS.map(d => <option key={d.code} value={d.code}>{d.name}</option>)}
+                </select>
+              </div>
+              <div>
                 <label style={lbl}>Municipio *</label>
-                <input style={inp} value={form.municipalityName} onChange={e => set("municipalityName", e.target.value)} placeholder="Municipio" required />
+                <select style={inp} value={form.municipalityName} onChange={e => set("municipalityName", e.target.value)} required disabled={!newDept}>
+                  <option value="">— Seleccione municipio —</option>
+                  {(newDept ? getMunicipalitiesByDepartment(newDept) : []).map(m => <option key={m.code} value={m.name}>{m.name}</option>)}
+                </select>
               </div>
               <div style={{ gridColumn: "span 3" }}>
                 <label style={lbl}>Título *</label>
@@ -143,7 +158,9 @@ export function OffersPage() {
               </div>
               <div>
                 <label style={lbl}>Unidad *</label>
-                <input style={inp} value={form.unit} onChange={e => set("unit", e.target.value)} placeholder="kg, lb, und…" required />
+                <select style={inp} value={form.unit} onChange={e => set("unit", e.target.value)}>
+                  {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
               </div>
               <div>
                 <label style={lbl}>Cantidad *</label>
@@ -201,13 +218,23 @@ export function OffersPage() {
           </div>
           <form onSubmit={handleUpdate}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
-              <div style={{ gridColumn: "span 2" }}>
+              <div>
                 <label style={lbl}>Productor</label>
                 <ProducerSelect value={editForm.producerId} onChange={v => setE("producerId", v)} />
               </div>
               <div>
+                <label style={lbl}>Departamento</label>
+                <select style={inp} value={editDept} onChange={e => { setEditDept(e.target.value); setE("municipalityName", ""); }}>
+                  <option value="">— Seleccione —</option>
+                  {DEPARTMENTS.map(d => <option key={d.code} value={d.code}>{d.name}</option>)}
+                </select>
+              </div>
+              <div>
                 <label style={lbl}>Municipio</label>
-                <input style={inp} value={editForm.municipalityName} onChange={e => setE("municipalityName", e.target.value)} />
+                <select style={inp} value={editForm.municipalityName} onChange={e => setE("municipalityName", e.target.value)} disabled={!editDept}>
+                  <option value="">— Seleccione municipio —</option>
+                  {(editDept ? getMunicipalitiesByDepartment(editDept) : []).map(m => <option key={m.code} value={m.name}>{m.name}</option>)}
+                </select>
               </div>
               <div style={{ gridColumn: "span 2" }}>
                 <label style={lbl}>Título</label>
@@ -225,7 +252,9 @@ export function OffersPage() {
               </div>
               <div>
                 <label style={lbl}>Unidad</label>
-                <input style={inp} value={editForm.unit} onChange={e => setE("unit", e.target.value)} />
+                <select style={inp} value={editForm.unit} onChange={e => setE("unit", e.target.value)}>
+                  {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
               </div>
               <div>
                 <label style={lbl}>Cantidad</label>
