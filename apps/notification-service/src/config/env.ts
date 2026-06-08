@@ -38,7 +38,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
   }
 
   if (env.NODE_ENV === "production" && !env.SMTP_USER) {
-    throw new Error("SMTP_USER must be configured for production.");
+    console.warn("[notification-service] SMTP_USER not configured — email sending will be disabled.");
   }
 
   return env;
