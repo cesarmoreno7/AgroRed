@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
+import { DEPARTMENTS } from "../services/locations";
 import {
   fetchMunicipios,
   createMunicipio,
   updateMunicipio,
   deleteMunicipio,
-  fetchDepartamentos,
   type Municipio,
-  type Departamento,
 } from "../services/locations-api";
 
 const inp: React.CSSProperties = {
@@ -30,7 +29,7 @@ const lbl: React.CSSProperties = {
   letterSpacing: "0.06em",
 };
 
-const emptyForm = { codigoDane: "", nombre: "", departamentoId: "" };
+const emptyForm = { codigoDane: "", nombre: "", departmentCode: "", departmentName: "" };
 
 export function MunicipiosMaestrasPage() {
   const [data, setData] = useState<Municipio[]>([]);
@@ -43,18 +42,7 @@ export function MunicipiosMaestrasPage() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
-  const [loadingDept, setLoadingDept] = useState(false);
   const limit = 20;
-
-  const loadDepartamentos = async () => {
-    setLoadingDept(true);
-    const res = await fetchDepartamentos(1, 100);
-    if (res.ok) {
-      setDepartamentos(res.data.data);
-    }
-    setLoadingDept(false);
-  };
 
   const loadData = async () => {
     setLoading(true);
@@ -66,25 +54,27 @@ export function MunicipiosMaestrasPage() {
     setLoading(false);
   };
 
-  useEffect(() => {
-    loadDepartamentos();
-    loadData();
-  }, [page, search]);
+  useEffect(() => { loadData(); }, [page, search]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!form.codigoDane || !form.nombre || !form.departamentoId) {
+    if (!form.codigoDane || !form.nombre || !form.departmentCode) {
       setError("Código DANE, nombre y departamento son obligatorios.");
       return;
     }
+    const dept = DEPARTMENTS.find(d => d.code === form.departmentCode);
+    if (!dept) { setError("Departamento inválido."); return; }
     setSaving(true);
-    let res;
-    if (editingId) {
-      res = await updateMunicipio(editingId, form);
-    } else {
-      res = await createMunicipio(form);
-    }
+    const payload = {
+      codigoDane: form.codigoDane,
+      nombre: form.nombre,
+      departmentCode: form.departmentCode,
+      departmentName: dept.name,
+    };
+    const res = editingId
+      ? await updateMunicipio(editingId, payload)
+      : await createMunicipio(payload);
     setSaving(false);
     if (res.ok) {
       loadData();
@@ -98,7 +88,12 @@ export function MunicipiosMaestrasPage() {
 
   const handleEdit = (item: Municipio) => {
     setEditingId(item.id);
-    setForm({ codigoDane: item.codigoDane, nombre: item.nombre, departamentoId: item.departamentoId });
+    setForm({
+      codigoDane: item.codigoDane,
+      nombre: item.nombre,
+      departmentCode: item.departmentCode,
+      departmentName: item.departmentName,
+    });
     setShowForm(true);
     setError(null);
   };
@@ -106,11 +101,8 @@ export function MunicipiosMaestrasPage() {
   const handleDelete = async (id: string) => {
     if (!window.confirm("¿Eliminar este municipio?")) return;
     const res = await deleteMunicipio(id);
-    if (res.ok) {
-      loadData();
-    } else {
-      alert(res.message);
-    }
+    if (res.ok) loadData();
+    else alert(res.message);
   };
 
   const totalPages = Math.ceil(total / limit);
@@ -127,17 +119,8 @@ export function MunicipiosMaestrasPage() {
           </p>
         </div>
         <button
-          onClick={() => { setShowForm(true); setEditingId(null); setForm({ ...emptyForm }); }}
-          style={{
-            background: "linear-gradient(135deg,#60a5fa,#a78bfa)",
-            color: "#fff",
-            border: "none",
-            borderRadius: 12,
-            padding: "11px 22px",
-            fontWeight: 700,
-            cursor: "pointer",
-            fontSize: 14,
-          }}
+          onClick={() => { setShowForm(true); setEditingId(null); setForm({ ...emptyForm }); setError(null); }}
+          style={{ background: "linear-gradient(135deg,#60a5fa,#a78bfa)", color: "#fff", border: "none", borderRadius: 12, padding: "11px 22px", fontWeight: 700, cursor: "pointer", fontSize: 14 }}
         >
           + Nuevo Municipio
         </button>
@@ -155,7 +138,7 @@ export function MunicipiosMaestrasPage() {
                 <input
                   style={inp}
                   value={form.codigoDane}
-                  onChange={(e) => setForm({ ...form, codigoDane: e.target.value })}
+                  onChange={e => setForm({ ...form, codigoDane: e.target.value })}
                   placeholder="Ej: 05001"
                   maxLength={10}
                 />
@@ -165,7 +148,7 @@ export function MunicipiosMaestrasPage() {
                 <input
                   style={inp}
                   value={form.nombre}
-                  onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+                  onChange={e => setForm({ ...form, nombre: e.target.value })}
                   placeholder="Ej: Medellín"
                   maxLength={200}
                 />
@@ -174,51 +157,25 @@ export function MunicipiosMaestrasPage() {
                 <label style={lbl}>Departamento *</label>
                 <select
                   style={inp}
-                  value={form.departamentoId}
-                  onChange={(e) => setForm({ ...form, departamentoId: e.target.value })}
-                  disabled={loadingDept}
+                  value={form.departmentCode}
+                  onChange={e => {
+                    const dept = DEPARTMENTS.find(d => d.code === e.target.value);
+                    setForm({ ...form, departmentCode: e.target.value, departmentName: dept?.name ?? "" });
+                  }}
                 >
                   <option value="">-- Seleccione --</option>
-                  {departamentos.map((dept) => (
-                    <option key={dept.id} value={dept.id}>{dept.nombre}</option>
+                  {DEPARTMENTS.map(d => (
+                    <option key={d.code} value={d.code}>{d.name}</option>
                   ))}
                 </select>
               </div>
             </div>
-            {error && (
-              <div style={{ color: "#f87171", fontSize: 13, marginBottom: 12 }}>{error}</div>
-            )}
+            {error && <div style={{ color: "#f87171", fontSize: 13, marginBottom: 12 }}>{error}</div>}
             <div style={{ display: "flex", gap: 10 }}>
-              <button
-                type="submit"
-                disabled={saving}
-                style={{
-                  background: saving ? "rgba(96,165,250,0.3)" : "linear-gradient(135deg,#60a5fa,#a78bfa)",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 10,
-                  padding: "10px 20px",
-                  fontWeight: 600,
-                  cursor: saving ? "not-allowed" : "pointer",
-                  fontSize: 13,
-                }}
-              >
+              <button type="submit" disabled={saving} style={{ background: saving ? "rgba(96,165,250,0.3)" : "linear-gradient(135deg,#60a5fa,#a78bfa)", color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", fontSize: 13 }}>
                 {saving ? "Guardando..." : editingId ? "Actualizar" : "Guardar"}
               </button>
-              <button
-                type="button"
-                onClick={() => { setShowForm(false); setEditingId(null); setForm({ ...emptyForm }); setError(null); }}
-                style={{
-                  background: "rgba(255,255,255,0.05)",
-                  color: "rgba(255,255,255,0.6)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 10,
-                  padding: "10px 20px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  fontSize: 13,
-                }}
-              >
+              <button type="button" onClick={() => { setShowForm(false); setEditingId(null); setForm({ ...emptyForm }); setError(null); }} style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.6)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 20px", fontWeight: 600, cursor: "pointer", fontSize: 13 }}>
                 Cancelar
               </button>
             </div>
@@ -228,7 +185,7 @@ export function MunicipiosMaestrasPage() {
 
       <input
         value={search}
-        onChange={(e) => setSearch(e.target.value)}
+        onChange={e => setSearch(e.target.value)}
         placeholder="Buscar por nombre o código DANE..."
         style={{ ...inp, marginBottom: 16, borderRadius: 12, fontSize: 14 }}
       />
@@ -244,17 +201,13 @@ export function MunicipiosMaestrasPage() {
             </tr>
           </thead>
           <tbody>
-            {loading && (
-              <tr><td colSpan={4} style={{ padding: 40, textAlign: "center", color: "rgba(255,255,255,0.3)" }}>Cargando...</td></tr>
-            )}
-            {!loading && data.length === 0 && (
-              <tr><td colSpan={4} style={{ padding: 40, textAlign: "center", color: "rgba(255,255,255,0.25)" }}>Sin resultados</td></tr>
-            )}
-            {!loading && data.map((item) => (
+            {loading && <tr><td colSpan={4} style={{ padding: 40, textAlign: "center", color: "rgba(255,255,255,0.3)" }}>Cargando...</td></tr>}
+            {!loading && data.length === 0 && <tr><td colSpan={4} style={{ padding: 40, textAlign: "center", color: "rgba(255,255,255,0.25)" }}>Sin resultados</td></tr>}
+            {!loading && data.map(item => (
               <tr key={item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                 <td style={{ padding: "12px 16px", fontSize: 12, color: "#60a5fa", fontFamily: "monospace", fontWeight: 700 }}>{item.codigoDane}</td>
                 <td style={{ padding: "12px 16px", fontSize: 14, color: "#fff" }}>{item.nombre}</td>
-                <td style={{ padding: "12px 16px", fontSize: 14, color: "rgba(255,255,255,0.7)" }}>{item.departamentoNombre}</td>
+                <td style={{ padding: "12px 16px", fontSize: 14, color: "rgba(255,255,255,0.7)" }}>{item.departmentName}</td>
                 <td style={{ padding: "12px 16px", textAlign: "right" }}>
                   <button onClick={() => handleEdit(item)} style={{ marginRight: 8, background: "none", border: "none", color: "#60a5fa", cursor: "pointer", fontSize: 13 }}>Editar</button>
                   <button onClick={() => handleDelete(item.id)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 13 }}>Eliminar</button>
@@ -267,39 +220,9 @@ export function MunicipiosMaestrasPage() {
 
       {totalPages > 1 && (
         <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 16 }}>
-          <button
-            onClick={() => setPage(p => Math.max(1, p - 1))}
-            disabled={page === 1}
-            style={{
-              background: page === 1 ? "rgba(255,255,255,0.05)" : "rgba(96,165,250,0.1)",
-              color: page === 1 ? "rgba(255,255,255,0.3)" : "#60a5fa",
-              border: "1px solid rgba(96,165,250,0.2)",
-              borderRadius: 8,
-              padding: "8px 16px",
-              cursor: page === 1 ? "not-allowed" : "pointer",
-              fontSize: 13,
-            }}
-          >
-            ← Anterior
-          </button>
-          <span style={{ padding: "8px 16px", color: "rgba(255,255,255,0.5)", fontSize: 13 }}>
-            Página {page} de {totalPages}
-          </span>
-          <button
-            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-            style={{
-              background: page === totalPages ? "rgba(255,255,255,0.05)" : "rgba(96,165,250,0.1)",
-              color: page === totalPages ? "rgba(255,255,255,0.3)" : "#60a5fa",
-              border: "1px solid rgba(96,165,250,0.2)",
-              borderRadius: 8,
-              padding: "8px 16px",
-              cursor: page === totalPages ? "not-allowed" : "pointer",
-              fontSize: 13,
-            }}
-          >
-            Siguiente →
-          </button>
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={{ background: "rgba(96,165,250,0.1)", color: "#60a5fa", border: "1px solid rgba(96,165,250,0.2)", borderRadius: 8, padding: "8px 16px", cursor: "pointer", fontSize: 13 }}>← Anterior</button>
+          <span style={{ padding: "8px 16px", color: "rgba(255,255,255,0.5)", fontSize: 13 }}>Página {page} de {totalPages}</span>
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={{ background: "rgba(96,165,250,0.1)", color: "#60a5fa", border: "1px solid rgba(96,165,250,0.2)", borderRadius: 8, padding: "8px 16px", cursor: "pointer", fontSize: 13 }}>Siguiente →</button>
         </div>
       )}
     </div>

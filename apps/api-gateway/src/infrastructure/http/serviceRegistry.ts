@@ -16,7 +16,11 @@ export interface ServiceRouteDefinition {
     | "ml"
     | "automation"
     | "auctions"
-    | "institutions";
+    | "institutions"
+    | "departamentos"
+    | "municipios"
+    | "corregimientos"
+    | "veredas";
   name: string;
   description: string;
   pathPrefix: string;
@@ -129,6 +133,34 @@ export function buildServiceRegistry(env: AppEnv): ServiceRouteDefinition[] {
       description: "Gestión de instituciones que demandan productos: educativas, hospitales, cárceles, comedores y más.",
       pathPrefix: "/api/v1/institutions",
       target: env.INSTITUTION_SERVICE_URL
+    },
+    {
+      key: "departamentos",
+      name: "location-service",
+      description: "CRUD de departamentos colombianos (catálogo maestro territorial).",
+      pathPrefix: "/api/v1/departamentos",
+      target: env.LOCATION_SERVICE_URL
+    },
+    {
+      key: "municipios",
+      name: "location-service",
+      description: "CRUD de municipios colombianos (catálogo maestro territorial).",
+      pathPrefix: "/api/v1/municipios",
+      target: env.LOCATION_SERVICE_URL
+    },
+    {
+      key: "corregimientos",
+      name: "location-service",
+      description: "CRUD de corregimientos (subdivisiones municipales).",
+      pathPrefix: "/api/v1/corregimientos",
+      target: env.LOCATION_SERVICE_URL
+    },
+    {
+      key: "veredas",
+      name: "location-service",
+      description: "CRUD de veredas (unidades territoriales rurales).",
+      pathPrefix: "/api/v1/veredas",
+      target: env.LOCATION_SERVICE_URL
     }
   ];
 }

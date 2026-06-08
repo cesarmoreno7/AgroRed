@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
+import { DEPARTMENTS, getMunicipalitiesByDepartment } from "../services/locations";
 import {
   fetchVeredas,
   createVereda,
   updateVereda,
   deleteVereda,
-  fetchMunicipios,
   type Vereda,
-  type Municipio,
 } from "../services/locations-api";
 
 const inp: React.CSSProperties = {
@@ -30,7 +29,13 @@ const lbl: React.CSSProperties = {
   letterSpacing: "0.06em",
 };
 
-const emptyForm = { codigoDane: "", nombre: "", municipioId: "" };
+const emptyForm = {
+  nombre: "",
+  departmentCode: "",
+  municipalityCode: "",
+  municipalityName: "",
+  mainProduct: "",
+};
 
 export function VeredasMaestrasPage() {
   const [data, setData] = useState<Vereda[]>([]);
@@ -43,18 +48,11 @@ export function VeredasMaestrasPage() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [municipios, setMunicipios] = useState<Municipio[]>([]);
-  const [loadingMuni, setLoadingMuni] = useState(false);
   const limit = 20;
 
-  const loadMunicipios = async () => {
-    setLoadingMuni(true);
-    const res = await fetchMunicipios(1, 200);
-    if (res.ok) {
-      setMunicipios(res.data.data);
-    }
-    setLoadingMuni(false);
-  };
+  const municipioOptions = form.departmentCode
+    ? getMunicipalitiesByDepartment(form.departmentCode)
+    : [];
 
   const loadData = async () => {
     setLoading(true);
@@ -66,25 +64,35 @@ export function VeredasMaestrasPage() {
     setLoading(false);
   };
 
-  useEffect(() => {
-    loadMunicipios();
-    loadData();
-  }, [page, search]);
+  useEffect(() => { loadData(); }, [page, search]);
+
+  const handleDeptChange = (deptCode: string) => {
+    setForm(f => ({ ...f, departmentCode: deptCode, municipalityCode: "", municipalityName: "" }));
+  };
+
+  const handleMuniChange = (muniCode: string) => {
+    const muni = municipioOptions.find(m => m.code === muniCode);
+    setForm(f => ({ ...f, municipalityCode: muniCode, municipalityName: muni?.name ?? "" }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!form.codigoDane || !form.nombre || !form.municipioId) {
-      setError("Código DANE, nombre y municipio son obligatorios.");
+    if (!form.nombre || !form.municipalityCode || !form.departmentCode) {
+      setError("Nombre, departamento y municipio son obligatorios.");
       return;
     }
     setSaving(true);
-    let res;
-    if (editingId) {
-      res = await updateVereda(editingId, form);
-    } else {
-      res = await createVereda(form);
-    }
+    const payload = {
+      nombre: form.nombre,
+      municipalityCode: form.municipalityCode,
+      municipalityName: form.municipalityName,
+      departmentCode: form.departmentCode,
+      mainProduct: form.mainProduct || undefined,
+    };
+    const res = editingId
+      ? await updateVereda(editingId, payload)
+      : await createVereda(payload);
     setSaving(false);
     if (res.ok) {
       loadData();
@@ -98,7 +106,13 @@ export function VeredasMaestrasPage() {
 
   const handleEdit = (item: Vereda) => {
     setEditingId(item.id);
-    setForm({ codigoDane: item.codigoDane, nombre: item.nombre, municipioId: item.municipioId });
+    setForm({
+      nombre: item.nombre,
+      departmentCode: item.departmentCode,
+      municipalityCode: item.municipalityCode,
+      municipalityName: item.municipalityName,
+      mainProduct: item.mainProduct ?? "",
+    });
     setShowForm(true);
     setError(null);
   };
@@ -106,11 +120,8 @@ export function VeredasMaestrasPage() {
   const handleDelete = async (id: string) => {
     if (!window.confirm("¿Eliminar esta vereda?")) return;
     const res = await deleteVereda(id);
-    if (res.ok) {
-      loadData();
-    } else {
-      alert(res.message);
-    }
+    if (res.ok) loadData();
+    else alert(res.message);
   };
 
   const totalPages = Math.ceil(total / limit);
@@ -127,17 +138,8 @@ export function VeredasMaestrasPage() {
           </p>
         </div>
         <button
-          onClick={() => { setShowForm(true); setEditingId(null); setForm({ ...emptyForm }); }}
-          style={{
-            background: "linear-gradient(135deg,#60a5fa,#a78bfa)",
-            color: "#fff",
-            border: "none",
-            borderRadius: 12,
-            padding: "11px 22px",
-            fontWeight: 700,
-            cursor: "pointer",
-            fontSize: 14,
-          }}
+          onClick={() => { setShowForm(true); setEditingId(null); setForm({ ...emptyForm }); setError(null); }}
+          style={{ background: "linear-gradient(135deg,#60a5fa,#a78bfa)", color: "#fff", border: "none", borderRadius: 12, padding: "11px 22px", fontWeight: 700, cursor: "pointer", fontSize: 14 }}
         >
           + Nueva Vereda
         </button>
@@ -149,76 +151,61 @@ export function VeredasMaestrasPage() {
             {editingId ? "✏️ Editar Vereda" : "📝 Nueva Vereda"}
           </h3>
           <form onSubmit={handleSubmit}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
-              <div>
-                <label style={lbl}>Código DANE *</label>
-                <input
-                  style={inp}
-                  value={form.codigoDane}
-                  onChange={(e) => setForm({ ...form, codigoDane: e.target.value })}
-                  placeholder="Ej: 050010001"
-                  maxLength={20}
-                />
-              </div>
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
               <div>
                 <label style={lbl}>Nombre *</label>
                 <input
                   style={inp}
                   value={form.nombre}
-                  onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+                  onChange={e => setForm({ ...form, nombre: e.target.value })}
                   placeholder="Ej: La Esperanza"
                   maxLength={200}
                 />
               </div>
               <div>
-                <label style={lbl}>Municipio *</label>
+                <label style={lbl}>Departamento *</label>
                 <select
                   style={inp}
-                  value={form.municipioId}
-                  onChange={(e) => setForm({ ...form, municipioId: e.target.value })}
-                  disabled={loadingMuni}
+                  value={form.departmentCode}
+                  onChange={e => handleDeptChange(e.target.value)}
                 >
                   <option value="">-- Seleccione --</option>
-                  {municipios.map((muni) => (
-                    <option key={muni.id} value={muni.id}>{muni.nombre}</option>
+                  {DEPARTMENTS.map(d => (
+                    <option key={d.code} value={d.code}>{d.name}</option>
                   ))}
                 </select>
               </div>
+              <div>
+                <label style={lbl}>Municipio *</label>
+                <select
+                  style={inp}
+                  value={form.municipalityCode}
+                  onChange={e => handleMuniChange(e.target.value)}
+                  disabled={!form.departmentCode}
+                >
+                  <option value="">-- Seleccione --</option>
+                  {municipioOptions.map(m => (
+                    <option key={m.code} value={m.code}>{m.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>Producto principal</label>
+                <input
+                  style={inp}
+                  value={form.mainProduct}
+                  onChange={e => setForm({ ...form, mainProduct: e.target.value })}
+                  placeholder="Ej: Papa criolla"
+                  maxLength={100}
+                />
+              </div>
             </div>
-            {error && (
-              <div style={{ color: "#f87171", fontSize: 13, marginBottom: 12 }}>{error}</div>
-            )}
+            {error && <div style={{ color: "#f87171", fontSize: 13, marginBottom: 12 }}>{error}</div>}
             <div style={{ display: "flex", gap: 10 }}>
-              <button
-                type="submit"
-                disabled={saving}
-                style={{
-                  background: saving ? "rgba(96,165,250,0.3)" : "linear-gradient(135deg,#60a5fa,#a78bfa)",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 10,
-                  padding: "10px 20px",
-                  fontWeight: 600,
-                  cursor: saving ? "not-allowed" : "pointer",
-                  fontSize: 13,
-                }}
-              >
+              <button type="submit" disabled={saving} style={{ background: saving ? "rgba(96,165,250,0.3)" : "linear-gradient(135deg,#60a5fa,#a78bfa)", color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", fontSize: 13 }}>
                 {saving ? "Guardando..." : editingId ? "Actualizar" : "Guardar"}
               </button>
-              <button
-                type="button"
-                onClick={() => { setShowForm(false); setEditingId(null); setForm({ ...emptyForm }); setError(null); }}
-                style={{
-                  background: "rgba(255,255,255,0.05)",
-                  color: "rgba(255,255,255,0.6)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 10,
-                  padding: "10px 20px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  fontSize: 13,
-                }}
-              >
+              <button type="button" onClick={() => { setShowForm(false); setEditingId(null); setForm({ ...emptyForm }); setError(null); }} style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.6)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 20px", fontWeight: 600, cursor: "pointer", fontSize: 13 }}>
                 Cancelar
               </button>
             </div>
@@ -228,8 +215,8 @@ export function VeredasMaestrasPage() {
 
       <input
         value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Buscar por nombre o código DANE..."
+        onChange={e => { setSearch(e.target.value); setPage(1); }}
+        placeholder="Buscar por nombre de vereda..."
         style={{ ...inp, marginBottom: 16, borderRadius: 12, fontSize: 14 }}
       />
 
@@ -237,24 +224,22 @@ export function VeredasMaestrasPage() {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-              <th style={{ padding: "14px 16px", textAlign: "left", fontSize: 11, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>Cód. DANE</th>
               <th style={{ padding: "14px 16px", textAlign: "left", fontSize: 11, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>Nombre</th>
               <th style={{ padding: "14px 16px", textAlign: "left", fontSize: 11, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>Municipio</th>
+              <th style={{ padding: "14px 16px", textAlign: "left", fontSize: 11, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>Departamento</th>
+              <th style={{ padding: "14px 16px", textAlign: "left", fontSize: 11, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>Producto principal</th>
               <th style={{ padding: "14px 16px", textAlign: "right", fontSize: 11, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 700 }}>Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {loading && (
-              <tr><td colSpan={4} style={{ padding: 40, textAlign: "center", color: "rgba(255,255,255,0.3)" }}>Cargando...</td></tr>
-            )}
-            {!loading && data.length === 0 && (
-              <tr><td colSpan={4} style={{ padding: 40, textAlign: "center", color: "rgba(255,255,255,0.25)" }}>Sin resultados</td></tr>
-            )}
-            {!loading && data.map((item) => (
+            {loading && <tr><td colSpan={5} style={{ padding: 40, textAlign: "center", color: "rgba(255,255,255,0.3)" }}>Cargando...</td></tr>}
+            {!loading && data.length === 0 && <tr><td colSpan={5} style={{ padding: 40, textAlign: "center", color: "rgba(255,255,255,0.25)" }}>Sin resultados</td></tr>}
+            {!loading && data.map(item => (
               <tr key={item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                <td style={{ padding: "12px 16px", fontSize: 12, color: "#60a5fa", fontFamily: "monospace", fontWeight: 700 }}>{item.codigoDane}</td>
                 <td style={{ padding: "12px 16px", fontSize: 14, color: "#fff" }}>{item.nombre}</td>
-                <td style={{ padding: "12px 16px", fontSize: 14, color: "rgba(255,255,255,0.7)" }}>{item.municipioNombre}</td>
+                <td style={{ padding: "12px 16px", fontSize: 13, color: "rgba(255,255,255,0.7)" }}>{item.municipalityName}</td>
+                <td style={{ padding: "12px 16px", fontSize: 13, color: "rgba(255,255,255,0.5)" }}>{DEPARTMENTS.find(d => d.code === item.departmentCode)?.name ?? item.departmentCode}</td>
+                <td style={{ padding: "12px 16px", fontSize: 13, color: "#a78bfa" }}>{item.mainProduct ?? "—"}</td>
                 <td style={{ padding: "12px 16px", textAlign: "right" }}>
                   <button onClick={() => handleEdit(item)} style={{ marginRight: 8, background: "none", border: "none", color: "#60a5fa", cursor: "pointer", fontSize: 13 }}>Editar</button>
                   <button onClick={() => handleDelete(item.id)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 13 }}>Eliminar</button>
@@ -267,39 +252,9 @@ export function VeredasMaestrasPage() {
 
       {totalPages > 1 && (
         <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 16 }}>
-          <button
-            onClick={() => setPage(p => Math.max(1, p - 1))}
-            disabled={page === 1}
-            style={{
-              background: page === 1 ? "rgba(255,255,255,0.05)" : "rgba(96,165,250,0.1)",
-              color: page === 1 ? "rgba(255,255,255,0.3)" : "#60a5fa",
-              border: "1px solid rgba(96,165,250,0.2)",
-              borderRadius: 8,
-              padding: "8px 16px",
-              cursor: page === 1 ? "not-allowed" : "pointer",
-              fontSize: 13,
-            }}
-          >
-            ← Anterior
-          </button>
-          <span style={{ padding: "8px 16px", color: "rgba(255,255,255,0.5)", fontSize: 13 }}>
-            Página {page} de {totalPages}
-          </span>
-          <button
-            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-            style={{
-              background: page === totalPages ? "rgba(255,255,255,0.05)" : "rgba(96,165,250,0.1)",
-              color: page === totalPages ? "rgba(255,255,255,0.3)" : "#60a5fa",
-              border: "1px solid rgba(96,165,250,0.2)",
-              borderRadius: 8,
-              padding: "8px 16px",
-              cursor: page === totalPages ? "not-allowed" : "pointer",
-              fontSize: 13,
-            }}
-          >
-            Siguiente →
-          </button>
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={{ background: "rgba(96,165,250,0.1)", color: "#60a5fa", border: "1px solid rgba(96,165,250,0.2)", borderRadius: 8, padding: "8px 16px", cursor: "pointer", fontSize: 13 }}>← Anterior</button>
+          <span style={{ padding: "8px 16px", color: "rgba(255,255,255,0.5)", fontSize: 13 }}>Página {page} de {totalPages}</span>
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={{ background: "rgba(96,165,250,0.1)", color: "#60a5fa", border: "1px solid rgba(96,165,250,0.2)", borderRadius: 8, padding: "8px 16px", cursor: "pointer", fontSize: 13 }}>Siguiente →</button>
         </div>
       )}
     </div>

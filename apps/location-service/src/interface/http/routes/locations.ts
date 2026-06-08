@@ -13,7 +13,7 @@ export function createLocationsRouter(
 
   // ===================== DEPARTAMENTOS =====================
   
-  router.get("/api/departamentos", asyncHandler(async (req, res) => {
+  router.get("/api/v1/departamentos", asyncHandler(async (req, res) => {
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
     const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10) || 50));
     const search = String(req.query.search ?? "");
@@ -22,7 +22,7 @@ export function createLocationsRouter(
     return sendPaginatedSuccess(res, result.data, { total: result.total, page: result.page, limit: result.limit });
   }));
 
-  router.get("/api/departamentos/:id", asyncHandler(async (req, res) => {
+  router.get("/api/v1/departamentos/:id", asyncHandler(async (req, res) => {
     const dept = await departamentoRepo.findById(String(req.params.id));
     if (!dept) return sendError(res, 404, "DEPARTAMENTO_NOT_FOUND", "Departamento no encontrado.");
     return sendSuccess(res, dept);
@@ -33,7 +33,7 @@ export function createLocationsRouter(
     nombre: z.string().min(3).max(100)
   });
 
-  router.post("/api/departamentos", asyncHandler(async (req, res) => {
+  router.post("/api/v1/departamentos", asyncHandler(async (req, res) => {
     const parsed = createDepartamentoSchema.safeParse(req.body);
     if (!parsed.success) {
       return sendError(res, 400, "INVALID_PAYLOAD", "Datos inválidos para crear departamento.");
@@ -53,7 +53,7 @@ export function createLocationsRouter(
     nombre: z.string().min(3).max(100).optional()
   }).refine(d => Object.keys(d).length > 0, { message: "Al menos un campo debe ser proporcionado" });
 
-  router.put("/api/departamentos/:id", asyncHandler(async (req, res) => {
+  router.put("/api/v1/departamentos/:id", asyncHandler(async (req, res) => {
     const parsed = updateDepartamentoSchema.safeParse(req.body);
     if (!parsed.success) {
       return sendError(res, 400, "INVALID_PAYLOAD", "Datos inválidos para actualizar departamento.");
@@ -66,7 +66,7 @@ export function createLocationsRouter(
     return sendSuccess(res, dept);
   }));
 
-  router.delete("/api/departamentos/:id", asyncHandler(async (req, res) => {
+  router.delete("/api/v1/departamentos/:id", asyncHandler(async (req, res) => {
     const existing = await departamentoRepo.findById(String(req.params.id));
     if (!existing) return sendError(res, 404, "DEPARTAMENTO_NOT_FOUND", "Departamento no encontrado.");
     
@@ -76,7 +76,7 @@ export function createLocationsRouter(
 
   // ===================== MUNICIPIOS =====================
 
-  router.get("/api/municipios", asyncHandler(async (req, res) => {
+  router.get("/api/v1/municipios", asyncHandler(async (req, res) => {
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
     const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10) || 50));
     const search = String(req.query.search ?? "");
@@ -86,7 +86,7 @@ export function createLocationsRouter(
     return sendPaginatedSuccess(res, result.data, { total: result.total, page: result.page, limit: result.limit });
   }));
 
-  router.get("/api/municipios/:id", asyncHandler(async (req, res) => {
+  router.get("/api/v1/municipios/:id", asyncHandler(async (req, res) => {
     const muni = await municipioRepo.findById(String(req.params.id));
     if (!muni) return sendError(res, 404, "MUNICIPIO_NOT_FOUND", "Municipio no encontrado.");
     return sendSuccess(res, muni);
@@ -102,7 +102,7 @@ export function createLocationsRouter(
     population: z.number().int().positive().optional().nullable()
   });
 
-  router.post("/api/municipios", asyncHandler(async (req, res) => {
+  router.post("/api/v1/municipios", asyncHandler(async (req, res) => {
     const parsed = createMunicipioSchema.safeParse(req.body);
     if (!parsed.success) {
       return sendError(res, 400, "INVALID_PAYLOAD", "Datos inválidos para crear municipio.");
@@ -127,7 +127,7 @@ export function createLocationsRouter(
     population: z.number().int().positive().optional().nullable()
   }).refine(d => Object.keys(d).length > 0, { message: "Al menos un campo debe ser proporcionado" });
 
-  router.put("/api/municipios/:id", asyncHandler(async (req, res) => {
+  router.put("/api/v1/municipios/:id", asyncHandler(async (req, res) => {
     const parsed = updateMunicipioSchema.safeParse(req.body);
     if (!parsed.success) {
       return sendError(res, 400, "INVALID_PAYLOAD", "Datos inválidos para actualizar municipio.");
@@ -140,7 +140,7 @@ export function createLocationsRouter(
     return sendSuccess(res, muni);
   }));
 
-  router.delete("/api/municipios/:id", asyncHandler(async (req, res) => {
+  router.delete("/api/v1/municipios/:id", asyncHandler(async (req, res) => {
     const existing = await municipioRepo.findById(String(req.params.id));
     if (!existing) return sendError(res, 404, "MUNICIPIO_NOT_FOUND", "Municipio no encontrado.");
     
@@ -150,7 +150,7 @@ export function createLocationsRouter(
 
   // ===================== CORREGIMIENTOS =====================
 
-  router.get("/api/corregimientos", asyncHandler(async (req, res) => {
+  router.get("/api/v1/corregimientos", asyncHandler(async (req, res) => {
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
     const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10) || 50));
     const municipalityCode = String(req.query.municipalityCode ?? "");
@@ -160,7 +160,7 @@ export function createLocationsRouter(
     return sendPaginatedSuccess(res, result.data, { total: result.total, page: result.page, limit: result.limit });
   }));
 
-  router.get("/api/corregimientos/:id", asyncHandler(async (req, res) => {
+  router.get("/api/v1/corregimientos/:id", asyncHandler(async (req, res) => {
     const corr = await corregimientoRepo.findById(String(req.params.id));
     if (!corr) return sendError(res, 404, "CORREGIMIENTO_NOT_FOUND", "Corregimiento no encontrado.");
     return sendSuccess(res, corr);
@@ -179,7 +179,7 @@ export function createLocationsRouter(
     isActive: z.boolean().default(true)
   });
 
-  router.post("/api/corregimientos", asyncHandler(async (req, res) => {
+  router.post("/api/v1/corregimientos", asyncHandler(async (req, res) => {
     const parsed = createCorregimientoSchema.safeParse(req.body);
     if (!parsed.success) {
       return sendError(res, 400, "INVALID_PAYLOAD", "Datos inválidos para crear corregimiento.");
@@ -207,7 +207,7 @@ export function createLocationsRouter(
     isActive: z.boolean().optional()
   }).refine(d => Object.keys(d).length > 0, { message: "Al menos un campo debe ser proporcionado" });
 
-  router.put("/api/corregimientos/:id", asyncHandler(async (req, res) => {
+  router.put("/api/v1/corregimientos/:id", asyncHandler(async (req, res) => {
     const parsed = updateCorregimientoSchema.safeParse(req.body);
     if (!parsed.success) {
       return sendError(res, 400, "INVALID_PAYLOAD", "Datos inválidos para actualizar corregimiento.");
@@ -220,7 +220,7 @@ export function createLocationsRouter(
     return sendSuccess(res, corr);
   }));
 
-  router.delete("/api/corregimientos/:id", asyncHandler(async (req, res) => {
+  router.delete("/api/v1/corregimientos/:id", asyncHandler(async (req, res) => {
     const existing = await corregimientoRepo.findById(String(req.params.id));
     if (!existing) return sendError(res, 404, "CORREGIMIENTO_NOT_FOUND", "Corregimiento no encontrado.");
     
@@ -230,7 +230,7 @@ export function createLocationsRouter(
 
   // ===================== VEREDAS =====================
 
-  router.get("/api/veredas", asyncHandler(async (req, res) => {
+  router.get("/api/v1/veredas", asyncHandler(async (req, res) => {
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
     const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10) || 50));
     const corregimientoId = String(req.query.corregimientoId ?? "");
@@ -241,7 +241,7 @@ export function createLocationsRouter(
     return sendPaginatedSuccess(res, result.data, { total: result.total, page: result.page, limit: result.limit });
   }));
 
-  router.get("/api/veredas/:id", asyncHandler(async (req, res) => {
+  router.get("/api/v1/veredas/:id", asyncHandler(async (req, res) => {
     const vereda = await veredaRepo.findById(String(req.params.id));
     if (!vereda) return sendError(res, 404, "VEREDA_NOT_FOUND", "Vereda no encontrada.");
     return sendSuccess(res, vereda);
@@ -261,7 +261,7 @@ export function createLocationsRouter(
     isActive: z.boolean().default(true)
   });
 
-  router.post("/api/veredas", asyncHandler(async (req, res) => {
+  router.post("/api/v1/veredas", asyncHandler(async (req, res) => {
     const parsed = createVeredaSchema.safeParse(req.body);
     if (!parsed.success) {
       return sendError(res, 400, "INVALID_PAYLOAD", "Datos inválidos para crear vereda.");
@@ -285,7 +285,7 @@ export function createLocationsRouter(
     isActive: z.boolean().optional()
   }).refine(d => Object.keys(d).length > 0, { message: "Al menos un campo debe ser proporcionado" });
 
-  router.put("/api/veredas/:id", asyncHandler(async (req, res) => {
+  router.put("/api/v1/veredas/:id", asyncHandler(async (req, res) => {
     const parsed = updateVeredaSchema.safeParse(req.body);
     if (!parsed.success) {
       return sendError(res, 400, "INVALID_PAYLOAD", "Datos inválidos para actualizar vereda.");
@@ -298,7 +298,7 @@ export function createLocationsRouter(
     return sendSuccess(res, vereda);
   }));
 
-  router.delete("/api/veredas/:id", asyncHandler(async (req, res) => {
+  router.delete("/api/v1/veredas/:id", asyncHandler(async (req, res) => {
     const existing = await veredaRepo.findById(String(req.params.id));
     if (!existing) return sendError(res, 404, "VEREDA_NOT_FOUND", "Vereda no encontrada.");
     

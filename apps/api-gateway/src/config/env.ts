@@ -20,6 +20,7 @@ const envSchema = z.object({
   AUTOMATION_SERVICE_URL: z.string().url().default("http://localhost:3012"),
   AUCTION_SERVICE_URL: z.string().url().default("http://localhost:3013"),
   INSTITUTION_SERVICE_URL: z.string().url().default("http://localhost:3014"),
+  LOCATION_SERVICE_URL: z.string().url().default("http://localhost:3016"),
   REDIS_URL: z.string().default("redis://localhost:6379"),
   POSTGRES_HOST: z.string().default("localhost"),
   POSTGRES_PORT: z.coerce.number().int().positive().default(5432),
