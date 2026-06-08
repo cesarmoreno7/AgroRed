@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import type { DepartamentoRepository, MunicipioRepository, CorregimientoRepository, VeredaRepository } from "../../domain/ports/LocationRepositories.js";
+import type { DepartamentoRepository, MunicipioRepository, CorregimientoRepository, VeredaRepository } from "../../../domain/ports/LocationRepositories.js";
 import { asyncHandler, sendError, sendPaginatedSuccess, sendSuccess } from "../response.js";
 
 export function createLocationsRouter(
@@ -80,9 +80,9 @@ export function createLocationsRouter(
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
     const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10) || 50));
     const search = String(req.query.search ?? "");
-    const departamentoId = String(req.query.departamentoId ?? "");
-    
-    const result = await municipioRepo.list(page, limit, search, departamentoId);
+    const departmentCode = String(req.query.departmentCode ?? "");
+
+    const result = await municipioRepo.list(page, limit, search, departmentCode);
     return sendPaginatedSuccess(res, result.data, { total: result.total, page: result.page, limit: result.limit });
   }));
 
@@ -95,7 +95,11 @@ export function createLocationsRouter(
   const createMunicipioSchema = z.object({
     codigoDane: z.string().min(1).max(10),
     nombre: z.string().min(3).max(100),
-    departamentoId: z.string().uuid()
+    departmentCode: z.string().min(1).max(10),
+    departmentName: z.string().min(3).max(100),
+    latitude: z.number().min(-90).max(90).optional().nullable(),
+    longitude: z.number().min(-180).max(180).optional().nullable(),
+    population: z.number().int().positive().optional().nullable()
   });
 
   router.post("/api/municipios", asyncHandler(async (req, res) => {
@@ -103,12 +107,12 @@ export function createLocationsRouter(
     if (!parsed.success) {
       return sendError(res, 400, "INVALID_PAYLOAD", "Datos inválidos para crear municipio.");
     }
-    
+
     const existing = await municipioRepo.findByCodigoDane(parsed.data.codigoDane);
     if (existing) {
       return sendError(res, 409, "MUNICIPIO_EXISTS", "Ya existe un municipio con este código DANE.");
     }
-    
+
     const muni = await municipioRepo.create(parsed.data);
     return sendSuccess(res, muni, 201);
   }));
@@ -116,7 +120,11 @@ export function createLocationsRouter(
   const updateMunicipioSchema = z.object({
     codigoDane: z.string().min(1).max(10).optional(),
     nombre: z.string().min(3).max(100).optional(),
-    departamentoId: z.string().uuid().optional()
+    departmentCode: z.string().min(1).max(10).optional(),
+    departmentName: z.string().min(3).max(100).optional(),
+    latitude: z.number().min(-90).max(90).optional().nullable(),
+    longitude: z.number().min(-180).max(180).optional().nullable(),
+    population: z.number().int().positive().optional().nullable()
   }).refine(d => Object.keys(d).length > 0, { message: "Al menos un campo debe ser proporcionado" });
 
   router.put("/api/municipios/:id", asyncHandler(async (req, res) => {
@@ -164,10 +172,10 @@ export function createLocationsRouter(
     municipalityCode: z.string().min(1).max(10),
     municipalityName: z.string().min(3).max(100),
     departmentCode: z.string().min(1).max(10),
-    latitude: z.number().min(-90).max(90).optional().nullable(),
-    longitude: z.number().min(-180).max(180).optional().nullable(),
-    population: z.number().int().positive().optional().nullable(),
-    areaKm2: z.number().positive().optional().nullable(),
+    latitude: z.number().min(-90).max(90).optional(),
+    longitude: z.number().min(-180).max(180).optional(),
+    population: z.number().int().positive().optional(),
+    areaKm2: z.number().positive().optional(),
     isActive: z.boolean().default(true)
   });
 
@@ -182,12 +190,7 @@ export function createLocationsRouter(
       return sendError(res, 409, "CORREGIMIENTO_EXISTS", "Ya existe un corregimiento con este código DANE.");
     }
     
-    const corr = await corregimientoRepo.create({
-      ...parsed.data,
-      id: "" as never,
-      createdAt: new Date(),
-      metadata: {}
-    });
+    const corr = await corregimientoRepo.create(parsed.data);
     return sendSuccess(res, corr, 201);
   }));
 
@@ -197,10 +200,10 @@ export function createLocationsRouter(
     municipalityCode: z.string().min(1).max(10).optional(),
     municipalityName: z.string().min(3).max(100).optional(),
     departmentCode: z.string().min(1).max(10).optional(),
-    latitude: z.number().min(-90).max(90).optional().nullable(),
-    longitude: z.number().min(-180).max(180).optional().nullable(),
-    population: z.number().int().positive().optional().nullable(),
-    areaKm2: z.number().positive().optional().nullable(),
+    latitude: z.number().min(-90).max(90).optional(),
+    longitude: z.number().min(-180).max(180).optional(),
+    population: z.number().int().positive().optional(),
+    areaKm2: z.number().positive().optional(),
     isActive: z.boolean().optional()
   }).refine(d => Object.keys(d).length > 0, { message: "Al menos un campo debe ser proporcionado" });
 
@@ -246,15 +249,15 @@ export function createLocationsRouter(
 
   const createVeredaSchema = z.object({
     nombre: z.string().min(3).max(100),
-    corregimientoId: z.string().uuid().optional().nullable(),
+    corregimientoId: z.string().uuid().optional(),
     municipalityCode: z.string().min(1).max(10),
     municipalityName: z.string().min(3).max(100),
     departmentCode: z.string().min(1).max(10),
-    latitude: z.number().min(-90).max(90).optional().nullable(),
-    longitude: z.number().min(-180).max(180).optional().nullable(),
-    population: z.number().int().positive().optional().nullable(),
-    areaKm2: z.number().positive().optional().nullable(),
-    mainProduct: z.string().max(100).optional().nullable(),
+    latitude: z.number().min(-90).max(90).optional(),
+    longitude: z.number().min(-180).max(180).optional(),
+    population: z.number().int().positive().optional(),
+    areaKm2: z.number().positive().optional(),
+    mainProduct: z.string().max(100).optional(),
     isActive: z.boolean().default(true)
   });
 
@@ -264,26 +267,21 @@ export function createLocationsRouter(
       return sendError(res, 400, "INVALID_PAYLOAD", "Datos inválidos para crear vereda.");
     }
     
-    const vereda = await veredaRepo.create({
-      ...parsed.data,
-      id: "" as never,
-      createdAt: new Date(),
-      metadata: {}
-    });
+    const vereda = await veredaRepo.create(parsed.data);
     return sendSuccess(res, vereda, 201);
   }));
 
   const updateVeredaSchema = z.object({
     nombre: z.string().min(3).max(100).optional(),
-    corregimientoId: z.string().uuid().optional().nullable(),
+    corregimientoId: z.string().uuid().optional(),
     municipalityCode: z.string().min(1).max(10).optional(),
     municipalityName: z.string().min(3).max(100).optional(),
     departmentCode: z.string().min(1).max(10).optional(),
-    latitude: z.number().min(-90).max(90).optional().nullable(),
-    longitude: z.number().min(-180).max(180).optional().nullable(),
-    population: z.number().int().positive().optional().nullable(),
-    areaKm2: z.number().positive().optional().nullable(),
-    mainProduct: z.string().max(100).optional().nullable(),
+    latitude: z.number().min(-90).max(90).optional(),
+    longitude: z.number().min(-180).max(180).optional(),
+    population: z.number().int().positive().optional(),
+    areaKm2: z.number().positive().optional(),
+    mainProduct: z.string().max(100).optional(),
     isActive: z.boolean().optional()
   }).refine(d => Object.keys(d).length > 0, { message: "Al menos un campo debe ser proporcionado" });
 

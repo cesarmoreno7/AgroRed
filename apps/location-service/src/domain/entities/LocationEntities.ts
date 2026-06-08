@@ -2,18 +2,21 @@ export interface DepartamentoEntity {
   id: string;
   codigoDane: string;
   nombre: string;
+  isActive: boolean;
   createdAt: Date;
-  updatedAt: Date;
 }
 
 export interface MunicipioEntity {
   id: string;
   codigoDane: string;
   nombre: string;
-  departamentoId: string;
-  departamentoNombre?: string;
+  departmentCode: string;
+  departmentName: string;
+  latitude?: number;
+  longitude?: number;
+  population?: number;
+  isActive: boolean;
   createdAt: Date;
-  updatedAt: Date;
 }
 
 export interface CorregimientoEntity {

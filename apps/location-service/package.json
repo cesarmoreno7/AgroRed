@@ -2,12 +2,12 @@
   "name": "@agrored/location-service",
   "version": "1.0.0",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "dist/location-service/src/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
-    "lint": "eslint src --ext .ts"
+    "start": "node dist/location-service/src/index.js",
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "cors": "^2.8.5",

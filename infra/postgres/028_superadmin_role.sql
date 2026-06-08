@@ -18,12 +18,12 @@
 INSERT INTO public.users (id, tenant_id, email, full_name, role, status, password_hash, metadata)
 SELECT 
     gen_random_uuid(),
-    NULL, -- Sin tenant específico = acceso global
+    '00000000-0000-0000-0000-000000000001'::uuid, -- Tenant sistema (acceso global por rol SUPERADMIN)
     'superadmin@agrored.co',
     'Super Administrador AgroRed',
     'SUPERADMIN',
     'active',
-    password_hash('SuperAdmin2024!', 'bf'), -- bcrypt hash
+    crypt('SuperAdmin2024!', gen_salt('bf')), -- bcrypt hash via pgcrypto
     '{"created_by": "system", "purpose": "Monitoreo global y administración del sistema", "ai_copilot_unrestricted": true}'::jsonb
 WHERE NOT EXISTS (
     SELECT 1 FROM public.users WHERE email = 'superadmin@agrored.co'

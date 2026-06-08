@@ -17,11 +17,11 @@ export interface DepartamentoRepository {
 }
 
 export interface MunicipioRepository {
-  list(page: number, limit: number, search?: string, departamentoId?: string): Promise<PaginatedResult<MunicipioEntity>>;
+  list(page: number, limit: number, search?: string, departmentCode?: string): Promise<PaginatedResult<MunicipioEntity>>;
   findById(id: string): Promise<MunicipioEntity | null>;
   findByCodigoDane(codigoDane: string): Promise<MunicipioEntity | null>;
-  create(data: { codigoDane: string; nombre: string; departamentoId: string }): Promise<MunicipioEntity>;
-  update(id: string, data: { codigoDane?: string; nombre?: string; departamentoId?: string }): Promise<MunicipioEntity>;
+  create(data: { codigoDane: string; nombre: string; departmentCode: string; departmentName: string; latitude?: number | null; longitude?: number | null; population?: number | null }): Promise<MunicipioEntity>;
+  update(id: string, data: { codigoDane?: string; nombre?: string; departmentCode?: string; departmentName?: string; latitude?: number | null; longitude?: number | null; population?: number | null }): Promise<MunicipioEntity>;
   delete(id: string): Promise<void>;
 }
 
