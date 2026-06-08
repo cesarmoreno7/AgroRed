@@ -47,6 +47,8 @@ envVarGroups:
         value: http://agrored-auction-service:3013
       - key: INSTITUTION_SERVICE_URL
         value: http://agrored-institution-service:3014
+      - key: LOCATION_SERVICE_URL
+        value: http://agrored-location-service:3016
       - key: EMAIL_USER
         sync: false
       - key: EMAIL_PASS
@@ -281,6 +283,16 @@ services:
           type: redis
           name: agrored-redis
           property: connectionString
+
+  - type: pserv
+    name: agrored-location-service
+    env: node
+    buildCommand: npm install --include=dev && npm run build:location
+    startCommand: npm run start:location
+    envVars:
+      - fromGroup: shared-agrored-config
+      - key: PORT
+        value: 3016
 
   # ── Public API Gateway (Web Service) ──
   - type: web
