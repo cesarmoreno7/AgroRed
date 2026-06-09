@@ -63,17 +63,17 @@ const MENU_GROUPS: MenuGroup[] = [
       { to: "/categories",    icon: "🏷️", label: "Categorías",          module: "catalog-service" },
     ],
   },
-  {
-    id: "maestras",
-    label: "Tablas Maestras",
-    icon: "🗂️",
-    items: [
-      { to: "/maestras/departamentos",   icon: "🗾", label: "Departamentos" },
-      { to: "/maestras/municipios",      icon: "📍", label: "Municipios" },
-      { to: "/maestras/corregimientos",  icon: "🏘️", label: "Corregimientos" },
-      { to: "/maestras/veredas",         icon: "🌾", label: "Veredas" },
-    ],
-  },
+  // {
+  //   id: "maestras",
+  //   label: "Tablas Maestras",
+  //   icon: "🗂️",
+  //   items: [
+  //     { to: "/maestras/departamentos",   icon: "🗾", label: "Departamentos" },
+  //     { to: "/maestras/municipios",      icon: "📍", label: "Municipios" },
+  //     { to: "/maestras/corregimientos",  icon: "🏘️", label: "Corregimientos" },
+  //     { to: "/maestras/veredas",         icon: "🌾", label: "Veredas" },
+  //   ],
+  // },
   {
     id: "inteligencia",
     label: "Inteligencia",
