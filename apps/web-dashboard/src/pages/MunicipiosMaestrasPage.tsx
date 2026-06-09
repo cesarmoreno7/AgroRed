@@ -46,10 +46,13 @@ export function MunicipiosMaestrasPage() {
 
   const loadData = async () => {
     setLoading(true);
+    setError(null);
     const res = await fetchMunicipios(page, limit, search);
     if (res.ok) {
       setData(res.data.data);
       setTotal(res.data.total);
+    } else {
+      setError(`Error al cargar municipios: ${(res as any).message ?? res.status}`);
     }
     setLoading(false);
   };
@@ -202,8 +205,9 @@ export function MunicipiosMaestrasPage() {
           </thead>
           <tbody>
             {loading && <tr><td colSpan={4} style={{ padding: 40, textAlign: "center", color: "rgba(255,255,255,0.3)" }}>Cargando...</td></tr>}
-            {!loading && data.length === 0 && <tr><td colSpan={4} style={{ padding: 40, textAlign: "center", color: "rgba(255,255,255,0.25)" }}>Sin resultados</td></tr>}
-            {!loading && data.map(item => (
+            {!loading && error && <tr><td colSpan={4} style={{ padding: 40, textAlign: "center", color: "#f87171", fontSize: 13 }}>{error}</td></tr>}
+            {!loading && !error && data.length === 0 && <tr><td colSpan={4} style={{ padding: 40, textAlign: "center", color: "rgba(255,255,255,0.25)" }}>Sin resultados</td></tr>}
+            {!loading && !error && data.map(item => (
               <tr key={item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                 <td style={{ padding: "12px 16px", fontSize: 12, color: "#60a5fa", fontFamily: "monospace", fontWeight: 700 }}>{item.codigoDane}</td>
                 <td style={{ padding: "12px 16px", fontSize: 14, color: "#fff" }}>{item.nombre}</td>

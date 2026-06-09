@@ -53,10 +53,13 @@ export function MunicipalitiesPage() {
 
   const loadData = async () => {
     setLoading(true);
+    setError(null);
     const res = await fetchMunicipios(page, limit, search, deptFilter);
     if (res.ok) {
       setData(res.data.data);
       setTotal(res.data.total);
+    } else {
+      setError(`Error al cargar municipios: ${(res as any).message ?? res.status}`);
     }
     setLoading(false);
   };

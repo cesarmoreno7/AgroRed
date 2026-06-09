@@ -25,8 +25,12 @@ export function sendPaginatedSuccess(
 ): Response {
   return res.status(200).json({
     success: true,
-    data,
-    pagination
+    data: {
+      data,
+      total: pagination.total,
+      page: pagination.page,
+      limit: pagination.limit
+    }
   });
 }
 

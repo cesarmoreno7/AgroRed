@@ -56,6 +56,9 @@ const ROUTE_POLICIES: RoutePolicy[] = [
   // --- Analytics map: capas GeoJSON abiertas a roles que usan el mapa ---
   { method: "GET",  pathPrefix: "/api/v1/analytics/map", allowedRoles: ["admin_municipal", "territorial_analyst", "producer", "logistics_operator", "community_kitchen"] },
 
+  // --- Orígenes Aliados: lectura abierta a todos los roles que intervienen en rescates ---
+  { method: "GET",  pathPrefix: "/api/v1/analytics/origins", allowedRoles: ["admin_municipal", "territorial_analyst", "producer", "community_kitchen", "logistics_operator", "supermarket"] },
+
   // --- Analytics (summary, overview, reports) ---
   { method: "GET",  pathPrefix: "/api/v1/analytics", allowedRoles: ["admin_municipal", "territorial_analyst"] },
 

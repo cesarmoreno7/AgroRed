@@ -45,10 +45,13 @@ export function DepartamentosMaestrasPage() {
 
   const loadData = async () => {
     setLoading(true);
+    setError(null);
     const res = await fetchDepartamentos(page, limit, search);
     if (res.ok) {
       setData(res.data.data);
       setTotal(res.data.total);
+    } else {
+      setError(`Error al cargar departamentos: ${(res as any).message ?? res.status}`);
     }
     setLoading(false);
   };
@@ -218,7 +221,10 @@ export function DepartamentosMaestrasPage() {
             {loading && (
               <tr><td colSpan={3} style={{ padding: 40, textAlign: "center", color: "rgba(255,255,255,0.3)" }}>Cargando...</td></tr>
             )}
-            {!loading && data.length === 0 && (
+            {!loading && error && (
+              <tr><td colSpan={3} style={{ padding: 40, textAlign: "center", color: "#f87171", fontSize: 13 }}>{error}</td></tr>
+            )}
+            {!loading && !error && data.length === 0 && (
               <tr><td colSpan={3} style={{ padding: 40, textAlign: "center", color: "rgba(255,255,255,0.25)" }}>Sin resultados</td></tr>
             )}
             {!loading && data.map((item) => (

@@ -50,10 +50,13 @@ export function DepartmentsPage() {
 
   const loadData = async () => {
     setLoading(true);
+    setError(null);
     const res = await fetchDepartamentos(page, limit, search);
     if (res.ok) {
       setData(res.data.data);
       setTotal(res.data.total);
+    } else {
+      setError(`Error al cargar departamentos: ${(res as any).message ?? res.status}`);
     }
     setLoading(false);
   };

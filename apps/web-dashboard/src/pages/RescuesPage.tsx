@@ -67,7 +67,7 @@ export function RescuesPage() {
 
   useEffect(() => {
     fetchRescues().then(r => { if (r.ok) setRescues(r.data); });
-    fetchOrigins().then(r => { if (r.ok) setOrigins(r.data); });
+    fetchOrigins().then(r => { if (r.ok) setOrigins(Array.isArray(r.data) ? r.data : (r.data as any)?.data ?? []); });
     fetchProducers(200).then(r => { if (r.ok) setProducers(r.data); });
   }, []);
 
