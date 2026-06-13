@@ -15,7 +15,7 @@ import { createAiChatRouter } from "./interface/http/routes/aiChat.js";
 import { createCatalogRouter } from "./interface/http/routes/catalog.js";
 import { createHealthRouter } from "./interface/http/routes/health.js";
 import { createLogoutRouter } from "./interface/http/routes/logout.js";
-import { registerServiceProxies } from "./interface/http/routes/proxies.js";
+import { registerMonolithRouters } from "./interface/http/routes/monolithRouters.js";
 import { sendError } from "./interface/http/response.js";
 import { logError } from "./shared/logger.js";
 import { traceabilityMiddleware } from "./shared/traceability.js";
@@ -31,12 +31,12 @@ function parseAllowedOrigins(value: string): string[] {
     .filter(Boolean);
 }
 
-export function buildApp(
+export async function buildApp(
   env: AppEnv = loadEnv(),
   pool?: Pool,
   redis?: Redis,
   gatewayDependencies: GatewayHealthDependencies = {}
-): Express {
+): Promise<Express> {
   const app = express();
   const services = buildServiceRegistry(env);
   const allowedOrigins = parseAllowedOrigins(env.API_GATEWAY_CORS_ORIGIN);
@@ -76,7 +76,9 @@ export function buildApp(
   if (pool) {
     app.use(createAuditRouter(pool));
   }
-  registerServiceProxies(app, services);
+  if (pool) {
+    await registerMonolithRouters(app, pool, redis, env);
+  }
 
   app.use((_req, res) =>
     sendError(res, 404, "RESOURCE_NOT_FOUND", "Ruta no configurada en API Gateway.")

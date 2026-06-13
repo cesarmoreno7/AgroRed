@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "@agrored/api-gateway",
   "version": "0.1.0",
   "private": true,
@@ -10,6 +10,8 @@
     "lint": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "bcrypt": "^5",
+    "bullmq": "^5.71.1",
     "cors": "^2",
     "express": "^4",
     "express-rate-limit": "^8.3.1",
@@ -17,16 +19,23 @@
     "http-proxy-middleware": "^3",
     "ioredis": "^5.10.1",
     "jsonwebtoken": "^9.0.3",
+    "nodemailer": "^6",
+    "pdfkit": "^0.15.0",
     "pg": "^8.16.3",
     "rate-limit-redis": "^4.3.1",
+    "uuid": "^9",
     "zod": "^3"
   },
   "devDependencies": {
+    "@types/bcrypt": "^5",
     "@types/cors": "^2",
     "@types/express": "^5",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/nodemailer": "^6",
     "@types/node": "^22",
     "@types/pg": "^8",
+    "@types/pdfkit": "^0.13.9",
+    "@types/uuid": "^9",
     "typescript": "^5"
   }
 }

@@ -3,6 +3,7 @@ import { loadEnv } from "./config/env.js";
 import { createPostgresPool } from "./infrastructure/persistence/postgres.js";
 import type { Redis } from "ioredis";
 import { getRedisClient, closeRedis, checkRedis } from "./infrastructure/redis/RedisClient.js";
+import { cleanupMonolith } from "./interface/http/routes/monolithRouters.js";
 import { logError, logInfo, logWarn } from "./shared/logger.js";
 
 const env = loadEnv();
@@ -23,7 +24,7 @@ try {
   });
 }
 
-const app = buildApp(env, pool, redis, { redis: redisStatus });
+const app = await buildApp(env, pool, redis, { redis: redisStatus });
 
 process.on("uncaughtException", (error) => {
   logError("process.uncaught_exception", {
@@ -54,6 +55,7 @@ const shutdown = async (signal: string) => {
   logInfo("gateway.stopping", { signal });
 
   server.close(async () => {
+    await cleanupMonolith();
     await closeRedis();
     await pool.end();
     process.exit(0);

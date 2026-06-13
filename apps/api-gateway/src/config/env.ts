@@ -26,7 +26,21 @@ const envSchema = z.object({
   POSTGRES_PORT: z.coerce.number().int().positive().default(5432),
   POSTGRES_DB: z.string().default("agrored"),
   POSTGRES_USER: z.string().default("777"),
-  POSTGRES_PASSWORD: z.string().default("777")
+  POSTGRES_PASSWORD: z.string().default("777"),
+  // ── User service ──
+  JWT_EXPIRES_IN: z.string().default("8h"),
+  EMAIL_USER: z.string().default(""),
+  EMAIL_PASS: z.string().default(""),
+  FRONTEND_URL: z.string().default("http://localhost:5173"),
+  // ── Notification service ──
+  SMTP_HOST: z.string().default("localhost"),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_SECURE: z.coerce.boolean().default(false),
+  SMTP_USER: z.string().default(""),
+  SMTP_PASS: z.string().default(""),
+  SMTP_FROM: z.string().default("noreply@agrored.co"),
+  // ── Logistics service ──
+  OSRM_URL: z.string().url().default("https://router.project-osrm.org")
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

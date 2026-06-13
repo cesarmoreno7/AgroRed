@@ -58,6 +58,8 @@
     "build": "npm run build:user && npm run build:producer && npm run build:offer && npm run build:rescue && npm run build:demand && npm run build:inventory && npm run build:logistics && npm run build:incident && npm run build:notification && npm run build:analytics && npm run build:ml && npm run build:automation && npm run build:auction && npm run build:institution && npm run build:gateway && npm run build:location",
     "dev:mobile": "npm --workspace @agrored/mobile run start",
     "clean": "npx rimraf apps/*/dist apps/*/tsconfig.tsbuildinfo coverage",
+    "build:monolith": "npm --workspace @agrored/api-gateway run build",
+    "start:monolith": "npm --workspace @agrored/api-gateway run start",
     "migrate": "npx tsx scripts/migrate.ts",
     "seed": "npx tsx scripts/seed.ts",
     "seed:roles": "npx tsx scripts/seed_expanded.ts",

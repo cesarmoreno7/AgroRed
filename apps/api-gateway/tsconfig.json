@@ -5,6 +5,27 @@
     "outDir": "dist",
     "types": ["node"]
   },
-  "include": ["src/**/*"],
-  "exclude": ["src/**/*.test.ts"]
+  "include": [
+    "src/**/*",
+    "../shared/**/*",
+    "../user-service/src/**/*",
+    "../producer-service/src/**/*",
+    "../offer-service/src/**/*",
+    "../rescue-service/src/**/*",
+    "../demand-service/src/**/*",
+    "../inventory-service/src/**/*",
+    "../logistics-service/src/**/*",
+    "../incident-service/src/**/*",
+    "../notification-service/src/**/*",
+    "../analytics-service/src/**/*",
+    "../ml-service/src/**/*",
+    "../automation-service/src/**/*",
+    "../auction-service/src/**/*",
+    "../institution-service/src/**/*",
+    "../location-service/src/**/*"
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "../*/src/**/*.test.ts"
+  ]
 }
