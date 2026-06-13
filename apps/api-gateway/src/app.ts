@@ -69,7 +69,7 @@ export async function buildApp(
 
   app.use(createHealthRouter(services, gatewayDependencies));
   app.use(createCatalogRouter(services));
-  app.use(createAiChatRouter(env));
+  app.use(createAiChatRouter(env, pool));
   if (blacklist) {
     app.use(createLogoutRouter(env.JWT_SECRET, blacklist));
   }

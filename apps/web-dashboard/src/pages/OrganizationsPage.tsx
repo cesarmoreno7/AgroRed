@@ -20,11 +20,26 @@ const ORG_TYPES = [
   { value: "otro",      label: "Otra" },
 ];
 
+const DEFAULTS: Organization[] = [
+  { id: "1", name: "Banco de Alimentos de Antioquia",          type: "fundacion", municipality: "Medellín",        contact: "3101234500", notes: "Mayor banco de alimentos de la región andina",                          isActive: true  },
+  { id: "2", name: "Fundación Banco de Alimentos Caribe",      type: "fundacion", municipality: "Barranquilla",    contact: "3152233100", notes: "Atiende a familias vulnerables en la costa Caribe",                     isActive: true  },
+  { id: "3", name: "ONG Alimentar Colombia",                   type: "ong",       municipality: "Bogotá D.C.",     contact: "3004455667", notes: "Programa nacional de seguridad alimentaria",                            isActive: true  },
+  { id: "4", name: "Comedor Popular Ciudad Equidad",           type: "comedor",   municipality: "Medellín",        contact: "3165551234", notes: "500 almuerzos diarios en zona nororiental",                            isActive: true  },
+  { id: "5", name: "Comedor Comunitario La Esperanza",         type: "comedor",   municipality: "San Roque",       contact: "3112233445", notes: "320 familias beneficiadas semanalmente",                               isActive: true  },
+  { id: "6", name: "Programa PAE Antioquia",                   type: "programa",  municipality: "Medellín",        contact: "3187001122", notes: "Programa de Alimentación Escolar departamental",                       isActive: true  },
+  { id: "7", name: "Programa Social Sé Vive",                  type: "programa",  municipality: "Bogotá D.C.",     contact: "3201122334", notes: "Programa distrital de atención a población vulnerable",                isActive: true  },
+  { id: "8", name: "Agrocomercios del Valle S.A.S.",           type: "empresa",   municipality: "Cali",            contact: "3118887766", notes: "Distribuidora mayorista de productos agrícolas del Valle del Cauca",   isActive: true  },
+  { id: "9", name: "Agroexport Caribe Ltda.",                  type: "empresa",   municipality: "Cartagena",       contact: "3004433221", notes: "Exportadora y distribuidora de frutas tropicales",                     isActive: true  },
+  { id:"10", name: "Red de Mujeres Campesinas del Oriente",    type: "fundacion", municipality: "Santa Rosa",      contact: "3155443322", notes: "Organización de base para productoras rurales del oriente antioqueño", isActive: true  },
+  { id:"11", name: "Corporación Semillas de Paz",              type: "ong",       municipality: "Bucaramanga",     contact: "3142211009", notes: "Apoyo a comunidades rurales en seguridad alimentaria",                 isActive: true  },
+  { id:"12", name: "Asociación de Comedores Comunitarios Norte", type:"otro",     municipality: "Barranquilla",    contact: "3177665544", notes: "Agrupa 18 comedores comunitarios del norte de Barranquilla",          isActive: false },
+];
+
 function loadItems(): Organization[] {
   try {
     const s = localStorage.getItem(STORAGE_KEY);
-    return s ? JSON.parse(s) : [];
-  } catch { return []; }
+    return s ? JSON.parse(s) : DEFAULTS;
+  } catch { return DEFAULTS; }
 }
 function saveItems(items: Organization[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items));

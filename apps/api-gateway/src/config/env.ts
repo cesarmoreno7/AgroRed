@@ -4,7 +4,10 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   API_GATEWAY_PORT: z.coerce.number().int().positive().default(8080),
   API_GATEWAY_CORS_ORIGIN: z.string().default("http://localhost:5173"),
-  AI_CHAT_SERVICE_URL: z.string().url().optional(),
+  // ── AI / Gemini ──
+  AI_PROVIDER: z.string().default("gemini"),
+  AI_API_KEY: z.string().default(""),
+  AI_MODEL: z.string().default("gemini-1.5-flash"),
   JWT_SECRET: z.string().min(32).default("change_me_in_production_min_32_chars!!"),
   USER_SERVICE_URL: z.string().url().default("http://localhost:3001"),
   PRODUCER_SERVICE_URL: z.string().url().default("http://localhost:3002"),

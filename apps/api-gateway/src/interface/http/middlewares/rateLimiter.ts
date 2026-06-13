@@ -31,6 +31,7 @@ export function createRateLimiters(redis?: Redis): RateLimiters {
     standardHeaders: true,
     legacyHeaders: false,
     store: storeFactory("global"),
+    passOnStoreError: true,
     handler: (_req: Request, res: Response) => {
       sendError(res, 429, "RATE_LIMIT_EXCEEDED", "Demasiadas solicitudes. Intente de nuevo mas tarde.");
     }
@@ -42,6 +43,7 @@ export function createRateLimiters(redis?: Redis): RateLimiters {
     standardHeaders: true,
     legacyHeaders: false,
     store: storeFactory("auth"),
+    passOnStoreError: true,
     handler: (_req: Request, res: Response) => {
       sendError(res, 429, "RATE_LIMIT_EXCEEDED", "Demasiados intentos de autenticacion. Intente de nuevo mas tarde.");
     }

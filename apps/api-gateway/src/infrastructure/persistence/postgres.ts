@@ -9,7 +9,9 @@ export function createPostgresPool(env: AppEnv): Pool {
     database: env.POSTGRES_DB,
     user: env.POSTGRES_USER,
     password: env.POSTGRES_PASSWORD,
-    ssl: env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+    ssl: (env.NODE_ENV === "production" || env.POSTGRES_HOST.includes("neon.tech"))
+      ? { rejectUnauthorized: false }
+      : false,
     max: 5,
     idleTimeoutMillis: 30_000
   });

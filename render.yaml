@@ -44,6 +44,13 @@ envVarGroups:
       # ── Logistics ──
       - key: OSRM_URL
         value: https://router.project-osrm.org
+      # ── AI / Gemini Copilot ──
+      - key: AI_PROVIDER
+        value: gemini
+      - key: AI_API_KEY
+        sync: false
+      - key: AI_MODEL
+        value: gemini-1.5-flash
 
 services:
   # ── Cache (Render Managed Redis) ──
@@ -55,7 +62,7 @@ services:
   # ── Monolith Backend (API Gateway + all services) ──
   - type: web
     name: agrored-api-gateway
-    env: node
+    runtime: node
     buildCommand: npm install --include=dev && npm run build:monolith
     preDeployCommand: npm run migrate
     startCommand: npm run start:monolith
@@ -76,7 +83,7 @@ services:
   # ── Public Web Dashboard (Static Site) ──
   - type: web
     name: agrored-web-dashboard
-    env: static
+    runtime: static
     buildCommand: npm install --include=dev && npm run build:dashboard
     staticPublishPath: apps/web-dashboard/dist
     routes:

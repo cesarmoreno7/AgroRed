@@ -1,9 +1,11 @@
 type LogLevel = "info" | "warn" | "error";
 
 function write(level: LogLevel, message: string, meta: Record<string, unknown> = {}): void {
+  const { message: detail, ...safeMeta } = meta;
   const payload = {
     timestamp: new Date().toISOString(),
-    ...meta,
+    ...safeMeta,
+    ...(detail !== undefined ? { detail } : {}),
     service: "api-gateway",
     level,
     message
