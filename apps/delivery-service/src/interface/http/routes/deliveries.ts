@@ -63,8 +63,10 @@ export function createDeliveriesRouter(pool: Pool): Router {
       });
       return (res as any).status(200).json({
         ok: true,
-        data,
-        meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+        data: {
+          data,
+          meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+        },
       });
     } catch {
       return err(res as any, 500, "ENTREGAS_LIST_FAILED", "No fue posible obtener las entregas.");
