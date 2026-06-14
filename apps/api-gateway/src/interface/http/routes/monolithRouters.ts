@@ -337,12 +337,13 @@ export async function registerMonolithRouters(
   app.use(createInstitutionsRouter(new PostgresInstitutionRepository(pool)));
 
   // Location (departamentos, municipios, corregimientos, veredas)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   app.use(createLocationsRouter(
     new PostgresDepartamentoRepository(pool),
     new PostgresMunicipioRepository(pool),
     new PostgresCorregimientoRepository(pool),
     new PostgresVeredaRepository(pool)
-  ));
+  ) as any);
 
   // Delivery (entregas de productos)
   app.use(createDeliveriesRouter(pool));
