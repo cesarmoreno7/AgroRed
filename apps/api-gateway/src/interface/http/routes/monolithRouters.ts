@@ -68,6 +68,7 @@ import { createAnalyticsRouter } from "../../../../../analytics-service/src/inte
 import { createMapRouter } from "../../../../../analytics-service/src/interface/http/routes/map.js";
 import { createInstitutionalRouter } from "../../../../../analytics-service/src/interface/http/routes/institutional.js";
 import { createOriginsRouter } from "../../../../../analytics-service/src/interface/http/routes/origins.js";
+import { createIratRouter } from "../../../../../analytics-service/src/interface/http/routes/irat.js";
 
 // ── ML service ──
 import { PostgresDecisionSupportRepository } from "../../../../../ml-service/src/infrastructure/repositories/PostgresDecisionSupportRepository.js";
@@ -77,6 +78,7 @@ import { createMlRouter } from "../../../../../ml-service/src/interface/http/rou
 import { PostgresAutomationRepository } from "../../../../../automation-service/src/infrastructure/repositories/PostgresAutomationRepository.js";
 import { createAutomationRouter } from "../../../../../automation-service/src/interface/http/routes/automation.js";
 import { createAutomationQueue, createAutomationWorker } from "../../../../../automation-service/src/infrastructure/queue/AutomationQueue.js";
+import { scheduleAutomationFlows } from "../../../../../automation-service/src/infrastructure/queue/ScheduledFlows.js";
 
 // ── Auction service ──
 import { PostgresAuctionRepository } from "../../../../../auction-service/src/infrastructure/repositories/PostgresAuctionRepository.js";
@@ -237,6 +239,7 @@ export async function registerMonolithRouters(
       });
       await automQueue.waitUntilReady();
       await automWorker.waitUntilReady();
+      await scheduleAutomationFlows(automQueue);
       logInfo("monolith.automation_worker.started", {});
       cleanupTasks.push(async () => {
         await automWorker.close();
@@ -318,11 +321,12 @@ export async function registerMonolithRouters(
   });
   app.use(createNotificationsRouter(new PostgresNotificationRepository(pool), smtpSender));
 
-  // Analytics (map, institutional, origins)
+  // Analytics (map, institutional, origins, IRAT)
   app.use(createAnalyticsRouter(new PostgresAnalyticsRepository(pool), analyticsCache));
   app.use(createMapRouter(new PostgresMapRepository(pool)));
   app.use(createInstitutionalRouter(new PostgresInstitutionalRepository(pool)));
   app.use(createOriginsRouter(pool));
+  app.use(createIratRouter(pool));
 
   // ML / Decision support
   app.use(createMlRouter(new PostgresDecisionSupportRepository(pool), mlCache));
@@ -348,7 +352,7 @@ export async function registerMonolithRouters(
   // Delivery (entregas de productos)
   app.use(createDeliveriesRouter(pool));
 
-  logInfo("monolith.routers.registered", { services: 16 });
+  logInfo("monolith.routers.registered", { services: 17 });
 
   _cleanup = async () => {
     await Promise.allSettled(cleanupTasks.map((fn) => fn()));

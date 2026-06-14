@@ -109,7 +109,7 @@ export function DeliveriesPage() {
   useEffect(() => {
     fetchProducers(500).then(r => { if (r.ok) setProducers(r.data as ProducerRecord[]); });
     fetchInstitutions().then(r => { if (r.ok) setInstitutions(r.data as any[]); });
-    api<ProductCatalogItem[]>("/api/v1/products", { params: { limit: 200 } }).then(r => {
+    api<ProductCatalogItem[]>("/api/v1/products/catalog", { params: { all: "true" } }).then(r => {
       if (r.ok) setProducts(r.data);
     });
   }, []);
