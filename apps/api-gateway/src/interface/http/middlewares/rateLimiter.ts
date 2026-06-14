@@ -27,7 +27,7 @@ export function createRateLimiters(redis?: Redis): RateLimiters {
 
   const globalRateLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 200,
+    max: process.env.NODE_ENV === "production" ? 200 : 10_000,
     standardHeaders: true,
     legacyHeaders: false,
     store: storeFactory("global"),
@@ -39,7 +39,7 @@ export function createRateLimiters(redis?: Redis): RateLimiters {
 
   const authRateLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 15,
+    max: process.env.NODE_ENV === "production" ? 15 : 10_000,
     standardHeaders: true,
     legacyHeaders: false,
     store: storeFactory("auth"),

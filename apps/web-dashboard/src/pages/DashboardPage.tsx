@@ -172,6 +172,90 @@ export function DashboardPage() {
         </div>
       )}
 
+      {/* ── Trazabilidad de Entregas ── */}
+      {summary && (
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 14 }}>
+            Trazabilidad de Entregas — Local y Nacional
+          </div>
+          <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fill, minmax(220px,1fr))" }}>
+            {/* Total entregas */}
+            <div style={{ ...glass, padding: "20px 22px", position: "relative", overflow: "hidden", borderColor: "rgba(167,139,250,0.2)" }}>
+              <div style={{ position: "absolute", top: -16, right: -10, fontSize: 64, opacity: 0.05 }}>📬</div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10, fontWeight: 700 }}>Total Entregas</div>
+              <div style={{ fontSize: 34, fontWeight: 800, color: "#a78bfa", lineHeight: 1 }}>
+                {(summary.totals.deliveries ?? 0).toLocaleString("es-CO")}
+              </div>
+              <div style={{ display: "flex", gap: 12, marginTop: 10 }}>
+                <span style={{ fontSize: 12, color: "#4ade80", fontWeight: 600 }}>
+                  ✓ {(summary.totals.deliveriesReceived ?? 0)} recibidas
+                </span>
+                <span style={{ fontSize: 12, color: "#f59e0b", fontWeight: 600 }}>
+                  ⏳ {(summary.operations.pendingDeliveries ?? 0)} pendientes
+                </span>
+              </div>
+              {(summary.totals.deliveries ?? 0) > 0 && (
+                <div style={{ marginTop: 10, height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+                  <div style={{
+                    width: `${Math.round(((summary.totals.deliveriesReceived ?? 0) / (summary.totals.deliveries ?? 1)) * 100)}%`,
+                    height: "100%", background: "linear-gradient(to right, #a78bfa88, #4ade80)",
+                    borderRadius: 2, transition: "width 0.8s ease",
+                  }} />
+                </div>
+              )}
+            </div>
+
+            {/* Kg entregados */}
+            <div style={{ ...glass, padding: "20px 22px", position: "relative", overflow: "hidden", borderColor: "rgba(34,211,238,0.2)" }}>
+              <div style={{ position: "absolute", top: -16, right: -10, fontSize: 64, opacity: 0.05 }}>⚖️</div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10, fontWeight: 700 }}>Volumen Entregado</div>
+              <div style={{ fontSize: 34, fontWeight: 800, color: "#22d3ee", lineHeight: 1 }}>
+                {Number(summary.operations.deliveriesKgTotal ?? 0).toLocaleString("es-CO", { maximumFractionDigits: 0 })}
+              </div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginTop: 6 }}>
+                unidades / kg acumulados
+              </div>
+              <div style={{ marginTop: 10, fontSize: 11, color: "rgba(255,255,255,0.25)", letterSpacing: "0.04em" }}>
+                TRAZABILIDAD FÍSICA
+              </div>
+            </div>
+
+            {/* Valor total */}
+            <div style={{ ...glass, padding: "20px 22px", position: "relative", overflow: "hidden", borderColor: "rgba(74,222,128,0.2)" }}>
+              <div style={{ position: "absolute", top: -16, right: -10, fontSize: 64, opacity: 0.05 }}>💰</div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10, fontWeight: 700 }}>Valor Transado</div>
+              <div style={{ fontSize: 26, fontWeight: 800, color: "#4ade80", lineHeight: 1 }}>
+                {Number(summary.operations.deliveriesValueTotal ?? 0).toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })}
+              </div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginTop: 6 }}>
+                en entregas con precio registrado
+              </div>
+              <div style={{ marginTop: 10, fontSize: 11, color: "rgba(255,255,255,0.25)", letterSpacing: "0.04em" }}>
+                TRAZABILIDAD ECONÓMICA
+              </div>
+            </div>
+
+            {/* Tasa de cumplimiento */}
+            {(summary.totals.deliveries ?? 0) > 0 && (() => {
+              const tasa = Math.round(((summary.totals.deliveriesReceived ?? 0) / (summary.totals.deliveries ?? 1)) * 100);
+              const color = tasa >= 80 ? "#4ade80" : tasa >= 50 ? "#f59e0b" : "#f87171";
+              return (
+                <div style={{ ...glass, padding: "20px 22px", position: "relative", overflow: "hidden", borderColor: `${color}22` }}>
+                  <div style={{ position: "absolute", top: -16, right: -10, fontSize: 64, opacity: 0.05 }}>📊</div>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10, fontWeight: 700 }}>Tasa de Cumplimiento</div>
+                  <div style={{ fontSize: 44, fontWeight: 800, color, lineHeight: 1 }}>
+                    {tasa}<span style={{ fontSize: 18, color: "rgba(255,255,255,0.25)", marginLeft: 2 }}>%</span>
+                  </div>
+                  <div style={{ marginTop: 14, height: 6, background: "rgba(255,255,255,0.06)", borderRadius: 3, overflow: "hidden" }}>
+                    <div style={{ width: `${tasa}%`, height: "100%", background: `linear-gradient(to right, ${color}88, ${color})`, borderRadius: 3, transition: "width 0.8s ease" }} />
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
       {/* ── Mid row: Balance operativo + Flota activa ── */}
       <div>
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 14 }}>

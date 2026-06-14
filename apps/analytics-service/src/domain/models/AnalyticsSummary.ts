@@ -10,6 +10,9 @@ export interface AnalyticsTotals {
   incidents: number;
   notifications: number;
   auctions: number;
+  // ── Entregas ──────────────────────────────────────────────
+  deliveries: number;
+  deliveriesReceived: number;
 }
 
 export interface AnalyticsOperations {
@@ -22,6 +25,10 @@ export interface AnalyticsOperations {
   pendingNotifications: number;
   iratScore: number | null;
   programCoverage: number | null;
+  // ── Entregas ──────────────────────────────────────────────
+  pendingDeliveries: number;
+  deliveriesKgTotal: number;
+  deliveriesValueTotal: number;
 }
 
 export interface AnalyticsSummary {
@@ -44,4 +51,8 @@ export interface TerritorialOverviewItem {
   scheduledLogistics: number;
   openIncidents: number;
   pendingNotifications: number;
+  // ── Entregas ──────────────────────────────────────────────
+  totalDeliveries: number;
+  deliveriesReceived: number;
+  deliveriesValueTotal: number;
 }

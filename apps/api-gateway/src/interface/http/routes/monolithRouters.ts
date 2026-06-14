@@ -97,6 +97,9 @@ import {
 } from "../../../../../location-service/src/infrastructure/repositories/PostgresLocationRepositories.js";
 import { createLocationsRouter } from "../../../../../location-service/src/interface/http/routes/locations.js";
 
+// ── Delivery service ──
+import { createDeliveriesRouter } from "../../../../../delivery-service/src/interface/http/routes/deliveries.js";
+
 // In-process notification adapter: offer match notifications are available
 // directly via the notification routes; no HTTP hop needed.
 class NullNotificationAdapter implements NotificationPort {
@@ -341,7 +344,10 @@ export async function registerMonolithRouters(
     new PostgresVeredaRepository(pool)
   ));
 
-  logInfo("monolith.routers.registered", { services: 15 });
+  // Delivery (entregas de productos)
+  app.use(createDeliveriesRouter(pool));
+
+  logInfo("monolith.routers.registered", { services: 16 });
 
   _cleanup = async () => {
     await Promise.allSettled(cleanupTasks.map((fn) => fn()));

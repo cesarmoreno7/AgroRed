@@ -26,6 +26,12 @@ interface SummaryRow {
   pending_notifications: string;
   irat_score: string | null;
   program_coverage: string | null;
+  // ── Entregas ─────────────────────────────────────────────
+  total_entregas: string;
+  entregas_recibidas: string;
+  entregas_pendientes: string;
+  entregas_kg_total: string;
+  entregas_valor_total: string;
 }
 
 interface TerritorialOverviewRow {
@@ -39,6 +45,9 @@ interface TerritorialOverviewRow {
   scheduled_logistics: string;
   open_incidents: string;
   pending_notifications: string;
+  total_deliveries: string;
+  deliveries_received: string;
+  deliveries_value_total: string;
 }
 
 interface TenantRow {
@@ -105,7 +114,32 @@ export class PostgresAnalyticsRepository implements AnalyticsRepository {
                        ELSE 0 END::text
              FROM public.food_programs
              WHERE status = 'active'
-             AND ($1::uuid IS NULL OR tenant_id = $1)) AS program_coverage
+             AND ($1::uuid IS NULL OR tenant_id = $1)) AS program_coverage,
+          -- ── Entregas: se vinculan al tenant mediante el productor ─────
+          (SELECT COUNT(*) FROM public.entregas_productos ep
+             JOIN public.producers pr ON pr.id = ep.productor_id
+             WHERE ep.deleted_at IS NULL
+             AND ($1::uuid IS NULL OR pr.tenant_id = $1))::text AS total_entregas,
+          (SELECT COUNT(*) FROM public.entregas_productos ep
+             JOIN public.producers pr ON pr.id = ep.productor_id
+             WHERE ep.deleted_at IS NULL AND ep.estado = 'recibido'
+             AND ($1::uuid IS NULL OR pr.tenant_id = $1))::text AS entregas_recibidas,
+          (SELECT COUNT(*) FROM public.entregas_productos ep
+             JOIN public.producers pr ON pr.id = ep.productor_id
+             WHERE ep.deleted_at IS NULL AND ep.estado = 'pendiente'
+             AND ($1::uuid IS NULL OR pr.tenant_id = $1))::text AS entregas_pendientes,
+          (SELECT COALESCE(SUM(d.cantidad_entregada), 0)
+             FROM public.entregas_detalle d
+             JOIN public.entregas_productos ep ON ep.id = d.entrega_id
+             JOIN public.producers pr ON pr.id = ep.productor_id
+             WHERE ep.deleted_at IS NULL
+             AND ($1::uuid IS NULL OR pr.tenant_id = $1))::text AS entregas_kg_total,
+          (SELECT COALESCE(SUM(d.cantidad_entregada * d.precio_unitario), 0)
+             FROM public.entregas_detalle d
+             JOIN public.entregas_productos ep ON ep.id = d.entrega_id
+             JOIN public.producers pr ON pr.id = ep.productor_id
+             WHERE ep.deleted_at IS NULL AND d.precio_unitario IS NOT NULL
+             AND ($1::uuid IS NULL OR pr.tenant_id = $1))::text AS entregas_valor_total
       `,
       [tenantId]
     );
@@ -117,17 +151,19 @@ export class PostgresAnalyticsRepository implements AnalyticsRepository {
       tenantCode: tenant?.code ?? null,
       tenantName: tenant?.name ?? null,
       totals: {
-        users:          Number(row.users),
-        producers:      Number(row.producers),
-        producersActive:Number(row.producers_active),
-        offers:         Number(row.offers),
-        rescues:        Number(row.rescues),
-        demands:        Number(row.demands),
-        inventoryItems: Number(row.inventory_items),
-        logisticsOrders:Number(row.logistics_orders),
-        incidents:      Number(row.incidents),
-        notifications:  Number(row.notifications),
-        auctions:       Number(row.auctions),
+        users:             Number(row.users),
+        producers:         Number(row.producers),
+        producersActive:   Number(row.producers_active),
+        offers:            Number(row.offers),
+        rescues:           Number(row.rescues),
+        demands:           Number(row.demands),
+        inventoryItems:    Number(row.inventory_items),
+        logisticsOrders:   Number(row.logistics_orders),
+        incidents:         Number(row.incidents),
+        notifications:     Number(row.notifications),
+        auctions:          Number(row.auctions),
+        deliveries:        Number(row.total_entregas),
+        deliveriesReceived:Number(row.entregas_recibidas),
       },
       operations: {
         openDemands:             Number(row.open_demands),
@@ -139,6 +175,9 @@ export class PostgresAnalyticsRepository implements AnalyticsRepository {
         pendingNotifications:    Number(row.pending_notifications),
         iratScore:               row.irat_score   !== null ? Number(row.irat_score)   : null,
         programCoverage:         row.program_coverage !== null ? Number(row.program_coverage) : null,
+        pendingDeliveries:       Number(row.entregas_pendientes),
+        deliveriesKgTotal:       Number(row.entregas_kg_total),
+        deliveriesValueTotal:    Number(row.entregas_valor_total),
       },
       generatedAt: new Date().toISOString()
     };
@@ -188,41 +227,59 @@ export class PostgresAnalyticsRepository implements AnalyticsRepository {
           FROM public.notifications
           WHERE deleted_at IS NULL AND status = 'pending'
           GROUP BY tenant_id
+        ),
+        delivery_counts AS (
+          SELECT pr.tenant_id,
+            COUNT(ep.id)::text                                              AS total_deliveries,
+            COUNT(ep.id) FILTER (WHERE ep.estado = 'recibido')::text        AS deliveries_received,
+            COALESCE(SUM(d.cantidad_entregada * d.precio_unitario), 0)::text AS deliveries_value_total
+          FROM public.entregas_productos ep
+          JOIN public.producers pr ON pr.id = ep.productor_id
+          LEFT JOIN public.entregas_detalle d ON d.entrega_id = ep.id AND d.precio_unitario IS NOT NULL
+          WHERE ep.deleted_at IS NULL
+          GROUP BY pr.tenant_id
         )
         SELECT
           t.id AS tenant_id,
           t.code AS tenant_code,
           t.name AS tenant_name,
-          COALESCE(pc.producers, '0') AS producers,
-          COALESCE(oc.offers, '0') AS offers,
-          COALESCE(dc.open_demands, '0') AS open_demands,
-          COALESCE(ic.inventory_units, '0') AS inventory_units,
-          COALESCE(lc.scheduled_logistics, '0') AS scheduled_logistics,
-          COALESCE(nc.open_incidents, '0') AS open_incidents,
-          COALESCE(fc.pending_notifications, '0') AS pending_notifications
+          COALESCE(pc.producers, '0')             AS producers,
+          COALESCE(oc.offers, '0')                AS offers,
+          COALESCE(dc.open_demands, '0')          AS open_demands,
+          COALESCE(ic.inventory_units, '0')        AS inventory_units,
+          COALESCE(lc.scheduled_logistics, '0')   AS scheduled_logistics,
+          COALESCE(nc.open_incidents, '0')         AS open_incidents,
+          COALESCE(fc.pending_notifications, '0')  AS pending_notifications,
+          COALESCE(delc.total_deliveries, '0')     AS total_deliveries,
+          COALESCE(delc.deliveries_received, '0')  AS deliveries_received,
+          COALESCE(delc.deliveries_value_total, '0') AS deliveries_value_total
         FROM public.tenants t
-        LEFT JOIN producer_counts pc ON pc.tenant_id = t.id
-        LEFT JOIN offer_counts oc ON oc.tenant_id = t.id
-        LEFT JOIN demand_counts dc ON dc.tenant_id = t.id
-        LEFT JOIN inventory_counts ic ON ic.tenant_id = t.id
-        LEFT JOIN logistics_counts lc ON lc.tenant_id = t.id
-        LEFT JOIN incident_counts nc ON nc.tenant_id = t.id
-        LEFT JOIN notification_counts fc ON fc.tenant_id = t.id
+        LEFT JOIN producer_counts pc     ON pc.tenant_id     = t.id
+        LEFT JOIN offer_counts oc        ON oc.tenant_id     = t.id
+        LEFT JOIN demand_counts dc       ON dc.tenant_id     = t.id
+        LEFT JOIN inventory_counts ic    ON ic.tenant_id     = t.id
+        LEFT JOIN logistics_counts lc    ON lc.tenant_id     = t.id
+        LEFT JOIN incident_counts nc     ON nc.tenant_id     = t.id
+        LEFT JOIN notification_counts fc ON fc.tenant_id     = t.id
+        LEFT JOIN delivery_counts delc   ON delc.tenant_id   = t.id
         ORDER BY t.name ASC
       `
     );
 
     return result.rows.map((row) => ({
-      tenantId: row.tenant_id,
-      tenantCode: row.tenant_code,
-      tenantName: row.tenant_name,
-      producers: Number(row.producers),
-      offers: Number(row.offers),
-      openDemands: Number(row.open_demands),
-      inventoryUnits: Number(row.inventory_units),
-      scheduledLogistics: Number(row.scheduled_logistics),
-      openIncidents: Number(row.open_incidents),
-      pendingNotifications: Number(row.pending_notifications)
+      tenantId:             row.tenant_id,
+      tenantCode:           row.tenant_code,
+      tenantName:           row.tenant_name,
+      producers:            Number(row.producers),
+      offers:               Number(row.offers),
+      openDemands:          Number(row.open_demands),
+      inventoryUnits:       Number(row.inventory_units),
+      scheduledLogistics:   Number(row.scheduled_logistics),
+      openIncidents:        Number(row.open_incidents),
+      pendingNotifications: Number(row.pending_notifications),
+      totalDeliveries:      Number(row.total_deliveries),
+      deliveriesReceived:   Number(row.deliveries_received),
+      deliveriesValueTotal: Number(row.deliveries_value_total),
     }));
   }
 

@@ -84,7 +84,10 @@
     "lint:all": "npm run lint:user && npm run lint:producer && npm run lint:offer && npm run lint:rescue && npm run lint:demand && npm run lint:inventory && npm run lint:logistics && npm run lint:incident && npm run lint:notification && npm run lint:analytics && npm run lint:ml && npm run lint:automation && npm run lint:auction && npm run lint:institution && npm run lint:gateway",
     "dev:dashboard": "npm --workspace @agrored/web-dashboard run dev",
     "build:dashboard": "npm --workspace @agrored/web-dashboard run build",
-    "test": "jest"
+    "test": "jest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report tests/e2e/report"
   },
   "engines": {
     "node": ">=22"
@@ -92,6 +95,7 @@
   "devDependencies": {
     "@babel/preset-env": "^7.29.2",
     "@babel/preset-typescript": "^7.28.5",
+    "@playwright/test": "^1.60.0",
     "@types/jest": "^30.0.0",
     "@types/supertest": "^7.2.0",
     "jest": "^30.3.0",

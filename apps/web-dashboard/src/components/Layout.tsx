@@ -49,6 +49,7 @@ const MENU_GROUPS: MenuGroup[] = [
       { to: "/inventory",  icon: "📊", label: "Inventario",             module: "inventory-service" },
       { to: "/fleet",      icon: "🚚", label: "Flota en tiempo real",   module: "logistics-service" },
       { to: "/logistics",  icon: "🗂️", label: "Geocercas logísticas",   module: "logistics-service" },
+      { to: "/entregas",   icon: "📬", label: "Entregas de Productos",   module: "delivery-service" },
     ],
   },
   {
@@ -85,6 +86,7 @@ const MENU_GROUPS: MenuGroup[] = [
       { to: "/alerts",        icon: "🚨", label: "Alertas IRAT",          module: "analytics-service" },
       { to: "/ml",            icon: "🤖", label: "Apoyo a Decisión",      module: "ml-service" },
       { to: "/ai-copilot",    icon: "✨", label: "Copiloto IA",           module: "user-service" },
+      { to: "/madurez",       icon: "🎯", label: "Mapa de Madurez" },
     ],
   },
 ];

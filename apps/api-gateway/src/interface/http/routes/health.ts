@@ -26,6 +26,8 @@ export function createHealthRouter(
 ): Router {
   const router = Router();
 
+  router.get("/ping", (_req, res) => { res.status(200).json({ ok: true }); });
+
   router.get("/health", asyncHandler(async (_req, res) => {
     const results = await Promise.all(services.map(checkService));
     const downstreamOk = results.every((r) => r.status === "ok");

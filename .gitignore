@@ -91,3 +91,13 @@ Thumbs.db
 *.tar.bz2
 *.tar.xz
 *.tar.zst
+
+# Runtime / local
+service-pids.json
+data/
+migracion_completa.txt
+
+# E2E / test artifacts
+e2e-gaps.md
+e2e-report.md
+test-results/

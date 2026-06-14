@@ -6,17 +6,19 @@ interface Props {
 }
 
 const ROWS: { key: keyof AnalyticsTotals; label: string; icon: string; color: string }[] = [
-  { key: "users",           label: "Usuarios",            icon: "👤", color: "#818cf8" },
-  { key: "producersActive", label: "Productores activos", icon: "🌾", color: "#4ade80" },
-  { key: "producers",       label: "Productores total",   icon: "🌿", color: "#34d399" },
-  { key: "offers",          label: "Ofertas",             icon: "📦", color: "#60a5fa" },
-  { key: "rescues",         label: "Rescates",            icon: "♻️", color: "#a78bfa" },
-  { key: "demands",         label: "Demandas",            icon: "🍽️", color: "#f59e0b" },
-  { key: "inventoryItems",  label: "Ítems inventario",    icon: "📊", color: "#22d3ee" },
-  { key: "logisticsOrders", label: "Órdenes logísticas",  icon: "🚚", color: "#f472b6" },
-  { key: "incidents",       label: "Incidentes",          icon: "⚠️", color: "#f87171" },
-  { key: "notifications",   label: "Notificaciones",      icon: "🔔", color: "#fbbf24" },
-  { key: "auctions",        label: "Subastas",            icon: "🏷️", color: "#fb923c" },
+  { key: "users",              label: "Usuarios",               icon: "👤", color: "#818cf8" },
+  { key: "producersActive",    label: "Productores activos",    icon: "🌾", color: "#4ade80" },
+  { key: "producers",          label: "Productores total",      icon: "🌿", color: "#34d399" },
+  { key: "offers",             label: "Ofertas",                icon: "📦", color: "#60a5fa" },
+  { key: "rescues",            label: "Rescates",               icon: "♻️", color: "#a78bfa" },
+  { key: "demands",            label: "Demandas",               icon: "🍽️", color: "#f59e0b" },
+  { key: "inventoryItems",     label: "Ítems inventario",       icon: "📊", color: "#22d3ee" },
+  { key: "logisticsOrders",    label: "Órdenes logísticas",     icon: "🚚", color: "#f472b6" },
+  { key: "incidents",          label: "Incidentes",             icon: "⚠️", color: "#f87171" },
+  { key: "notifications",      label: "Notificaciones",         icon: "🔔", color: "#fbbf24" },
+  { key: "auctions",           label: "Subastas",               icon: "🏷️", color: "#fb923c" },
+  { key: "deliveries",         label: "Entregas totales",       icon: "📬", color: "#c084fc" },
+  { key: "deliveriesReceived", label: "Entregas recibidas",     icon: "✅", color: "#86efac" },
 ];
 
 export function TotalsTable({ totals }: Props) {
