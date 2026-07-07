@@ -214,7 +214,7 @@ body_text(doc,
     'AgroRed es una plataforma digital de gestión territorial orientada a la seguridad '
     'alimentaria en Colombia. Conecta a productores rurales, operadores logísticos, '
     'municipios, cocinas comunitarias, supermercados y analistas territoriales en un '
-    'ecosistema único de 14 microservicios interoperables.')
+    'ecosistema único con más de 15 módulos funcionales integrados.')
 
 body_text(doc,
     'El presente Manual de Usuario describe los perfiles de acceso al sistema, los módulos '
@@ -231,12 +231,13 @@ note_box(doc,
 # ═══════════════════════════════════════════════════════════════════════════════
 heading1(doc, '2.  Descripción General del Sistema')
 body_text(doc,
-    'AgroRed opera como un conjunto de servicios especializados que se comunican a través '
-    'de un API Gateway central. Cada módulo está diseñado para cubrir un proceso específico '
-    'del ciclo alimentario territorial.')
+    'AgroRed opera como una plataforma consolidada expuesta a través de un API Gateway '
+    'central: todos los módulos comparten un mismo backend y una misma base de datos, lo '
+    'que garantiza consistencia entre módulos. Cada módulo está diseñado para cubrir un '
+    'proceso específico del ciclo alimentario territorial.')
 
-heading2(doc, '2.1  Arquitectura modular')
-body_text(doc, 'La plataforma se compone de los siguientes 14 módulos (microservicios):')
+heading2(doc, '2.1  Módulos de la plataforma')
+body_text(doc, 'La plataforma se compone de los siguientes módulos:')
 
 MODULES = [
     ('Gestión de Usuarios',      'Autenticación, perfiles y administración de roles.'),
@@ -247,11 +248,15 @@ MODULES = [
     ('Subastas',                 'Subastas agrícolas con 6 algoritmos propietarios (holandesa, inglesa, VICKREY, etc.).'),
     ('Inventario',               'Control de existencias, trazabilidad por lote y alertas de vencimiento.'),
     ('Logística',                'Planificación de rutas óptimas, rastreo GPS y geovallas (VRP).'),
+    ('Entregas de Productos',    'Trazabilidad de la entrega física de productos a instituciones: fecha, lugar, receptor y detalle por producto.'),
+    ('Instituciones',            'Gestión de instituciones demandantes: comedores, colegios, hospitales y otros programas alimentarios.'),
     ('Incidentes',               'Reporte y seguimiento de incidentes territoriales con SLA y alertas.'),
     ('Analítica y Mapas',        'Índice IRAT, observatorio alimentario, mapas GIS y exportación de reportes.'),
-    ('Inteligencia Artificial',  'Recomendaciones heurísticas, clasificación y soporte a la decisión.'),
+    ('Inteligencia Artificial',  'Copiloto conversacional y recomendaciones heurísticas para soporte a la decisión.'),
     ('Notificaciones',           'Alertas multicanal: correo, SMS, push, in-app y webhook.'),
     ('Automatización',           'Flujos de trabajo automatizados y orquestación de operaciones.'),
+    ('Tablas Maestras Territoriales', 'Catálogo de departamentos, municipios, corregimientos y veredas usado como referencia geográfica en el resto de módulos.'),
+    ('Mapa de Madurez',          'Panel que resume qué tan completo está cada módulo del ecosistema (datos cargados, endpoints activos).'),
     ('Portal Web / Dashboard',   'Interfaz visual unificada accesible según el rol del usuario.'),
 ]
 
@@ -454,6 +459,27 @@ ROLES = [
             'Analítica — Lectura de resúmenes.',
         ],
     },
+    {
+        'nombre':   'Agente de Monitoreo  (monitoring_agent)',
+        'color':    '546E7A',
+        'icono':    '🛰️',
+        'desc':     (
+            'Personal de campo o de control territorial encargado de vigilar el estado '
+            'operativo de la red y reportar incidencias. A diferencia de los demás roles, '
+            'no tiene un módulo exclusivo asignado: su acceso corresponde al de cualquier '
+            'usuario autenticado sobre los módulos que no tienen una restricción de rol '
+            'explícita, con foco en el registro y seguimiento de incidentes.'
+        ),
+        'actividades': [
+            'Reportar incidentes territoriales detectados en campo.',
+            'Consultar el estado de incidentes previamente reportados.',
+            'Revisar notificaciones operativas del sistema.',
+        ],
+        'modulos': [
+            'Incidentes — Reporte y consulta.',
+            'Notificaciones — Recepción.',
+        ],
+    },
 ]
 
 for role in ROLES:
@@ -496,25 +522,29 @@ body_text(doc,
     'La siguiente tabla resume los permisos de acceso (✅ Acceso completo | 👁 Solo lectura | '
     '✏️ Lectura + creación | ❌ Sin acceso) de cada perfil sobre cada módulo del sistema.')
 
-ROLES_COLS  = ['Admin\nMunicipal', 'Analista\nTerritorial', 'Productor', 'Cocina\nComunitaria', 'Operador\nLogístico', 'Super-\nmercado']
-ROLE_COLORS = ['1A5C2E', '01579B', '2E7D32', 'E65C00', '4A148C', '880E4F']
+ROLES_COLS  = ['Admin\nMunicipal', 'Analista\nTerritorial', 'Productor', 'Cocina\nComunitaria', 'Operador\nLogístico', 'Super-\nmercado', 'Agente de\nMonitoreo']
+ROLE_COLORS = ['1A5C2E', '01579B', '2E7D32', 'E65C00', '4A148C', '880E4F', '546E7A']
 
 MATRIX = [
-    # (módulo,                admin,   analista,  prod,    cocina,   logist,   supermar)
-    ('Gestión de Usuarios',  '✅',    '❌',      '❌',    '❌',     '❌',     '❌'),
-    ('Productores',          '✅',    '👁',      '✅',    '❌',     '❌',     '❌'),
-    ('Ofertas',              '✅',    '👁',      '✅',    '👁',     '👁',     '✅'),
-    ('Demandas',             '✅',    '👁',      '❌',    '✅',     '👁',     '❌'),
-    ('Rescates',             '✅',    '👁',      '✅',    '👁',     '👁',     '❌'),
-    ('Subastas',             '✅',    '👁',      '✅*',   '✅**',   '✅**',   '❌'),
-    ('Inventario',           '✅',    '👁',      '❌',    '❌',     '✅',     '❌'),
-    ('Logística',            '✅',    '👁',      '❌',    '❌',     '✅',     '❌'),
-    ('Incidentes',           '✅',    '✏️',      '❌',    '❌',     '✏️',     '❌'),
-    ('Analítica y Mapas',    '✅',    '✅',      '👁***', '👁***',  '👁***',  '👁'),
-    ('Inteligencia Artif.',  '✅',    '👁',      '❌',    '❌',     '❌',     '❌'),
-    ('Notificaciones',       '✅',    '👁',      '👁',    '👁',     '❌',     '👁'),
-    ('Automatización',       '✅',    '👁',      '❌',    '❌',     '❌',     '❌'),
-    ('Portal / Dashboard',   '✅',    '✅',      '✅',    '✅',     '✅',     '✅'),
+    # (módulo,                    admin,   analista,  prod,    cocina,   logist,   supermar, monitor)
+    ('Gestión de Usuarios',      '✅',    '❌',      '❌',    '❌',     '❌',     '❌',     '❌'),
+    ('Productores',              '✅',    '👁',      '✅',    '❌',     '❌',     '❌',     '❌'),
+    ('Ofertas',                  '✅',    '👁',      '✅',    '👁',     '👁',     '✅',     '❌'),
+    ('Demandas',                 '✅',    '👁',      '❌',    '✅',     '👁',     '❌',     '❌'),
+    ('Rescates',                 '✅',    '👁',      '✅',    '👁',     '👁',     '❌',     '❌'),
+    ('Subastas',                 '✅',    '👁',      '✅*',   '✅**',   '✅**',   '❌',     '❌'),
+    ('Inventario',               '✅',    '👁',      '❌',    '❌',     '✅',     '❌',     '❌'),
+    ('Logística',                '✅',    '👁',      '❌',    '❌',     '✅',     '❌',     '❌'),
+    ('Entregas de Productos',    '✅',    '👁',      '❌',    '👁',     '👁',     '❌',     '❌'),
+    ('Instituciones',            '✅',    '👁',      '❌',    '👁',     '👁',     '❌',     '❌'),
+    ('Incidentes',               '✅',    '✏️',      '❌',    '❌',     '✏️',     '❌',     '✏️'),
+    ('Analítica y Mapas',        '✅',    '✅',      '👁***', '👁***',  '👁***',  '👁',     '❌'),
+    ('Inteligencia Artif.',      '✅',    '👁',      '❌',    '❌',     '❌',     '❌',     '❌'),
+    ('Notificaciones',           '✅',    '👁',      '👁',    '👁',     '❌',     '👁',     '👁'),
+    ('Automatización',           '✅',    '👁',      '❌',    '❌',     '❌',     '❌',     '❌'),
+    ('Tablas Maestras Territ.',  '✅',    '👁',      '❌',    '❌',     '❌',     '❌',     '❌'),
+    ('Mapa de Madurez',          '✅',    '👁',      '❌',    '❌',     '❌',     '❌',     '❌'),
+    ('Portal / Dashboard',       '✅',    '✅',      '✅',    '✅',     '✅',     '✅',     '✅'),
 ]
 
 cols = 1 + len(ROLES_COLS)
@@ -552,9 +582,9 @@ for j, row_data in enumerate(MATRIX):
         row.cells[k].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
 
 # Anchos
-tbl2.columns[0].width = Cm(4.5)
+tbl2.columns[0].width = Cm(4.0)
 for i in range(1, cols):
-    tbl2.columns[i].width = Cm(2.2)
+    tbl2.columns[i].width = Cm(1.9)
 
 doc.add_paragraph()
 body_text(doc,
@@ -718,6 +748,49 @@ MODULES_DETAIL = [
          'Recibir alertas cuando una automatización falla.'],
         'Creación y gestión: Admin exclusivo. Consulta: Analista Territorial.'
     ),
+    (
+        '5.14  Entregas de Productos',
+        ('Registra la entrega física de productos a instituciones, con trazabilidad completa: '
+         'productor de origen, institución receptora, fecha y lugar de entrega, receptor y '
+         'detalle línea por línea de los productos entregados (cantidad, unidad, precio).'),
+        ['Registrar una nueva entrega asociando productor, institución y fecha.',
+         'Agregar el detalle de productos entregados (uno o varios por entrega).',
+         'Consultar el historial de entregas con su número de entrega único (formato ENT-AAAA-####).',
+         'Verificar el estado de una entrega (pendiente o recibida).'],
+        'Creación y gestión: Admin. Consulta: Analista, Cocina Comunitaria, Logístico.'
+    ),
+    (
+        '5.15  Instituciones',
+        ('Directorio de instituciones demandantes: comedores comunitarios, colegios (PAE), '
+         'hospitales y otros programas alimentarios. Cada institución queda vinculada a un '
+         'municipio y sirve como referencia para registrar demandas y entregas.'),
+        ['Registrar una nueva institución con tipo, nombre, contacto y municipio.',
+         'Editar los datos de una institución existente.',
+         'Cambiar el estado de una institución (activa, inactiva, en revisión).',
+         'Consultar el listado de instituciones por municipio o tipo.'],
+        'Creación y gestión: Admin exclusivo. Consulta: Analista, Cocina Comunitaria, Logístico.'
+    ),
+    (
+        '5.16  Tablas Maestras Territoriales',
+        ('Catálogo de referencia geográfica de Colombia usado por el resto de módulos para '
+         'ubicar productores, instituciones, incidentes y entregas: departamentos, municipios, '
+         'corregimientos y veredas, con sus códigos DANE.'),
+        ['Consultar el listado de departamentos, municipios, corregimientos y veredas.',
+         'Registrar o editar una unidad territorial (Admin).',
+         'Usar estos catálogos como listas desplegables al registrar productores, instituciones '
+         'o incidentes en otros módulos.'],
+        'Gestión completa: Admin exclusivo. Consulta (vía listas desplegables): todos los roles.'
+    ),
+    (
+        '5.17  Mapa de Madurez',
+        ('Panel de diagnóstico interno que resume qué tan completo está cada módulo del '
+         'ecosistema: si tiene datos cargados, si sus endpoints responden correctamente y '
+         'cuántos registros existen. Pensado como apoyo para el equipo técnico y el '
+         'Administrador Municipal durante la puesta en marcha de un nuevo municipio.'),
+        ['Consultar el estado de madurez de cada módulo (usuarios, productores, ofertas, etc.).',
+         'Identificar módulos sin datos cargados aún en un municipio nuevo.'],
+        'Acceso: Admin Municipal.'
+    ),
 ]
 
 for title, desc, actions, access in MODULES_DETAIL:
@@ -789,6 +862,16 @@ FLOWS = [
             'Compartir el informe con la administración municipal o instancias superiores.',
         ]
     ),
+    (
+        'Administrador Municipal — Registrar una entrega de productos',
+        [
+            'Ingresar al módulo Entregas de Productos.',
+            'Seleccionar "Nueva entrega" y elegir el productor de origen y la institución receptora.',
+            'Indicar fecha, lugar de entrega y responsable que recibe.',
+            'Agregar el detalle de productos entregados (producto, cantidad, unidad, precio unitario).',
+            'Guardar. El sistema genera un número de entrega único (ENT-AAAA-####) para trazabilidad.',
+        ]
+    ),
 ]
 
 for title, steps in FLOWS:
@@ -816,7 +899,7 @@ doc.add_page_break()
 heading1(doc, '7.  Autenticación y Seguridad')
 body_text(doc,
     'AgroRed implementa un sistema de autenticación basado en JWT (JSON Web Tokens) con '
-    'validez configurable (predeterminado: 1 hora). Al iniciar sesión, el sistema retorna '
+    'validez configurable (predeterminado: 8 horas). Al iniciar sesión, el sistema retorna '
     'un token que debe incluirse en cada petición a la plataforma.')
 
 heading2(doc, '7.1  Inicio de sesión')
@@ -898,13 +981,13 @@ doc.add_paragraph()
 add_horizontal_rule(doc)
 p = doc.add_paragraph()
 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-run = p.add_run('AgroRed – Manual de Usuario v1.0  |  Mayo 2026  |  Confidencial – Uso Interno')
+run = p.add_run('AgroRed – Manual de Usuario v1.1  |  Julio 2026  |  Confidencial – Uso Interno')
 run.font.size = Pt(8)
 run.font.color.rgb = RGBColor(0x9E, 0x9E, 0x9E)
 run.font.name = 'Calibri'
 run.italic = True
 
 # ─── Guardar ──────────────────────────────────────────────────────────────────
-output = r'd:\xampp\htdocs\AgroRed\Manual_Usuario_AgroRed.docx'
+output = r'd:\xampp\htdocs\AgroRed\manual_usuario_AGRORED.docx'
 doc.save(output)
 print(f'[OK]  Documento generado: {output}')
