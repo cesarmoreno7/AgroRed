@@ -41,9 +41,11 @@ const MODULES: ModuleMaturity[] = [
     label: "Gestión de Usuarios",
     icon: "👤",
     category: "core",
-    dimensions: { funcional: 95, datos: 90, integracion: 95, seguridad: 95, operacional: 85 },
+    dimensions: { funcional: 95, datos: 90, integracion: 95, seguridad: 100, operacional: 90 },
     estado: "produccion",
-    notes: "JWT, reset de contraseña, roles RBAC, multitenant. Producción estable.",
+    notes: "JWT, reset de contraseña, roles RBAC, multitenant. Producción estable. " +
+      "Jul-2026: matriz RBAC (17 casos) y suite de integración del gateway verificadas de punta a punta " +
+      "tras reparar un bug de inicialización que las dejaba sin ejecutar realmente.",
   },
   {
     id: "producers",
@@ -59,18 +61,20 @@ const MODULES: ModuleMaturity[] = [
     label: "Instituciones",
     icon: "🏛️",
     category: "core",
-    dimensions: { funcional: 90, datos: 80, integracion: 90, seguridad: 85, operacional: 75 },
+    dimensions: { funcional: 92, datos: 85, integracion: 90, seguridad: 85, operacional: 78 },
     estado: "produccion",
-    notes: "CRUD, historial de estados, importación CSV, filtros por municipio.",
+    notes: "CRUD, historial de estados, importación CSV, filtros por municipio. " +
+      "Jul-2026: corregida una regresión de paginación (límite por defecto) y ampliada la cobertura E2E.",
   },
   {
     id: "auth",
     label: "Autenticación & Auth",
     icon: "🔐",
     category: "core",
-    dimensions: { funcional: 95, datos: 90, integracion: 95, seguridad: 100, operacional: 90 },
+    dimensions: { funcional: 95, datos: 90, integracion: 95, seguridad: 100, operacional: 95 },
     estado: "produccion",
-    notes: "JWT firmado, middleware de verificación, logout, sesión expirada con evento global.",
+    notes: "JWT firmado, middleware de verificación, logout, sesión expirada con evento global. " +
+      "Jul-2026: 9/9 pruebas del gateway y 17/17 de la matriz RBAC verificadas de punta a punta.",
   },
   // ── OPERACIONES ───────────────────────────────────────────────
   {
@@ -105,9 +109,12 @@ const MODULES: ModuleMaturity[] = [
     label: "Entregas de Productos",
     icon: "📬",
     category: "operaciones",
-    dimensions: { funcional: 80, datos: 70, integracion: 75, seguridad: 75, operacional: 60 },
-    estado: "beta",
-    notes: "Módulo nuevo (jun-2026). CRUD maestro-detalle, trazabilidad física y económica, integrado en analytics.",
+    dimensions: { funcional: 92, datos: 85, integracion: 85, seguridad: 82, operacional: 72 },
+    estado: "produccion",
+    notes: "CRUD maestro-detalle, trazabilidad física y económica, integrado en analytics. " +
+      "Jul-2026: corregido un bug de contrato en el catálogo de productos y un bug de idempotencia en el " +
+      "seed histórico (ON CONFLICT apuntaba a la columna equivocada); migraciones 030-032 aplicadas en Neon; " +
+      "cobertura E2E completa (8/8 casos, incluyendo creación real de entregas).",
   },
   {
     id: "inventory",
@@ -132,9 +139,11 @@ const MODULES: ModuleMaturity[] = [
     label: "Logística & Tracking",
     icon: "🚚",
     category: "operaciones",
-    dimensions: { funcional: 80, datos: 65, integracion: 85, seguridad: 75, operacional: 65 },
+    dimensions: { funcional: 90, datos: 82, integracion: 88, seguridad: 85, operacional: 75 },
     estado: "produccion",
-    notes: "Órdenes, tracking en tiempo real, planificación de rutas con OSRM.",
+    notes: "Órdenes, tracking en tiempo real, planificación de rutas con OSRM. " +
+      "Jul-2026: corregido un bug crítico que hacía fallar GET /api/v1/logistics con error 500 " +
+      "(columnas de un esquema anterior a una migración de renombrado); cobertura E2E nueva (6/6).",
   },
   {
     id: "catalog",
@@ -196,9 +205,11 @@ const MODULES: ModuleMaturity[] = [
     label: "Copiloto IA (Gemini)",
     icon: "✨",
     category: "inteligencia",
-    dimensions: { funcional: 80, datos: 60, integracion: 75, seguridad: 65, operacional: 60 },
+    dimensions: { funcional: 80, datos: 60, integracion: 75, seguridad: 78, operacional: 60 },
     estado: "beta",
-    notes: "Chat conversacional con Gemini 1.5 Flash. Integrado en Node.js monolito.",
+    notes: "Chat conversacional con Gemini 1.5 Flash. Integrado en Node.js monolito. " +
+      "Jul-2026: prueba de integración reescrita para reflejar el bridge real a Gemini (antes probaba un " +
+      "bridge a un backend PHP que ya no existe) y RBAC verificado.",
   },
   {
     id: "alerts",
@@ -214,9 +225,10 @@ const MODULES: ModuleMaturity[] = [
     label: "Notificaciones",
     icon: "✉️",
     category: "inteligencia",
-    dimensions: { funcional: 80, datos: 70, integracion: 80, seguridad: 70, operacional: 65 },
+    dimensions: { funcional: 85, datos: 70, integracion: 80, seguridad: 80, operacional: 70 },
     estado: "produccion",
-    notes: "Email via SMTP + BullMQ. Worker asíncrono con reintentos.",
+    notes: "Email via SMTP + BullMQ. Worker asíncrono con reintentos. " +
+      "Jul-2026: cobertura E2E completa nueva (7/7), incluyendo verificación de RBAC por rol.",
   },
   // ── INFRAESTRUCTURA ───────────────────────────────────────────
   {
@@ -224,9 +236,10 @@ const MODULES: ModuleMaturity[] = [
     label: "Maestras Territoriales",
     icon: "🗾",
     category: "infraestructura",
-    dimensions: { funcional: 85, datos: 95, integracion: 85, seguridad: 75, operacional: 70 },
+    dimensions: { funcional: 90, datos: 95, integracion: 85, seguridad: 85, operacional: 70 },
     estado: "produccion",
-    notes: "Departamentos, municipios, corregimientos, veredas. Datos DANE cargados.",
+    notes: "Departamentos, municipios, corregimientos, veredas. Datos DANE cargados. " +
+      "Jul-2026: cobertura E2E completa nueva (8/8), incluyendo autenticación y validación de payloads.",
   },
   {
     id: "map",
@@ -260,9 +273,10 @@ const MODULES: ModuleMaturity[] = [
     label: "Multitenancy",
     icon: "🏢",
     category: "infraestructura",
-    dimensions: { funcional: 80, datos: 85, integracion: 80, seguridad: 80, operacional: 70 },
+    dimensions: { funcional: 80, datos: 85, integracion: 80, seguridad: 85, operacional: 70 },
     estado: "produccion",
-    notes: "Todos los módulos filtran por tenant_id. Base para despliegue nacional.",
+    notes: "Todos los módulos filtran por tenant_id. Base para despliegue nacional. " +
+      "Jul-2026: aislamiento por tenant reverificado en la matriz RBAC reparada del gateway.",
   },
 ];
 
@@ -459,7 +473,7 @@ export function MaturityPage() {
         </h1>
         <p style={{ margin: 0, fontSize: 13, color: "rgba(255,255,255,0.4)", maxWidth: 640 }}>
           Evaluación multidimensional de {MODULES.length} módulos en 5 ejes: Funcional, Datos, Integración, Seguridad y Operacional.
-          Última actualización: junio 2026.
+          Última actualización: julio 2026.
         </p>
       </div>
 
