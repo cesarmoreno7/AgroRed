@@ -517,85 +517,129 @@ doc.add_page_break()
 # ═══════════════════════════════════════════════════════════════════════════════
 # 4. MATRIZ DE ACCESO POR MÓDULO
 # ═══════════════════════════════════════════════════════════════════════════════
-heading1(doc, '4.  Matriz de Acceso por Módulo')
+heading1(doc, '4.  Menú del Sistema por Perfil de Usuario')
 body_text(doc,
-    'La siguiente tabla resume los permisos de acceso (✅ Acceso completo | 👁 Solo lectura | '
-    '✏️ Lectura + creación | ❌ Sin acceso) de cada perfil sobre cada módulo del sistema.')
+    'El menú lateral del portal web no es igual para todos los usuarios: cada perfil ve '
+    'únicamente las secciones y opciones para las que tiene acceso. Esta sección muestra, '
+    'agrupado exactamente como aparece en el menú lateral, qué opciones ve cada perfil al '
+    'iniciar sesión.')
+note_box(doc,
+    'El Tablero Institucional, el Mapa de Madurez y las cuatro páginas de Tablas Maestras '
+    '(Departamentos, Municipios, Corregimientos, Veredas) son visibles para cualquier usuario '
+    'autenticado, sin importar su perfil.')
 
-ROLES_COLS  = ['Admin\nMunicipal', 'Analista\nTerritorial', 'Productor', 'Cocina\nComunitaria', 'Operador\nLogístico', 'Super-\nmercado', 'Agente de\nMonitoreo']
-ROLE_COLORS = ['1A5C2E', '01579B', '2E7D32', 'E65C00', '4A148C', '880E4F', '546E7A']
+# Fuente: apps/web-dashboard/src/components/Layout.tsx (MENU_GROUPS) +
+# apps/web-dashboard/src/config/moduleAccess.ts (MODULE_ACCESS). Si alguno de esos dos
+# archivos cambia, esta sección debe actualizarse para que el manual siga reflejando el
+# menú real.
+MENU_ROLES_COLS   = ['Admin\nMunicipal', 'Analista\nTerritorial', 'Productor', 'Cocina\nComunitaria', 'Operador\nLogístico', 'Super-\nmercado', 'Agente de\nMonitoreo*']
+MENU_ROLE_COLORS  = ['1A5C2E', '01579B', '2E7D32', 'E65C00', '4A148C', '880E4F', '546E7A']
+MENU_ROLE_KEYS    = ['admin_municipal', 'territorial_analyst', 'producer', 'community_kitchen', 'logistics_operator', 'supermarket', 'monitoring_agent']
 
-MATRIX = [
-    # (módulo,                    admin,   analista,  prod,    cocina,   logist,   supermar, monitor)
-    ('Gestión de Usuarios',      '✅',    '❌',      '❌',    '❌',     '❌',     '❌',     '❌'),
-    ('Productores',              '✅',    '👁',      '✅',    '❌',     '❌',     '❌',     '❌'),
-    ('Ofertas',                  '✅',    '👁',      '✅',    '👁',     '👁',     '✅',     '❌'),
-    ('Demandas',                 '✅',    '👁',      '❌',    '✅',     '👁',     '❌',     '❌'),
-    ('Rescates',                 '✅',    '👁',      '✅',    '👁',     '👁',     '❌',     '❌'),
-    ('Subastas',                 '✅',    '👁',      '✅*',   '✅**',   '✅**',   '❌',     '❌'),
-    ('Inventario',               '✅',    '👁',      '❌',    '❌',     '✅',     '❌',     '❌'),
-    ('Logística',                '✅',    '👁',      '❌',    '❌',     '✅',     '❌',     '❌'),
-    ('Entregas de Productos',    '✅',    '👁',      '❌',    '👁',     '👁',     '❌',     '❌'),
-    ('Instituciones',            '✅',    '👁',      '❌',    '👁',     '👁',     '❌',     '❌'),
-    ('Incidentes',               '✅',    '✏️',      '❌',    '❌',     '✏️',     '❌',     '✏️'),
-    ('Analítica y Mapas',        '✅',    '✅',      '👁***', '👁***',  '👁***',  '👁',     '❌'),
-    ('Inteligencia Artif.',      '✅',    '👁',      '❌',    '❌',     '❌',     '❌',     '❌'),
-    ('Notificaciones',           '✅',    '👁',      '👁',    '👁',     '❌',     '👁',     '👁'),
-    ('Automatización',           '✅',    '👁',      '❌',    '❌',     '❌',     '❌',     '❌'),
-    ('Tablas Maestras Territ.',  '✅',    '👁',      '❌',    '❌',     '❌',     '❌',     '❌'),
-    ('Mapa de Madurez',          '✅',    '👁',      '❌',    '❌',     '❌',     '❌',     '❌'),
-    ('Portal / Dashboard',       '✅',    '✅',      '✅',    '✅',     '✅',     '✅',     '✅'),
+MODULE_ACCESS = {
+    'admin_municipal': {'user-service','producer-service','offer-service','rescue-service','demand-service',
+                         'institution-service','origins-service','inventory-service','logistics-service',
+                         'incident-service','notification-service','auction-service','analytics-service',
+                         'ml-service','catalog-service','delivery-service'},
+    'territorial_analyst': {'producer-service','offer-service','rescue-service','demand-service',
+                             'institution-service','logistics-service','incident-service','auction-service',
+                             'analytics-service','ml-service','catalog-service','delivery-service'},
+    'logistics_operator': {'producer-service','offer-service','rescue-service','demand-service',
+                            'inventory-service','logistics-service','incident-service','notification-service',
+                            'auction-service','catalog-service','delivery-service'},
+    'community_kitchen': {'offer-service','rescue-service','demand-service','auction-service','delivery-service'},
+    'producer': {'producer-service','rescue-service','offer-service','auction-service','incident-service','delivery-service'},
+    'supermarket': {'offer-service','auction-service'},
+    'monitoring_agent': set(),  # sin entrada en moduleAccess.ts — ver nota más abajo
+}
+
+MENU_SECTIONS = [
+    ('Principal', [('Tablero Institucional', None)]),
+    ('Territorio', [
+        ('Mapa Territorial',   'logistics-service'),
+        ('Instituciones',      'institution-service'),
+        ('Orígenes Aliados',   'origins-service'),
+    ]),
+    ('Operaciones', [
+        ('Productores',              'producer-service'),
+        ('Ofertas',                  'offer-service'),
+        ('Rescates',                 'rescue-service'),
+        ('Demandas',                 'demand-service'),
+        ('Inventario',               'inventory-service'),
+        ('Flota en tiempo real',     'logistics-service'),
+        ('Geocercas logísticas',     'logistics-service'),
+        ('Entregas de Productos',    'delivery-service'),
+    ]),
+    ('Administración', [
+        ('Usuarios',        'user-service'),
+        ('Canales',         'catalog-service'),
+        ('Organizaciones',  'catalog-service'),
+        ('Productos',       'catalog-service'),
+        ('Categorías',      'catalog-service'),
+    ]),
+    ('Tablas Maestras', [
+        ('Departamentos',    None),
+        ('Municipios',       None),
+        ('Corregimientos',   None),
+        ('Veredas',          None),
+    ]),
+    ('Inteligencia', [
+        ('Incidencias Sociales',  'incident-service'),
+        ('Notificaciones',        'notification-service'),
+        ('Subastas',              'auction-service'),
+        ('Alertas IRAT',          'analytics-service'),
+        ('Apoyo a Decisión',      'ml-service'),
+        ('Copiloto IA',           'user-service'),
+        ('Mapa de Madurez',       None),
+    ]),
 ]
 
-cols = 1 + len(ROLES_COLS)
-tbl2 = doc.add_table(rows=1, cols=cols)
-tbl2.style = 'Table Grid'
-tbl2.alignment = WD_TABLE_ALIGNMENT.CENTER
+for section_label, items in MENU_SECTIONS:
+    heading2(doc, section_label)
+    cols = 1 + len(MENU_ROLES_COLS)
+    tbl_sec = doc.add_table(rows=1, cols=cols)
+    tbl_sec.style = 'Table Grid'
+    tbl_sec.alignment = WD_TABLE_ALIGNMENT.CENTER
 
-# Cabecera
-hdr2 = tbl2.rows[0].cells
-hdr2[0].text = 'Módulo'
-set_cell_bg(hdr2[0], '1A5C2E')
-for r in hdr2[0].paragraphs[0].runs:
-    r.bold = True; r.font.color.rgb = BLANCO; r.font.size = Pt(9); r.font.name = 'Calibri'
+    hdr = tbl_sec.rows[0].cells
+    hdr[0].text = 'Opción de menú'
+    set_cell_bg(hdr[0], '1A5C2E')
+    for r in hdr[0].paragraphs[0].runs:
+        r.bold = True; r.font.color.rgb = BLANCO; r.font.size = Pt(8.5); r.font.name = 'Calibri'
+    for i, (label, color) in enumerate(zip(MENU_ROLES_COLS, MENU_ROLE_COLORS)):
+        hdr[i + 1].text = label
+        set_cell_bg(hdr[i + 1], color)
+        for r in hdr[i + 1].paragraphs[0].runs:
+            r.bold = True; r.font.color.rgb = BLANCO; r.font.size = Pt(8); r.font.name = 'Calibri'
 
-for i, (label, color) in enumerate(zip(ROLES_COLS, ROLE_COLORS)):
-    hdr2[i + 1].text = label
-    set_cell_bg(hdr2[i + 1], color)
-    for r in hdr2[i + 1].paragraphs[0].runs:
-        r.bold = True; r.font.color.rgb = BLANCO; r.font.size = Pt(9); r.font.name = 'Calibri'
+    for j, (item_label, module) in enumerate(items):
+        row = tbl_sec.add_row()
+        row.cells[0].text = item_label
+        bg = 'F1F8F2' if j % 2 == 0 else 'FFFFFF'
+        set_cell_bg(row.cells[0], bg)
+        for r in row.cells[0].paragraphs[0].runs:
+            r.font.size = Pt(9.5); r.font.name = 'Calibri'; r.bold = True
 
-for j, row_data in enumerate(MATRIX):
-    row = tbl2.add_row()
-    row.cells[0].text = row_data[0]
-    bg = 'F1F8F2' if j % 2 == 0 else 'FFFFFF'
-    set_cell_bg(row.cells[0], bg)
-    for r in row.cells[0].paragraphs[0].runs:
-        r.font.size = Pt(9); r.font.name = 'Calibri'; r.bold = True
+        for k, role_key in enumerate(MENU_ROLE_KEYS, start=1):
+            visible = module is None or module in MODULE_ACCESS[role_key]
+            row.cells[k].text = '✔' if visible else '✘'
+            set_cell_bg(row.cells[k], bg)
+            for r in row.cells[k].paragraphs[0].runs:
+                r.font.size = Pt(10.5); r.font.name = 'Calibri'
+                r.font.color.rgb = VERDE_MEDIO if visible else RGBColor(0xBD, 0xBD, 0xBD)
+            row.cells[k].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-    for k in range(1, cols):
-        val = row_data[k]
-        row.cells[k].text = val
-        set_cell_bg(row.cells[k], bg)
-        for r in row.cells[k].paragraphs[0].runs:
-            r.font.size = Pt(10); r.font.name = 'Calibri'
-        row.cells[k].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+    tbl_sec.columns[0].width = Cm(4.2)
+    for i in range(1, cols):
+        tbl_sec.columns[i].width = Cm(1.85)
+    doc.add_paragraph()
 
-# Anchos
-tbl2.columns[0].width = Cm(4.0)
-for i in range(1, cols):
-    tbl2.columns[i].width = Cm(1.9)
-
-doc.add_paragraph()
-body_text(doc,
-    '✅ Acceso completo (leer, crear, editar, eliminar)  |  👁 Solo lectura  |  '
-    '✏️ Lectura y creación  |  ❌ Sin acceso', italic=True)
-body_text(doc,
-    '* Productor: puede publicar y gestionar sus propios lotes de subasta.', italic=True)
-body_text(doc,
-    '** Cocina / Logístico: pueden pujar y aceptar precio holandés, sin publicar subastas.', italic=True)
-body_text(doc,
-    '*** Solo la vista de mapa GIS; sin acceso a reportes IRAT ni analítica avanzada.', italic=True)
+note_box(doc,
+    '* Agente de Monitoreo: en la versión actual de la plataforma este perfil no tiene módulos '
+    'configurados en el menú — solo ve las opciones que son visibles para cualquier usuario '
+    'autenticado (Tablero, Mapa de Madurez y Tablas Maestras). Se recomienda validar con el '
+    'equipo técnico si esto es el comportamiento previsto o si falta completar su configuración '
+    'de acceso.')
 
 doc.add_page_break()
 
