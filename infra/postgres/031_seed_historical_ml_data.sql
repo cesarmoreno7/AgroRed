@@ -151,7 +151,16 @@ BEGIN
          'Coordinador Logístico',
          CASE WHEN random() > 0.1 THEN 'recibido' ELSE 'pendiente' END,
          v_month + ((random() * 24)::INT || ' days')::INTERVAL)
-      ON CONFLICT (id) DO NOTHING;
+      ON CONFLICT (numero_entrega) DO NOTHING
+      RETURNING id INTO v_entrega_id;
+
+      -- Si numero_entrega ya existía, la fila se saltó y v_entrega_id quedó en
+      -- NULL: recuperar el id real para no violar la FK del detalle.
+      IF v_entrega_id IS NULL THEN
+        SELECT id INTO v_entrega_id
+        FROM public.entregas_productos
+        WHERE numero_entrega = v_ent_num;
+      END IF;
 
       -- Línea de detalle
       INSERT INTO public.entregas_detalle

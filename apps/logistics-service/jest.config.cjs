@@ -2,6 +2,7 @@
 module.exports = {
   displayName: "logistics-service",
   testEnvironment: "node",
+  testPathIgnorePatterns: ["/node_modules/", "/dist/"],
   transform: {
     "^.+\\.ts$": ["babel-jest", { rootMode: "upward" }]
   },

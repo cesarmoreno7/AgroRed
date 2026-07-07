@@ -1,7 +1,7 @@
 import { api } from "./api";
 
-export function fetchInstitutions() {
-  return api<any[]>("/api/v1/institutions");
+export function fetchInstitutions(limit = 100) {
+  return api<any[]>("/api/v1/institutions", { params: { limit } });
 }
 
 export function registerInstitution(data: any) {

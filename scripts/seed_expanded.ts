@@ -16,14 +16,20 @@
 import pg from "pg";
 import bcrypt from "bcrypt";
 
+const host = process.env.POSTGRES_HOST ?? "localhost";
+const isRemote =
+  Boolean(process.env.DATABASE_URL) ||
+  process.env.NODE_ENV === "production" ||
+  host.includes("neon.tech");
+
 const pool = new pg.Pool({
-  host: process.env.POSTGRES_HOST ?? "localhost",
+  host,
   port: Number(process.env.POSTGRES_PORT ?? 5432),
   database: process.env.POSTGRES_DB ?? "agrored",
   user: process.env.POSTGRES_USER ?? "777",
   password: process.env.POSTGRES_PASSWORD ?? "777",
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: isRemote ? { rejectUnauthorized: false } : false
 });
 
 // ===== Config knobs =====

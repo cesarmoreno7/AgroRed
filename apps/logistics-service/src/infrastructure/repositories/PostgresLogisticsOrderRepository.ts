@@ -125,7 +125,26 @@ export class PostgresLogisticsOrderRepository implements LogisticsOrderRepositor
 
     const result = await this.pool.query<LogisticsOrderRow>(
       `
-        SELECT id, tenant_id, offer_id, demand_id, rescue_id, origin_name, destination_name, cargo_description, weight_kg, transport_mode, scheduled_date, municipality_name, notes, status, latitude, longitude, created_at
+        SELECT
+          id,
+          tenant_id,
+          inventory_item_id,
+          demand_id,
+          route_mode,
+          origin_location_name,
+          destination_organization_name,
+          destination_address,
+          scheduled_pickup_at,
+          scheduled_delivery_at,
+          quantity_assigned,
+          municipality_name,
+          notes,
+          status,
+          origin_latitude,
+          origin_longitude,
+          destination_latitude,
+          destination_longitude,
+          created_at
         FROM public.logistics_orders
         WHERE deleted_at IS NULL
           AND ($1::uuid IS NULL OR tenant_id = $1)

@@ -81,7 +81,8 @@
     "lint:auction": "npm --workspace @agrored/auction-service run lint",
     "lint:institution": "npm --workspace @agrored/institution-service run lint",
     "lint:gateway": "npm --workspace @agrored/api-gateway run lint",
-    "lint:all": "npm run lint:user && npm run lint:producer && npm run lint:offer && npm run lint:rescue && npm run lint:demand && npm run lint:inventory && npm run lint:logistics && npm run lint:incident && npm run lint:notification && npm run lint:analytics && npm run lint:ml && npm run lint:automation && npm run lint:auction && npm run lint:institution && npm run lint:gateway",
+    "lint:location": "npm --workspace @agrored/location-service run lint",
+    "lint:all": "npm run lint:user && npm run lint:producer && npm run lint:offer && npm run lint:rescue && npm run lint:demand && npm run lint:inventory && npm run lint:logistics && npm run lint:incident && npm run lint:notification && npm run lint:analytics && npm run lint:ml && npm run lint:automation && npm run lint:auction && npm run lint:institution && npm run lint:gateway && npm run lint:location",
     "dev:dashboard": "npm --workspace @agrored/web-dashboard run dev",
     "build:dashboard": "npm --workspace @agrored/web-dashboard run build",
     "test": "jest",
@@ -98,6 +99,7 @@
     "@playwright/test": "^1.60.0",
     "@types/jest": "^30.0.0",
     "@types/supertest": "^7.2.0",
+    "docx": "^9.7.1",
     "jest": "^30.3.0",
     "supertest": "^7.2.2",
     "tsx": "^4.21.0"

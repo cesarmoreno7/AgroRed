@@ -41,7 +41,10 @@ test.describe("TC-DELIVERY — Módulo de Entregas de Productos", () => {
     });
     expect(res.status()).toBe(200);
     const body = await res.json();
-    expect(body.ok).toBe(true);
+    // /api/v1/products/catalog vive en offer-service, cuyo envelope estándar
+    // es { success, data } — no { ok, data } como el resto de este archivo,
+    // que sí prueba endpoints propios de delivery-service.
+    expect(body.success).toBe(true);
     const items = Array.isArray(body.data) ? body.data : body.data?.data ?? [];
     expect(items.length).toBeGreaterThanOrEqual(0);
   });

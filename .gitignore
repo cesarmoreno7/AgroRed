@@ -1,3 +1,7 @@
+# Generated documents (keep local only)
+manual_usuario.docx
+scripts/generate_manual.cjs
+
 # Dependencies
 node_modules/
 **/node_modules/
@@ -97,7 +101,12 @@ service-pids.json
 data/
 migracion_completa.txt
 
+# Compiled output committed next to source by mistake in the past
+apps/shared/**/*.js
+
 # E2E / test artifacts
 e2e-gaps.md
 e2e-report.md
 test-results/
+tests/e2e/report/
+playwright-report/

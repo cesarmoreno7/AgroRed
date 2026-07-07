@@ -9,8 +9,8 @@
     "./types.js": "./types/index.ts",
     "./middleware/internalAuth.js": "./middleware/internalAuth.ts",
     "./logger.js": "./logger/index.ts",
-    "./redis/RedisClient.js": "./redis/RedisClient.js",
-    "./redis/RedisCache.js": "./redis/RedisCache.js",
+    "./redis/RedisClient.js": "./redis/RedisClient.ts",
+    "./redis/RedisCache.js": "./redis/RedisCache.ts",
     "./redis/EventBus.js": "./redis/EventBus.ts",
     "./redis/EVENT_CHANNELS.js": "./redis/EVENT_CHANNELS.ts"
   },

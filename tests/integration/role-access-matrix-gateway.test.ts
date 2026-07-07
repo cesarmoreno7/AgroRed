@@ -1,11 +1,12 @@
 import request from "supertest";
 import jwt from "jsonwebtoken";
+import type { Express } from "express";
 import { buildApp } from "../../apps/api-gateway/src/app.js";
 
 const JWT_SECRET = "test_secret_must_be_at_least_32_characters_long!!";
 
-const app = buildApp({
-  NODE_ENV: "test",
+const testEnv = {
+  NODE_ENV: "test" as const,
   API_GATEWAY_PORT: 0,
   API_GATEWAY_CORS_ORIGIN: "*",
   AI_CHAT_SERVICE_URL: undefined,
@@ -29,6 +30,12 @@ const app = buildApp({
   POSTGRES_DB: "agrored",
   POSTGRES_USER: "777",
   POSTGRES_PASSWORD: "777"
+};
+
+let app: Express;
+
+beforeAll(async () => {
+  app = await buildApp(testEnv);
 });
 
 function signForRole(role: string): string {
@@ -44,12 +51,18 @@ function signForRole(role: string): string {
   );
 }
 
+// `expected: 404` means "RBAC let the request through to route dispatch" — this
+// fixture builds the app without a Pool, so the monolith's business routers never
+// mount (see the `if (pool)` guard in app.ts) and a request that clears RBAC lands
+// on the catch-all 404 handler instead of a real business response. `403` still
+// means RBAC blocked it outright, and `503` is the AI chat bridge's own
+// "not configured" response (mounted unconditionally, unaffected by the Pool gap).
 type Case = {
   title: string;
   method: "get" | "post";
   path: string;
   role: string;
-  expected: 403 | 502 | 503;
+  expected: 403 | 404 | 503;
 };
 
 const CASES: Case[] = [
@@ -58,7 +71,7 @@ const CASES: Case[] = [
     method: "get",
     path: "/api/v1/users",
     role: "admin_municipal",
-    expected: 502
+    expected: 404
   },
   {
     title: "producer cannot access user list",
@@ -72,7 +85,7 @@ const CASES: Case[] = [
     method: "post",
     path: "/api/v1/offers",
     role: "producer",
-    expected: 502
+    expected: 404
   },
   {
     title: "community kitchen cannot publish offers",
@@ -86,7 +99,7 @@ const CASES: Case[] = [
     method: "post",
     path: "/api/v1/demands",
     role: "community_kitchen",
-    expected: 502
+    expected: 404
   },
   {
     title: "producer cannot create demand",
@@ -100,7 +113,7 @@ const CASES: Case[] = [
     method: "post",
     path: "/api/v1/logistics",
     role: "logistics_operator",
-    expected: 502
+    expected: 404
   },
   {
     title: "producer cannot create logistics order",
@@ -114,7 +127,7 @@ const CASES: Case[] = [
     method: "get",
     path: "/api/v1/analytics",
     role: "territorial_analyst",
-    expected: 502
+    expected: 404
   },
   {
     title: "monitoring agent cannot read analytics",
@@ -135,7 +148,7 @@ const CASES: Case[] = [
     method: "post",
     path: "/api/v1/auctions/auction-1/bid",
     role: "community_kitchen",
-    expected: 502
+    expected: 404
   },
   {
     title: "producer cannot bid in auction",
@@ -149,7 +162,7 @@ const CASES: Case[] = [
     method: "post",
     path: "/api/v1/auctions/auction-1/close",
     role: "admin_municipal",
-    expected: 502
+    expected: 404
   },
   {
     title: "territorial analyst reaches AI chat bridge and gets configuration error instead of RBAC denial",
@@ -193,7 +206,7 @@ describe("Gateway role access matrix", () => {
     }
 
     expect(res.body?.error?.code).toBe(
-      expected === 503 ? "AI_CHAT_NOT_CONFIGURED" : "DOWNSTREAM_SERVICE_UNAVAILABLE"
+      expected === 503 ? "AI_CHAT_NOT_CONFIGURED" : "RESOURCE_NOT_FOUND"
     );
   });
 });

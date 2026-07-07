@@ -2,6 +2,7 @@
 module.exports = {
   displayName: "shared",
   testEnvironment: "node",
+  testPathIgnorePatterns: ["/node_modules/", "/dist/"],
   testMatch: ["<rootDir>/**/*.test.ts"],
   transform: {
     "^.+\\.ts$": ["babel-jest", { rootMode: "upward" }]

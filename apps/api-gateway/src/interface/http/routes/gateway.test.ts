@@ -1,5 +1,6 @@
 import request from "supertest";
 import jwt from "jsonwebtoken";
+import type { Express } from "express";
 import { buildApp } from "../../../app.js";
 
 const JWT_SECRET = "test_secret_must_be_at_least_32_characters_long!!";
@@ -33,7 +34,12 @@ const testEnv = {
 };
 
 describe("API Gateway routes", () => {
-  const app = buildApp(testEnv);
+  let app: Express;
+
+  beforeAll(async () => {
+    app = await buildApp(testEnv);
+  });
+
   const token = jwt.sign(
     { sub: "u-1", tenantId: "t-1", email: "test@agrored.co", role: "admin" },
     JWT_SECRET,
@@ -41,8 +47,12 @@ describe("API Gateway routes", () => {
   );
 
   describe("GET /api/v1/catalog/services", () => {
-    it("lists all registered services including auctions (public, no auth needed)", async () => {
-      const res = await request(app).get("/api/v1/catalog/services");
+    // /api/v1/catalog/services no está en PUBLIC_PATHS (auth.ts) — requiere token,
+    // a diferencia de lo que sugería el nombre original de este test.
+    it("lists all registered services including auctions", async () => {
+      const res = await request(app)
+        .get("/api/v1/catalog/services")
+        .set("Authorization", `Bearer ${token}`);
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
@@ -52,11 +62,15 @@ describe("API Gateway routes", () => {
       expect(keys).toContain("producers");
       expect(keys).toContain("auctions");
       expect(keys).toContain("institutions");
-      expect(keys).toHaveLength(14);
+      // 19 módulos consolidados en el monolito, incluyendo las 4 tablas
+      // maestras territoriales (departamentos/municipios/corregimientos/veredas).
+      expect(keys).toHaveLength(19);
     });
 
     it("includes auction-service with correct path prefix", async () => {
-      const res = await request(app).get("/api/v1/catalog/services");
+      const res = await request(app)
+        .get("/api/v1/catalog/services")
+        .set("Authorization", `Bearer ${token}`);
       const auction = res.body.data.find((s: { key: string }) => s.key === "auctions");
 
       expect(auction).toBeDefined();
@@ -91,11 +105,12 @@ describe("API Gateway routes", () => {
         .post("/api/v1/users/recover-password")
         .send({ email: "seed.bogota.1@agrored.co" });
 
-      // The downstream service is not running in this test, so the expected response
-      // is gateway proxy failure (502), but it must not be blocked as 401 by auth middleware.
-      expect(res.status).toBe(502);
-      expect(res.body.success).toBe(false);
-      expect(res.body.error.code).toBe("DOWNSTREAM_SERVICE_UNAVAILABLE");
+      // This fixture builds the app without a Pool, so the monolith's business
+      // routers (including user-service) never mount — see buildApp's `if (pool)`
+      // guard in app.ts. What this test actually verifies is that the auth
+      // middleware's PUBLIC_PATHS allowlist lets the request through unauthenticated
+      // (i.e. it must never be 401), not the downstream route's own behavior.
+      expect(res.status).not.toBe(401);
     });
 
     it("allows unauthenticated reset-password route to pass auth middleware", async () => {
@@ -103,9 +118,7 @@ describe("API Gateway routes", () => {
         .post("/api/v1/users/reset-password")
         .send({ token: "test-token", newPassword: "StrongPass1!" });
 
-      expect(res.status).toBe(502);
-      expect(res.body.success).toBe(false);
-      expect(res.body.error.code).toBe("DOWNSTREAM_SERVICE_UNAVAILABLE");
+      expect(res.status).not.toBe(401);
     });
   });
 
@@ -115,7 +128,7 @@ describe("API Gateway routes", () => {
       global.fetch = jest.fn(async () => ({ ok: true })) as any;
 
       try {
-        const healthApp = buildApp(testEnv, undefined, undefined, { redis: "degraded" });
+        const healthApp = await buildApp(testEnv, undefined, undefined, { redis: "degraded" });
         const res = await request(healthApp).get("/health");
 
         expect(res.status).toBe(503);
@@ -130,34 +143,33 @@ describe("API Gateway routes", () => {
   });
 
   describe("POST /api/v1/ai-chat", () => {
-    it("bridges to the legacy PHP backend using a mapped legacy role token", async () => {
+    it("bridges to Gemini directly and returns its text response", async () => {
       const aiToken = jwt.sign(
         { sub: "u-ai", tenantId: "t-1", email: "ai@agrored.co", role: "admin_municipal" },
         JWT_SECRET,
         { expiresIn: "1h" }
       );
+
+      // aiChat.ts calls Gemini's REST API directly via global.fetch (no
+      // downstream PHP bridge — that backend was removed). Needs its own app
+      // instance with a real-looking AI_API_KEY, since `app`/testEnv leave it
+      // unset on purpose to keep the "not configured" test below simple.
+      const aiApp = await buildApp({ ...testEnv, AI_API_KEY: "test-gemini-key" });
+
       const originalFetch = global.fetch;
-      const fetchMock = jest.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
-        const forwardedToken = String(init?.headers && "Authorization" in init.headers
-          ? (init.headers as Record<string, string>).Authorization
-          : "").replace("Bearer ", "");
-        const forwardedClaims = jwt.verify(forwardedToken, JWT_SECRET) as jwt.JwtPayload;
-
-        expect(forwardedClaims.role).toBe("ADMIN");
-
-        return new Response(
-          JSON.stringify({ success: true, data: { response: "ok" } }),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json" }
-          }
-        );
-      }) as typeof global.fetch;
+      const fetchMock = jest.fn(async () =>
+        new Response(
+          JSON.stringify({
+            candidates: [{ content: { parts: [{ text: "ok" }] } }]
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        )
+      ) as typeof global.fetch;
 
       global.fetch = fetchMock;
 
       try {
-        const res = await request(app)
+        const res = await request(aiApp)
           .post("/api/v1/ai-chat")
           .set("Authorization", `Bearer ${aiToken}`)
           .send({ message: "hola", history: [] });
@@ -176,12 +188,9 @@ describe("API Gateway routes", () => {
         JWT_SECRET,
         { expiresIn: "1h" }
       );
-      const noAiApp = buildApp({
-        ...testEnv,
-        AI_CHAT_SERVICE_URL: undefined
-      });
 
-      const res = await request(noAiApp)
+      // `app` is built from testEnv, which leaves AI_API_KEY unset.
+      const res = await request(app)
         .post("/api/v1/ai-chat")
         .set("Authorization", `Bearer ${aiToken}`)
         .send({ message: "hola", history: [] });

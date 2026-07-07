@@ -147,7 +147,7 @@ export function createInstitutionsRouter(repository: InstitutionRepository): Rou
   /* ---------------------------------------------------------------- */
   router.get("/api/v1/institutions", asyncHandler(async (req, res) => {
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
-    const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "100"), 10) || 100));
+    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "20"), 10) || 20));
     const tenantId = req.headers["x-tenant-id"] as string | undefined;
     const userRole  = req.headers["x-user-role"]  as string | undefined;
     const filterTenantId = userRole === "admin_municipal" ? null : (tenantId ?? null);

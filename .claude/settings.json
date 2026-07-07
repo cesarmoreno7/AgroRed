@@ -89,7 +89,6 @@
       "PowerShell(pg_dump --version 2>$null)",
       "PowerShell(git -C \"d:\\\\xampp\\\\htdocs\\\\AgroRed\" add render.yaml)",
       "PowerShell(git -C \"d:\\\\xampp\\\\htdocs\\\\AgroRed\" push origin main)",
-      "PowerShell($env:PGPASSWORD = \"npg_Yybuk8aoc0wp\"; psql \"postgresql://neondb_owner:npg_Yybuk8aoc0wp@ep-green-union-ap7kwfi9-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require\" -c \"SELECT version\\(\\);\" 2>&1)",
       "PowerShell(git -C \"d:\\\\xampp\\\\htdocs\\\\AgroRed\" add \"infra/postgres/015_populate_dane_codes.sql\")",
       "PowerShell(git -C \"d:\\\\xampp\\\\htdocs\\\\AgroRed\" add \"apps/shared/redis/RedisClient.ts\" \"apps/shared/redis/EventBus.ts\" \"apps/shared/redis/RedisCache.ts\")"
     ]

@@ -2,6 +2,7 @@
 module.exports = {
   displayName: "producer-service",
   testEnvironment: "node",
+  testPathIgnorePatterns: ["/node_modules/", "/dist/"],
   transform: {
     "^.+\\.ts$": ["babel-jest", { rootMode: "upward" }]
   },
