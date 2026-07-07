@@ -35,12 +35,13 @@ Postgres local si prefieres desarrollar sin depender de la red, pero no es el fl
 si cambias `.env` para usarlo, recuerda correr las migraciones (`npm run migrate`) contra esa base
 también.
 
-## Despliegue: Render
+## Despliegue: Railway
 
-La plataforma activa es **Render**, mediante el Blueprint `render.yaml` en la raíz (ver
-[`docs/03_GUIA_DESPLIEGUE_RENDER.md`](docs/03_GUIA_DESPLIEGUE_RENDER.md) para el detalle completo).
-Despliega tres recursos: el monolito (`agrored-api-gateway`), el dashboard como static site
-(`agrored-web-dashboard`) y Redis managed.
+La plataforma activa es **Railway** (ver [`docs/03_GUIA_DESPLIEGUE_RAILWAY.md`](docs/03_GUIA_DESPLIEGUE_RAILWAY.md)
+para el detalle completo). Dos servicios: el monolito (`railway.json` en la raíz) y el dashboard
+(`apps/web-dashboard/railway.json`). El build/start command y las variables de entorno de cada
+servicio se configuran en el dashboard de Railway (NIXPACKS), no en archivos del repo — los
+`railway.json` solo traen la config de healthcheck/build que Railway no puede inferir solo.
 
 ## Estructura del repo
 
@@ -70,7 +71,7 @@ Despliega tres recursos: el monolito (`agrored-api-gateway`), el dashboard como 
 |-- infra/postgres/         # migraciones SQL (runner: scripts/migrate.ts)
 |-- tests/                  # integración (Jest) y E2E (Playwright)
 |-- docs/
-`-- render.yaml
+`-- railway.json
 ```
 
 ## Inicio rápido
@@ -92,7 +93,7 @@ npm run test:coverage
 
 ## Guías Operativas
 
-- [`docs/03_GUIA_DESPLIEGUE_RENDER.md`](docs/03_GUIA_DESPLIEGUE_RENDER.md): despliegue en Render.
+- [`docs/03_GUIA_DESPLIEGUE_RAILWAY.md`](docs/03_GUIA_DESPLIEGUE_RAILWAY.md): despliegue en Railway.
 - [`docs/08_GUIA_LOCAL_Y_ACCESOS_ROLES.md`](docs/08_GUIA_LOCAL_Y_ACCESOS_ROLES.md): levantamiento local paso a paso y credenciales de acceso por rol.
 - [`docs/07_MATRIZ_PRUEBAS_ROLES_QA.md`](docs/07_MATRIZ_PRUEBAS_ROLES_QA.md): matriz de pruebas por rol para validación QA.
 - [`docs/06_CHECKLIST_DESPLIEGUE_STAGING_PROD.md`](docs/06_CHECKLIST_DESPLIEGUE_STAGING_PROD.md): checklist de despliegue controlado a staging/producción.
