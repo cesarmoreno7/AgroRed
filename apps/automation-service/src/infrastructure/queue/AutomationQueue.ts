@@ -2,10 +2,17 @@ import { Queue, Worker, type Job } from "bullmq";
 import { Redis } from "ioredis";
 import type { AutomationRepository } from "../../domain/ports/AutomationRepository.js";
 import { ExecuteAutomationRun } from "../../application/use-cases/ExecuteAutomationRun.js";
+import type { ActionExecutionEngine } from "../../application/services/ActionExecutionEngine.js";
 import type { AutomationTriggerSource } from "../../domain/value-objects/AutomationTriggerSource.js";
 import { logError, logInfo } from "../../shared/logger.js";
 
 const QUEUE_NAME = "automation-run";
+
+/** Sentinel tenantId used by scheduled sweeps that must run once per active tenant, not once globally. */
+const SYSTEM_WIDE_TENANT_KEY = "system";
+
+/** BullMQ job name registered by ScheduledFlows.ts for the hourly IRAT threshold sweep. */
+const IRAT_ALERT_CHECK_JOB_NAME = "irat-alert-check";
 
 export interface AutomationJobData {
   tenantId: string;
@@ -15,9 +22,18 @@ export interface AutomationJobData {
   notes?: string | null;
 }
 
+/** Minimal contract for the real IRAT check — implemented by analytics-service's PostgresInstitutionalRepository. */
+export interface IratAlertChecker {
+  generateAlerts(tenantId: string): Promise<unknown[]>;
+}
+
 export interface AutomationQueueDeps {
   redis: Redis;
   repository: AutomationRepository;
+  actionEngine?: ActionExecutionEngine;
+  /** When provided, the "irat-alert-check" scheduled job runs a real IRAT threshold check
+   *  instead of the generic offer/demand heuristic — see ScheduledFlows.ts for the schedule. */
+  iratAlertChecker?: IratAlertChecker;
 }
 
 /**
@@ -31,12 +47,54 @@ export function createAutomationQueue(redis: Redis): Queue {
  * Spawns a BullMQ worker that processes automation execution jobs.
  */
 export function createAutomationWorker(deps: AutomationQueueDeps): Worker {
-  const executeRun = new ExecuteAutomationRun(deps.repository);
+  const executeRun = new ExecuteAutomationRun(deps.repository, deps.actionEngine);
 
   const worker = new Worker(
     QUEUE_NAME,
     async (job: Job<AutomationJobData>) => {
       logInfo("queue.automation.processing", { jobId: job.id, trigger: job.data.triggerSource });
+
+      // Scheduled sweeps (ScheduledFlows.ts) are enqueued once with a "system" sentinel
+      // because they apply to every municipio, not a single tenant — "system" itself is
+      // never a real tenant, so resolving it directly would fail every scheduled run.
+      if (job.data.tenantId === SYSTEM_WIDE_TENANT_KEY) {
+        const tenantIds = await deps.repository.listActiveTenantIds();
+        const results = [];
+
+        // The IRAT sweep checks real thresholds (institutional_alerts + email notifications)
+        // instead of running the generic offer/demand heuristic under a misleading name.
+        if (job.name === IRAT_ALERT_CHECK_JOB_NAME && deps.iratAlertChecker) {
+          for (const tenantId of tenantIds) {
+            try {
+              const alerts = await deps.iratAlertChecker.generateAlerts(tenantId);
+              results.push({ tenantId, alertsFired: alerts.length });
+            } catch (error) {
+              logError("queue.automation.irat_check_failed", {
+                jobId: job.id,
+                tenantId,
+                message: error instanceof Error ? error.message : String(error)
+              });
+            }
+          }
+
+          return { fanOut: true, iratCheck: true, tenantCount: tenantIds.length, results };
+        }
+
+        for (const tenantId of tenantIds) {
+          try {
+            const run = await executeRun.execute({ ...job.data, tenantId });
+            results.push({ tenantId, runId: run.id, status: run.status });
+          } catch (error) {
+            logError("queue.automation.tenant_run_failed", {
+              jobId: job.id,
+              tenantId,
+              message: error instanceof Error ? error.message : String(error)
+            });
+          }
+        }
+
+        return { fanOut: true, tenantCount: tenantIds.length, results };
+      }
 
       const run = await executeRun.execute(job.data);
 

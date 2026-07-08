@@ -16,6 +16,10 @@ interface SummaryRow {
   scheduled_logistics: string;
   open_incidents: string;
   pending_notifications: string;
+  offers_last30: string;
+  offers_prior30: string;
+  demands_last30: string;
+  demands_prior30: string;
 }
 
 interface TenantRow {
@@ -24,7 +28,9 @@ interface TenantRow {
   name: string;
 }
 
-const MODEL_VERSION = "heuristic-v1";
+// v2: adds a real 30d-vs-prior-30d trend dimension using the historical seed data
+// (infra/postgres/031_seed_historical_ml_data.sql) instead of scoring only a live snapshot.
+const MODEL_VERSION = "heuristic-v2";
 
 export class PostgresDecisionSupportRepository implements DecisionSupportRepository {
   constructor(private readonly pool: Pool) {}
@@ -43,7 +49,11 @@ export class PostgresDecisionSupportRepository implements DecisionSupportReposit
           (SELECT COUNT(*) FROM public.rescues WHERE deleted_at IS NULL AND status = 'scheduled' AND ($1::uuid IS NULL OR tenant_id = $1))::text AS scheduled_rescues,
           (SELECT COUNT(*) FROM public.logistics_orders WHERE deleted_at IS NULL AND status = 'scheduled' AND ($1::uuid IS NULL OR tenant_id = $1))::text AS scheduled_logistics,
           (SELECT COUNT(*) FROM public.incidents WHERE deleted_at IS NULL AND status = 'open' AND ($1::uuid IS NULL OR tenant_id = $1))::text AS open_incidents,
-          (SELECT COUNT(*) FROM public.notifications WHERE deleted_at IS NULL AND status = 'pending' AND ($1::uuid IS NULL OR tenant_id = $1))::text AS pending_notifications
+          (SELECT COUNT(*) FROM public.notifications WHERE deleted_at IS NULL AND status = 'pending' AND ($1::uuid IS NULL OR tenant_id = $1))::text AS pending_notifications,
+          (SELECT COUNT(*) FROM public.offers WHERE deleted_at IS NULL AND created_at >= NOW() - INTERVAL '30 days' AND ($1::uuid IS NULL OR tenant_id = $1))::text AS offers_last30,
+          (SELECT COUNT(*) FROM public.offers WHERE deleted_at IS NULL AND created_at >= NOW() - INTERVAL '60 days' AND created_at < NOW() - INTERVAL '30 days' AND ($1::uuid IS NULL OR tenant_id = $1))::text AS offers_prior30,
+          (SELECT COUNT(*) FROM public.demands WHERE deleted_at IS NULL AND created_at >= NOW() - INTERVAL '30 days' AND ($1::uuid IS NULL OR tenant_id = $1))::text AS demands_last30,
+          (SELECT COUNT(*) FROM public.demands WHERE deleted_at IS NULL AND created_at >= NOW() - INTERVAL '60 days' AND created_at < NOW() - INTERVAL '30 days' AND ($1::uuid IS NULL OR tenant_id = $1))::text AS demands_prior30
       `,
       [tenantId]
     );
@@ -57,7 +67,11 @@ export class PostgresDecisionSupportRepository implements DecisionSupportReposit
       scheduledRescues: Number(row.scheduled_rescues),
       scheduledLogistics: Number(row.scheduled_logistics),
       openIncidents: Number(row.open_incidents),
-      pendingNotifications: Number(row.pending_notifications)
+      pendingNotifications: Number(row.pending_notifications),
+      offersLast30: Number(row.offers_last30),
+      offersPrior30: Number(row.offers_prior30),
+      demandsLast30: Number(row.demands_last30),
+      demandsPrior30: Number(row.demands_prior30)
     };
     const scores = this.computeScores(inputs);
 
@@ -105,14 +119,26 @@ export class PostgresDecisionSupportRepository implements DecisionSupportReposit
         - inputs.openIncidents * 15
         - inputs.pendingNotifications * 5
     );
+    // Trend: real 30d-vs-prior-30d comparison, not a snapshot — offers growing while
+    // demand shrinks pushes the score up; the inverse (rising unmet demand) pushes it down.
+    const supplyDelta = inputs.offersLast30 - inputs.offersPrior30;
+    const demandDelta = inputs.demandsLast30 - inputs.demandsPrior30;
+    const trendScore = this.clamp(Math.round(50 + (supplyDelta - demandDelta) * 5));
+
     const readinessScore = this.clamp(
-      Math.round(supplyCoverageScore * 0.45 + logisticsStabilityScore * 0.35 + (100 - incidentPressureScore) * 0.2)
+      Math.round(
+        supplyCoverageScore * 0.35
+          + logisticsStabilityScore * 0.30
+          + (100 - incidentPressureScore) * 0.15
+          + trendScore * 0.20
+      )
     );
 
     return {
       supplyCoverageScore,
       logisticsStabilityScore,
       incidentPressureScore,
+      trendScore,
       readinessScore
     };
   }

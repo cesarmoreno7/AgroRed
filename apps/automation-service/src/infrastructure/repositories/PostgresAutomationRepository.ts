@@ -190,6 +190,13 @@ export class PostgresAutomationRepository implements AutomationRepository {
     };
   }
 
+  async listActiveTenantIds(): Promise<string[]> {
+    const result = await this.pool.query<{ id: string }>(
+      `SELECT id FROM public.tenants WHERE status = 'active' ORDER BY code`
+    );
+    return result.rows.map((r) => r.id);
+  }
+
   private async resolveTenant(tenantKey: string): Promise<TenantRow> {
     const result = await this.pool.query<TenantRow>(
       `

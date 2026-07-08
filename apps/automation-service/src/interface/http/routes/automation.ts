@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { ExecuteAutomationRun } from "../../../application/use-cases/ExecuteAutomationRun.js";
+import type { ActionExecutionEngine } from "../../../application/services/ActionExecutionEngine.js";
 import type { AutomationRun } from "../../../domain/entities/AutomationRun.js";
 import type { AutomationRepository } from "../../../domain/ports/AutomationRepository.js";
 import { AUTOMATION_TRIGGER_SOURCES } from "../../../domain/value-objects/AutomationTriggerSource.js";
@@ -35,9 +36,9 @@ function toAutomationResponse(run: AutomationRun) {
   };
 }
 
-export function createAutomationRouter(repository: AutomationRepository): Router {
+export function createAutomationRouter(repository: AutomationRepository, actionEngine?: ActionExecutionEngine): Router {
   const router = Router();
-  const executeAutomationRun = new ExecuteAutomationRun(repository);
+  const executeAutomationRun = new ExecuteAutomationRun(repository, actionEngine);
 
   router.post("/api/v1/automation/execute", asyncHandler(async (req, res) => {
     const parsed = executeAutomationSchema.safeParse(req.body);

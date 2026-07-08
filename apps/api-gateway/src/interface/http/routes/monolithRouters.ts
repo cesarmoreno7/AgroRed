@@ -45,9 +45,10 @@ import { PostgresTrackingRepository } from "../../../../../logistics-service/src
 import { PostgresRoutePlanRepository } from "../../../../../logistics-service/src/infrastructure/repositories/PostgresRoutePlanRepository.js";
 import { OsrmRoutingService } from "../../../../../logistics-service/src/infrastructure/services/OsrmRoutingService.js";
 import { createLogisticsRouter } from "../../../../../logistics-service/src/interface/http/routes/logistics.js";
-import { createTrackingRouter } from "../../../../../logistics-service/src/interface/http/routes/tracking.js";
+import { createTrackingRouter, broadcastPosition, toPositionResponse } from "../../../../../logistics-service/src/interface/http/routes/tracking.js";
 import { createRoutePlanningRouter } from "../../../../../logistics-service/src/interface/http/routes/routePlanning.js";
 import { createAuditLogger as createLogisticsAuditLogger } from "../../../../../logistics-service/src/shared/audit.js";
+import { FleetPositionSimulator } from "../../../../../logistics-service/src/infrastructure/services/FleetPositionSimulator.js";
 
 // ── Incident service ──
 import { PostgresIncidentRepository } from "../../../../../incident-service/src/infrastructure/repositories/PostgresIncidentRepository.js";
@@ -79,6 +80,7 @@ import { PostgresAutomationRepository } from "../../../../../automation-service/
 import { createAutomationRouter } from "../../../../../automation-service/src/interface/http/routes/automation.js";
 import { createAutomationQueue, createAutomationWorker } from "../../../../../automation-service/src/infrastructure/queue/AutomationQueue.js";
 import { scheduleAutomationFlows } from "../../../../../automation-service/src/infrastructure/queue/ScheduledFlows.js";
+import { ActionExecutionEngine } from "../../../../../automation-service/src/application/services/ActionExecutionEngine.js";
 
 // ── Auction service ──
 import { PostgresAuctionRepository } from "../../../../../auction-service/src/infrastructure/repositories/PostgresAuctionRepository.js";
@@ -235,7 +237,9 @@ export async function registerMonolithRouters(
       const automQueue = createAutomationQueue(qRedis);
       const automWorker = createAutomationWorker({
         redis: wRedis,
-        repository: new PostgresAutomationRepository(pool)
+        repository: new PostgresAutomationRepository(pool),
+        actionEngine: new ActionExecutionEngine(pool, smtpSenderForQueue),
+        iratAlertChecker: new PostgresInstitutionalRepository(pool)
       });
       await automQueue.waitUntilReady();
       await automWorker.waitUntilReady();
@@ -259,6 +263,18 @@ export async function registerMonolithRouters(
   const bidRepo = new PostgresBidRepository(pool);
   const schedulerInterval = startAuctionScheduler(auctionRepo, bidRepo);
   cleanupTasks.push(async () => { clearInterval(schedulerInterval); });
+
+  // ── Fleet position simulator ──
+  // Moves seeded "en_ruta" resources so the live map/SSE stream shows genuine
+  // movement instead of the static coordinates from 025_seed_fleet_resources.sql.
+  // Broadcasts through the same SSE channel /tracking/stream clients subscribe to.
+  const fleetSimulator = new FleetPositionSimulator(
+    new PostgresTrackingRepository(pool),
+    10_000,
+    (tenantId, position) => broadcastPosition(tenantId, toPositionResponse(position))
+  );
+  fleetSimulator.start();
+  cleanupTasks.push(async () => { fleetSimulator.stop(); });
 
   // ── Mount service routers ──
 
@@ -332,7 +348,7 @@ export async function registerMonolithRouters(
   app.use(createMlRouter(new PostgresDecisionSupportRepository(pool), mlCache));
 
   // Automation
-  app.use(createAutomationRouter(new PostgresAutomationRepository(pool)));
+  app.use(createAutomationRouter(new PostgresAutomationRepository(pool), new ActionExecutionEngine(pool, smtpSender)));
 
   // Auction
   app.use(createAuctionsRouter(auctionRepo, bidRepo, auctionEventBus));

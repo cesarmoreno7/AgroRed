@@ -187,18 +187,23 @@ const MODULES: ModuleMaturity[] = [
     label: "Índice IRAT",
     icon: "🚨",
     category: "inteligencia",
-    dimensions: { funcional: 80, datos: 70, integracion: 80, seguridad: 75, operacional: 70 },
+    dimensions: { funcional: 90, datos: 78, integracion: 85, seguridad: 78, operacional: 78 },
     estado: "beta",
-    notes: "Algoritmo compuesto 5 dimensiones. Requiere calibración con datos reales.",
+    notes: "Algoritmo compuesto de 5 dimensiones reales (cobertura, tendencia, diversidad, " +
+      "incidencias, continuidad logística) — antes era un ratio de una sola dimensión pese a " +
+      "documentarse como compuesto. Jul-2026: reescrito, conectado al barrido horario de " +
+      "automation-service y verificado con build limpio.",
   },
   {
     id: "ml",
     label: "Apoyo a Decisión (ML)",
     icon: "🤖",
     category: "inteligencia",
-    dimensions: { funcional: 70, datos: 55, integracion: 70, seguridad: 65, operacional: 50 },
+    dimensions: { funcional: 80, datos: 70, integracion: 75, seguridad: 65, operacional: 58 },
     estado: "beta",
-    notes: "Modelos predictivos. Requiere más datos históricos para mejorar precisión.",
+    notes: "Motor de heurísticas (no hay modelo entrenado — no se presenta como tal). Jul-2026: " +
+      "se agregó una dimensión de tendencia real (30 días vs. los 30 anteriores) usando los 14 " +
+      "meses de datos históricos ya sembrados, en vez de evaluar solo una foto del momento.",
   },
   {
     id: "ai_copilot",
@@ -216,9 +221,12 @@ const MODULES: ModuleMaturity[] = [
     label: "Alertas IRAT",
     icon: "🔔",
     category: "inteligencia",
-    dimensions: { funcional: 70, datos: 60, integracion: 70, seguridad: 65, operacional: 55 },
-    estado: "beta",
-    notes: "Umbrales configurables. Integración con notificaciones pendiente.",
+    dimensions: { funcional: 88, datos: 72, integracion: 88, seguridad: 78, operacional: 75 },
+    estado: "produccion",
+    notes: "Umbrales configurables. Jul-2026: conectado el tramo que faltaba — las alertas de " +
+      "severidad alta/crítica ahora encolan un correo real a los admin_municipal del tenant, y el " +
+      "barrido horario de automation-service las despacha de verdad (antes quedaban solo como " +
+      "registro pasivo en pantalla, sin avisar a nadie proactivamente).",
   },
   {
     id: "notifications",
@@ -246,27 +254,39 @@ const MODULES: ModuleMaturity[] = [
     label: "Mapa Territorial (GIS)",
     icon: "🗺️",
     category: "infraestructura",
-    dimensions: { funcional: 75, datos: 70, integracion: 75, seguridad: 70, operacional: 60 },
+    dimensions: { funcional: 82, datos: 70, integracion: 78, seguridad: 70, operacional: 60 },
     estado: "beta",
-    notes: "PostGIS, polígonos municipales, capas GeoJSON. Requiere más datos espaciales.",
+    notes: "PostGIS, polígonos municipales, capas GeoJSON. Jul-2026: corregido un bug real en " +
+      "PostgresMapRepository (casteaba geometría a texto WKB en vez de ST_AsGeoJSON, así que los " +
+      "endpoints de jerarquía territorial devolvían siempre vacío). Pendiente verificar si los " +
+      "polígonos GADM están cargados en Neon — el loader (scripts/load_gadm_geodata.py) apunta a " +
+      "Postgres local, no a Neon; ver nota de la sesión.",
   },
   {
     id: "fleet",
     label: "Flota en Tiempo Real",
     icon: "🚛",
     category: "infraestructura",
-    dimensions: { funcional: 75, datos: 60, integracion: 75, seguridad: 65, operacional: 55 },
+    dimensions: { funcional: 88, datos: 72, integracion: 85, seguridad: 68, operacional: 72 },
     estado: "beta",
-    notes: "Posiciones GPS, geocercas logísticas. Datos simulados en desarrollo.",
+    notes: "Posiciones GPS, geocercas logísticas. Jul-2026: agregado un simulador real que mueve " +
+      "los recursos 'en_ruta' cada 10s (velocidad/rumbo reales del seed) y transmite por el mismo " +
+      "canal SSE que consume el mapa en vivo — verificado moviéndose contra Neon. Sigue siendo " +
+      "simulación, no GPS físico ni app móvil de conductores.",
   },
   {
     id: "automation",
     label: "Automatización",
     icon: "⚙️",
     category: "infraestructura",
-    dimensions: { funcional: 65, datos: 55, integracion: 70, seguridad: 60, operacional: 45 },
-    estado: "desarrollo",
-    notes: "BullMQ workers configurados. Flujos de automatización en diseño.",
+    dimensions: { funcional: 85, datos: 65, integracion: 85, seguridad: 70, operacional: 68 },
+    estado: "beta",
+    notes: "BullMQ workers configurados. Jul-2026: el motor de ejecución de acciones " +
+      "(ActionExecutionEngine) estaba desconectado — simulaba con un setTimeout y nunca se " +
+      "invocaba desde ningún flujo real. Ahora despacha notificaciones pendientes de verdad y dejar " +
+      "auditoría real (audit_log) para acciones que requieren decisión humana. También se corrigió " +
+      "un bug que hacía fallar todo barrido programado (\"system\" no era un tenant real) — ahora " +
+      "se ejecuta correctamente por cada municipio activo.",
   },
   {
     id: "multitenancy",
@@ -696,13 +716,11 @@ export function MaturityPage() {
           color: "rgba(255,255,255,0.4)", marginBottom: 18 }}>Hoja de Ruta para Madurez ≥85 / Producción Nacional</div>
         <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))" }}>
           {[
-            { icon: "📊", title: "Datos históricos ML", desc: "Cargar 12+ meses de data de producción, rescates y entregas para entrenar modelos.", prioridad: "Alta" },
-            { icon: "🔔", title: "Alertas automáticas IRAT", desc: "Conectar umbral IRAT con notificaciones push y email al superar niveles críticos.", prioridad: "Alta" },
-            { icon: "🗺️", title: "Datos GIS municipios", desc: "Cargar polígonos de todos los municipios DANE para mapa territorial completo.", prioridad: "Media" },
-            { icon: "🚛", title: "GPS real en flota", desc: "Integrar dispositivos GPS reales o app móvil para tracking en tiempo real.", prioridad: "Media" },
+            { icon: "🗺️", title: "Confirmar carga GIS en Neon", desc: "Verificar si los polígonos GADM (departamento/municipio) están cargados en producción — el loader actual apunta a Postgres local, no a Neon.", prioridad: "Alta" },
+            { icon: "🚛", title: "GPS real en flota", desc: "Integrar dispositivos GPS reales o app móvil para tracking en tiempo real (hoy la flota se mueve por simulador, no por GPS físico).", prioridad: "Media" },
             { icon: "📬", title: "Trazabilidad entregas", desc: "Aumentar cobertura operacional del módulo de entregas con uso diario por municipio.", prioridad: "Alta" },
-            { icon: "⚙️", title: "Flujos de automatización", desc: "Definir y activar flujos BullMQ para alertas, seguimientos y cierres automáticos.", prioridad: "Media" },
-            { icon: "🧪", title: "E2E testing", desc: "Cobertura end-to-end con Playwright en flujos críticos (login, oferta, entrega).", prioridad: "Media" },
+            { icon: "⚙️", title: "Automatizar acciones de negocio", desc: "Hoy solo el despacho de notificaciones se ejecuta de verdad; acciones como programar logística o rebalancear inventario aún requieren decisión humana (quedan auditadas, no ejecutadas).", prioridad: "Media" },
+            { icon: "📊", title: "Estacionalidad en ML", desc: "Extender la dimensión de tendencia (30d vs. 30d previos) a patrones estacionales usando los 14 meses de histórico ya sembrados.", prioridad: "Media" },
             { icon: "📱", title: "App móvil productores", desc: "Habilitar app móvil para registro de entregas y ofertas desde campo.", prioridad: "Alta" },
           ].map(item => {
             const pColor = item.prioridad === "Alta" ? "#f87171" : "#f59e0b";

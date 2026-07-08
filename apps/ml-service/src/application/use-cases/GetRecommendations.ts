@@ -64,6 +64,18 @@ export class GetRecommendations {
       });
     }
 
+    if (scores.trendScore < 40) {
+      recommendations.push({
+        priority: scores.trendScore < 25 ? "high" : "medium",
+        actionCode: "worsening_trend",
+        title: "Revisar tendencia de oferta-demanda",
+        rationale: `En los últimos 30 días la demanda ${loc} creció más rápido que la oferta ` +
+          `(${inputs.demandsLast30} demandas nuevas vs. ${inputs.offersLast30} ofertas nuevas, ` +
+          `frente a ${inputs.demandsPrior30} y ${inputs.offersPrior30} en el período previo). ` +
+          `Conviene anticipar la captación de más productores antes de que la brecha se agrave.`
+      });
+    }
+
     if (inputs.reservedInventoryUnits > inputs.availableInventoryUnits) {
       recommendations.push({
         priority: "medium",

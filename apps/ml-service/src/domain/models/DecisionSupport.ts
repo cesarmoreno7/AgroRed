@@ -10,12 +10,20 @@ export interface MlDecisionInputs {
   scheduledLogistics: number;
   openIncidents: number;
   pendingNotifications: number;
+  /** Offers created in the last 30 days vs. the 30 days before that — real historical signal, not a snapshot. */
+  offersLast30: number;
+  offersPrior30: number;
+  /** Demands opened in the last 30 days vs. the 30 days before that. */
+  demandsLast30: number;
+  demandsPrior30: number;
 }
 
 export interface MlDecisionScores {
   supplyCoverageScore: number;
   logisticsStabilityScore: number;
   incidentPressureScore: number;
+  /** 0-100, higher = supply/demand balance is improving over the last 30d vs. the prior 30d. */
+  trendScore: number;
   readinessScore: number;
 }
 

@@ -34,4 +34,6 @@ export interface AutomationRepository {
   save(run: AutomationRun): Promise<void>;
   findById(id: string): Promise<AutomationRun | null>;
   list(params: PaginationParams, tenantKey?: string | null): Promise<PaginatedResult<AutomationRun>>;
+  /** Active tenant ids, used to fan out system-wide scheduled sweeps (irat-alert-check, etc.) across every municipio. */
+  listActiveTenantIds(): Promise<string[]>;
 }

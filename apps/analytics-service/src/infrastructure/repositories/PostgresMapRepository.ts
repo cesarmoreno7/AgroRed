@@ -540,7 +540,7 @@ export class PostgresMapRepository implements MapRepository {
             d.nombre,
             d.pais_id AS parent_id,
             p.nombre AS parent_nombre,
-            CASE WHEN d.geom IS NOT NULL THEN d.geom::text ELSE NULL END AS geojson
+            CASE WHEN d.geom IS NOT NULL THEN ST_AsGeoJSON(d.geom) ELSE NULL END AS geojson
           FROM departamento d
           LEFT JOIN pais p ON d.pais_id = p.id
           WHERE d.geom IS NOT NULL
@@ -580,7 +580,7 @@ export class PostgresMapRepository implements MapRepository {
             m.nombre,
             m.departamento_id AS parent_id,
             d.nombre AS parent_nombre,
-            CASE WHEN m.geom IS NOT NULL THEN m.geom::text ELSE NULL END AS geojson
+            CASE WHEN m.geom IS NOT NULL THEN ST_AsGeoJSON(m.geom) ELSE NULL END AS geojson
           FROM municipio m
           LEFT JOIN departamento d ON m.departamento_id = d.id
           WHERE m.geom IS NOT NULL ${whereClause}

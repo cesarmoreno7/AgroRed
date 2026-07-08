@@ -107,7 +107,7 @@ function toResourceResponse(r: Resource) {
   };
 }
 
-function toPositionResponse(p: CurrentPosition) {
+export function toPositionResponse(p: CurrentPosition) {
   return {
     recursoId: p.recursoId,
     nombre: p.nombre,
@@ -158,7 +158,7 @@ function toDeliveryEventResponse(de: DeliveryEventRecord) {
 // Per-tenant set of SSE clients
 const sseClients = new Map<string, Set<ExpressResponse>>();
 
-function broadcastPosition(tenantId: string, data: object): void {
+export function broadcastPosition(tenantId: string, data: object): void {
   const clients = sseClients.get(tenantId);
   if (!clients || clients.size === 0) return;
   const payload = `data: ${JSON.stringify(data)}\n\n`;
