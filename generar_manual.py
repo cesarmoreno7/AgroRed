@@ -758,7 +758,9 @@ MODULES_DETAIL = [
          'Generar reportes periódicos (semanal, mensual, anual) exportables.',
          'Comparar indicadores entre períodos o territorios.',
          'Acceder al observatorio alimentario con tendencias históricas.'],
-        'Acceso completo: Admin y Analista Territorial. Solo mapa: Productor, Cocina, Logístico. Resúmenes: Supermercado.'
+        'Acceso completo: Admin y Analista Territorial. Solo mapa: Productor, Cocina, Logístico. Resúmenes: Supermercado. ' +
+        'Cuando el IRAT supera el umbral de riesgo alto o crítico, el sistema envía automáticamente un correo a ' +
+        'los administradores municipales del territorio afectado — no es necesario estar revisando la pantalla de Alertas.'
     ),
     (
         '5.11  Inteligencia Artificial',
