@@ -258,9 +258,9 @@ const MODULES: ModuleMaturity[] = [
     estado: "beta",
     notes: "PostGIS, polígonos municipales, capas GeoJSON. Jul-2026: corregido un bug real en " +
       "PostgresMapRepository (casteaba geometría a texto WKB en vez de ST_AsGeoJSON, así que los " +
-      "endpoints de jerarquía territorial devolvían siempre vacío). Pendiente verificar si los " +
-      "polígonos GADM están cargados en Neon — el loader (scripts/load_gadm_geodata.py) apunta a " +
-      "Postgres local, no a Neon; ver nota de la sesión.",
+      "endpoints de jerarquía territorial devolvían siempre vacío). GIS queda en pausa por decisión " +
+      "de producto — no se cargaron los polígonos GADM en Neon (el loader apunta a Postgres local, " +
+      "no a producción). Retomar si el mapa territorial vuelve a priorizarse.",
   },
   {
     id: "fleet",
@@ -716,14 +716,14 @@ export function MaturityPage() {
           color: "rgba(255,255,255,0.4)", marginBottom: 18 }}>Hoja de Ruta para Madurez ≥85 / Producción Nacional</div>
         <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))" }}>
           {[
-            { icon: "🗺️", title: "Confirmar carga GIS en Neon", desc: "Verificar si los polígonos GADM (departamento/municipio) están cargados en producción — el loader actual apunta a Postgres local, no a Neon.", prioridad: "Alta" },
+            { icon: "🗺️", title: "Confirmar carga GIS en Neon", desc: "En pausa por decisión de producto (jul-2026): GIS no es prioridad por ahora. El loader actual apunta a Postgres local, no a Neon — retomar esto si el mapa territorial vuelve a priorizarse.", prioridad: "En pausa" },
             { icon: "🚛", title: "GPS real en flota", desc: "Integrar dispositivos GPS reales o app móvil para tracking en tiempo real (hoy la flota se mueve por simulador, no por GPS físico).", prioridad: "Media" },
             { icon: "📬", title: "Trazabilidad entregas", desc: "Aumentar cobertura operacional del módulo de entregas con uso diario por municipio.", prioridad: "Alta" },
             { icon: "⚙️", title: "Automatizar acciones de negocio", desc: "Hoy solo el despacho de notificaciones se ejecuta de verdad; acciones como programar logística o rebalancear inventario aún requieren decisión humana (quedan auditadas, no ejecutadas).", prioridad: "Media" },
             { icon: "📊", title: "Estacionalidad en ML", desc: "Extender la dimensión de tendencia (30d vs. 30d previos) a patrones estacionales usando los 14 meses de histórico ya sembrados.", prioridad: "Media" },
             { icon: "📱", title: "App móvil productores", desc: "Habilitar app móvil para registro de entregas y ofertas desde campo.", prioridad: "Alta" },
           ].map(item => {
-            const pColor = item.prioridad === "Alta" ? "#f87171" : "#f59e0b";
+            const pColor = item.prioridad === "Alta" ? "#f87171" : item.prioridad === "Media" ? "#f59e0b" : "#6b7280";
             return (
               <div key={item.title} style={{ padding: "14px 16px", background: "rgba(255,255,255,0.02)",
                 border: "1px solid rgba(255,255,255,0.05)", borderRadius: 10 }}>
