@@ -25,6 +25,8 @@ export interface AutomationJobData {
 /** Minimal contract for the real IRAT check — implemented by analytics-service's PostgresInstitutionalRepository. */
 export interface IratAlertChecker {
   generateAlerts(tenantId: string): Promise<unknown[]>;
+  /** Ley 2046/2020: alerta cuando la compra a pequeños productores cae por debajo del 30% legal. */
+  generateLey2046Alerts(tenantId: string): Promise<unknown[]>;
 }
 
 export interface AutomationQueueDeps {
@@ -63,11 +65,13 @@ export function createAutomationWorker(deps: AutomationQueueDeps): Worker {
 
         // The IRAT sweep checks real thresholds (institutional_alerts + email notifications)
         // instead of running the generic offer/demand heuristic under a misleading name.
+        // The same hourly sweep also checks Ley 2046 (compra local) compliance per institution.
         if (job.name === IRAT_ALERT_CHECK_JOB_NAME && deps.iratAlertChecker) {
           for (const tenantId of tenantIds) {
             try {
-              const alerts = await deps.iratAlertChecker.generateAlerts(tenantId);
-              results.push({ tenantId, alertsFired: alerts.length });
+              const iratAlerts = await deps.iratAlertChecker.generateAlerts(tenantId);
+              const ley2046Alerts = await deps.iratAlertChecker.generateLey2046Alerts(tenantId);
+              results.push({ tenantId, alertsFired: iratAlerts.length + ley2046Alerts.length });
             } catch (error) {
               logError("queue.automation.irat_check_failed", {
                 jobId: job.id,

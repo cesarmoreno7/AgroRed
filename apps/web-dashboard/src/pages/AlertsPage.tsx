@@ -1,5 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
-import { fetchIrat, fetchAlerts, generateAlerts, acknowledgeAlert } from "../services/alerts";
+import {
+  fetchIrat, fetchAlerts, generateAlerts, acknowledgeAlert,
+  fetchLey2046, generateLey2046Alerts, downloadLey2046Report,
+} from "../services/alerts";
 import { useAuth } from "../hooks/useAuth";
 
 /* ── Constantes IRAT ────────────────────────────────────────────── */
@@ -59,7 +62,173 @@ const SEV_LABEL: Record<string, string> = {
 const TYPE_ICON: Record<string, string> = {
   irat_alto:         "🔴", desabastecimiento: "📦",
   exceso_sin_destino:"📤", baja_cobertura:    "👥",
+  compra_local_insuficiente: "⚖️",
 };
+
+/* ── Ley 2046/2020 — Cumplimiento de compra local ─────────────────── */
+const LEY2046_STATUS: Record<string, { label: string; color: string; bg: string }> = {
+  cumple:    { label: "Cumple",     color: "#4ade80", bg: "rgba(74,222,128,0.1)" },
+  riesgo:    { label: "En riesgo",  color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
+  incumple:  { label: "Incumple",   color: "#ef4444", bg: "rgba(239,68,68,0.1)" },
+  sin_datos: { label: "Sin datos",  color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
+};
+
+const INSTITUTION_TYPE_ICON: Record<string, string> = {
+  educational: "🏫", hospital: "🏥", prison: "⛓️", community_canteen: "🍲",
+  airport: "✈️", military: "🪖", elderly_home: "🧓", shelter: "🏠", other: "🏛️",
+};
+
+function formatCOP(value: number): string {
+  return "$" + Math.round(value).toLocaleString("es-CO");
+}
+
+function Ley2046Panel({ tenantId }: { tenantId?: string }) {
+  const [rows, setRows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const r = await fetchLey2046(tenantId);
+    if (r.ok) setRows(Array.isArray(r.data) ? r.data : []);
+    setLoading(false);
+  }, [tenantId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleGenerate = async () => {
+    if (!tenantId) return;
+    setGenerating(true);
+    setFeedback(null);
+    const r = await generateLey2046Alerts(tenantId);
+    setGenerating(false);
+    if (r.ok) {
+      setFeedback(`${r.data.generated} alerta(s) de cumplimiento generada(s).`);
+      load();
+    } else {
+      setFeedback("No fue posible verificar el cumplimiento.");
+    }
+  };
+
+  const handleExport = async (format: "csv" | "pdf") => {
+    if (!tenantId) return;
+    setExporting(format);
+    const ok = await downloadLey2046Report(tenantId, format);
+    setExporting(null);
+    if (!ok) setFeedback("No fue posible descargar el reporte.");
+  };
+
+  const withData = rows.filter(r => r.status !== "sin_datos");
+  const incumple = rows.filter(r => r.status === "incumple").length;
+  const riesgo   = rows.filter(r => r.status === "riesgo").length;
+  const cumple   = rows.filter(r => r.status === "cumple").length;
+  const avgPct   = withData.length > 0
+    ? Math.round(withData.reduce((s, r) => s + r.compliancePct, 0) / withData.length)
+    : 0;
+
+  const sorted = [...rows].sort((a, b) => a.compliancePct - b.compliancePct);
+
+  return (
+    <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 16, padding: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "#fff", marginBottom: 4 }}>
+            ⚖️ Cumplimiento Ley 2046 de 2020 — Compra Local a Pequeños Productores
+          </div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
+            Mínimo legal: 30% del valor de compra pública directo a pequeños productores del territorio.
+            Calculado sobre las entregas rastreadas en AgroRed (año en curso).
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button onClick={handleGenerate} disabled={generating || !tenantId}
+            style={{ background: "linear-gradient(135deg,#f59e0b,#ef4444)", color: "#fff", border: "none", borderRadius: 10, padding: "8px 16px", fontWeight: 700, cursor: generating ? "not-allowed" : "pointer", fontSize: 12, opacity: generating ? 0.6 : 1 }}>
+            {generating ? "Verificando…" : "🔄 Verificar cumplimiento"}
+          </button>
+          <button onClick={() => handleExport("csv")} disabled={exporting !== null || !tenantId}
+            style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "8px 14px", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+            {exporting === "csv" ? "…" : "⬇️ CSV"}
+          </button>
+          <button onClick={() => handleExport("pdf")} disabled={exporting !== null || !tenantId}
+            style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "8px 14px", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+            {exporting === "pdf" ? "…" : "⬇️ PDF (Contraloría)"}
+          </button>
+        </div>
+      </div>
+
+      {feedback && (
+        <div style={{ fontSize: 12, color: "#f59e0b", marginBottom: 12 }}>{feedback}</div>
+      )}
+
+      {loading ? (
+        <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 13 }}>Calculando cumplimiento…</div>
+      ) : rows.length === 0 ? (
+        <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, padding: 16, textAlign: "center" }}>
+          Sin instituciones registradas para este municipio.
+        </div>
+      ) : (
+        <>
+          <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", marginBottom: 16 }}>
+            <div style={{ padding: "10px 14px", background: "rgba(74,222,128,0.08)", borderRadius: 10 }}>
+              <div style={{ fontSize: 20, fontWeight: 800, color: "#4ade80" }}>{cumple}</div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Cumplen</div>
+            </div>
+            <div style={{ padding: "10px 14px", background: "rgba(245,158,11,0.08)", borderRadius: 10 }}>
+              <div style={{ fontSize: 20, fontWeight: 800, color: "#f59e0b" }}>{riesgo}</div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>En riesgo</div>
+            </div>
+            <div style={{ padding: "10px 14px", background: "rgba(239,68,68,0.08)", borderRadius: 10 }}>
+              <div style={{ fontSize: 20, fontWeight: 800, color: "#ef4444" }}>{incumple}</div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Incumplen</div>
+            </div>
+            <div style={{ padding: "10px 14px", background: "rgba(255,255,255,0.04)", borderRadius: 10 }}>
+              <div style={{ fontSize: 20, fontWeight: 800, color: "#fff" }}>{avgPct}%</div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Promedio compra local</div>
+            </div>
+          </div>
+
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead>
+                <tr style={{ textAlign: "left", color: "rgba(255,255,255,0.4)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                  <th style={{ padding: "6px 10px" }}>Institución</th>
+                  <th style={{ padding: "6px 10px" }}>Municipio</th>
+                  <th style={{ padding: "6px 10px" }}>Valor rastreado</th>
+                  <th style={{ padding: "6px 10px" }}>% compra local</th>
+                  <th style={{ padding: "6px 10px" }}>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map(r => {
+                  const st = LEY2046_STATUS[r.status] ?? LEY2046_STATUS.sin_datos!;
+                  return (
+                    <tr key={r.institutionId} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                      <td style={{ padding: "8px 10px", color: "#fff" }}>
+                        {INSTITUTION_TYPE_ICON[r.institutionType] ?? "🏛️"} {r.institutionName}
+                      </td>
+                      <td style={{ padding: "8px 10px", color: "rgba(255,255,255,0.5)" }}>{r.municipalityName}</td>
+                      <td style={{ padding: "8px 10px", color: "rgba(255,255,255,0.5)" }}>{formatCOP(r.totalValue)}</td>
+                      <td style={{ padding: "8px 10px", fontWeight: 700, color: st.color }}>
+                        {r.status === "sin_datos" ? "—" : `${r.compliancePct}%`}
+                      </td>
+                      <td style={{ padding: "8px 10px" }}>
+                        <span style={{ padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: st.bg, color: st.color }}>
+                          {st.label}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 /* ── IRAT Card completa ────────────────────────────────────────── */
 function IratCard({ s }: { s: any }) {
@@ -261,6 +430,9 @@ export function AlertsPage() {
           })()}
         </div>
       )}
+
+      {/* ── Cumplimiento Ley 2046 (compra local) ────────────── */}
+      <Ley2046Panel tenantId={user?.tenantId} />
 
       {/* ── IRAT por municipio ──────────────────────────────── */}
       <div>

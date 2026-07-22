@@ -127,6 +127,56 @@ export function createInstitutionalRouter(repository: InstitutionalRepository): 
   }));
 
   // ═══════════════════════════════════════
+  // CUMPLIMIENTO LEY 2046/2020 — COMPRA LOCAL
+  // ═══════════════════════════════════════
+
+  router.get("/api/v1/analytics/institutional/ley2046", asyncHandler(async (req, res) => {
+    const tenantId = req.query.tenantId
+      ? String(req.query.tenantId)
+      : (req.headers["x-tenant-id"] as string | undefined);
+    const start = req.query.start ? String(req.query.start) : undefined;
+    const end = req.query.end ? String(req.query.end) : undefined;
+    const format = String(req.query.format ?? "json").toLowerCase();
+    try {
+      const compliance = await repository.getLey2046Compliance(tenantId, start, end);
+
+      if (format === "csv") {
+        return sendCsv(res, compliance as unknown as Record<string, unknown>[], "cumplimiento_ley2046.csv");
+      }
+
+      if (format === "pdf") {
+        return sendPdf(
+          res,
+          compliance as unknown as Record<string, unknown>[],
+          "cumplimiento_ley2046.pdf",
+          "Cumplimiento Ley 2046 de 2020 — Compra Local a Pequeños Productores"
+        );
+      }
+
+      return sendSuccess(res, compliance);
+    } catch (error) {
+      if (error instanceof Error && error.message === "TENANT_NOT_FOUND") {
+        return sendError(res, 404, "TENANT_NOT_FOUND", "Municipio o tenant no encontrado.");
+      }
+      return sendError(res, 500, "LEY2046_FAILED", "No fue posible calcular el cumplimiento de la Ley 2046.");
+    }
+  }));
+
+  router.post("/api/v1/analytics/institutional/ley2046/alerts/generate", asyncHandler(async (req, res) => {
+    const tenantId = req.body?.tenantId;
+    if (!tenantId) return sendError(res, 400, "MISSING_TENANT", "Se requiere tenantId.");
+    try {
+      const alerts = await repository.generateLey2046Alerts(tenantId);
+      return sendSuccess(res, { generated: alerts.length, alerts }, 201);
+    } catch (error) {
+      if (error instanceof Error && error.message === "TENANT_NOT_FOUND") {
+        return sendError(res, 404, "TENANT_NOT_FOUND", "Municipio o tenant no encontrado.");
+      }
+      return sendError(res, 500, "LEY2046_ALERTS_FAILED", "No fue posible generar alertas de cumplimiento Ley 2046.");
+    }
+  }));
+
+  // ═══════════════════════════════════════
   // PROGRAMAS ALIMENTARIOS
   // ═══════════════════════════════════════
 

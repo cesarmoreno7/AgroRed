@@ -14,9 +14,9 @@ La plataforma aborda tres problemas críticos de forma simultánea:
 2. **Inseguridad alimentaria territorial**: 54,2% de los hogares colombianos presentan algún grado de inseguridad alimentaria (ENSIN 2015), con mayor afectación en zonas rurales dispersas.
 3. **Desarticulación entre actores**: Productores, comedores comunitarios, programas PAE, operadores logísticos y gobiernos municipales operan de forma aislada, sin datos interoperables ni inteligencia territorial compartida.
 
-**AGRORED** resuelve estos problemas mediante una infraestructura digital compuesta por 14 microservicios especializados, una aplicación móvil para trabajo en campo, un panel web de control en tiempo real y un modelo geoespacial alineado con los códigos DANE del territorio colombiano.
+**AGRORED** resuelve estos problemas mediante una infraestructura digital con arquitectura modular de 14 dominios de negocio (usuarios, productores, ofertas, demanda, rescates, inventario, logística, incidencias, notificaciones, analítica, ML, automatización, subastas e instituciones), consolidada hoy en un monolito desplegable de alta cohesión, más una aplicación móvil para trabajo en campo, un panel web de control en tiempo real y un modelo geoespacial alineado con los códigos DANE del territorio colombiano.
 
-**Propuesta de valor central**: Reducir el desperdicio alimentario, mejorar la cobertura de programas alimentarios institucionales y generar inteligencia territorial para la toma de decisiones públicas, todo desde una sola plataforma escalable a cualquier municipio de Colombia.
+**Propuesta de valor central**: Reducir el desperdicio alimentario, mejorar la cobertura de programas alimentarios institucionales, generar inteligencia territorial para la toma de decisiones públicas y **darle a alcaldías y gobernaciones la trazabilidad automática que hoy no tienen para demostrar cumplimiento de la Ley 2046 de 2020** (mínimo 30% de compra pública directa a pequeños productores) — todo desde una sola plataforma escalable a cualquier municipio de Colombia.
 
 ---
 
@@ -133,50 +133,64 @@ El IRAT es un indicador compuesto propio de AGRORED que evalúa 5 dimensiones po
 
 El IRAT permite a los gobiernos municipales y departamentales **priorizar inversión pública** en las zonas con mayor riesgo alimentario, con datos verificables y actualizados en tiempo real.
 
+### 3.6 Cumplimiento Ley 2046 de 2020 — el argumento legal que convierte AGRORED en obligatorio, no opcional
+
+La Ley 2046 de 2020 exige que **al menos el 30% del valor de toda compra pública de alimentos** —
+alcaldías, ESE/hospitales, ICBF, cárceles, aeropuertos, universidades públicas— se adquiera
+directamente a pequeños productores u organizaciones campesinas del territorio. La mayoría de estas
+entidades no tiene hoy ninguna forma sistemática de demostrarlo ante la Contraloría.
+
+AGRORED calcula ese porcentaje automáticamente por institución compradora, a partir de las entregas
+reales registradas en la plataforma (no de una encuesta ni de un reporte manual):
+
+| Capacidad | Detalle |
+|-----------|---------|
+| **Cálculo automático del % de compra local** | Por institución, por período, con clasificación Cumple / En riesgo / Incumple |
+| **Alertas proactivas** | Verificación horaria automática + alerta con correo real al administrador municipal cuando una institución cae por debajo del umbral legal |
+| **Reporte exportable (CSV/PDF)** | Listo para anexar a rendición de cuentas, auditoría de Contraloría o el Plan de Desarrollo municipal |
+| **Punto de entrada institucional** | Convierte la conversación comercial de "otra plataforma más" a "la herramienta que evita un hallazgo fiscal" |
+
+Esto no es una funcionalidad genérica: **ninguna plataforma de compras públicas de alimentos conocida
+en Colombia calcula este indicador hoy**, incluidas las plataformas propias de gobernaciones (ver 6.3).
+Es, junto con el IRAT, el diferenciador que más rápido convierte un piloto en un contrato institucional.
+
 ---
 
 ## 4. ARQUITECTURA TECNOLÓGICA
 
 ### 4.1 Visión general
 
+**Decisión de arquitectura consciente**: AGRORED se diseñó por dominios de negocio siguiendo el patrón
+de 14 "servicios" (uno por capacidad: usuarios, productores, ofertas, demanda, etc.), cada uno con su
+propia arquitectura hexagonal y sus propias tablas. Pero en producción **corren como un monolito
+modular único** — un solo proceso Node.js que importa el código de cada dominio y expone todas las
+rutas HTTP desde un único API Gateway. Es una elección deliberada de esta etapa: reduce la superficie
+operativa (un solo despliegue, un solo proceso que monitorear) sin sacrificar la separación de
+responsabilidades en el código, y deja abierta la puerta a extraer cualquier dominio como servicio
+independiente el día que el volumen de un municipio grande lo justifique.
+
 ```
                         ┌──────────────────┐
-       Internet ───────>│   API Gateway    │ (punto único de entrada)
-                        │   Puerto 8080    │
+       Internet ───────>│   API Gateway    │ (proceso único, todas las rutas HTTP)
                         │   JWT + RBAC     │
                         │   Rate Limiting  │
                         └────────┬─────────┘
-                                 │ Red privada
-         ┌───────────────────────┼───────────────────────┐
-         │            │          │          │             │
-   ┌─────┴─────┐ ┌───┴───┐ ┌───┴───┐ ┌───┴───┐ ┌───────┴───────┐
-   │  User     │ │ Offer │ │Demand │ │Rescue │ │  Auction      │
-   │  Service  │ │Service│ │Service│ │Service│ │  Service      │
-   │  :3001    │ │ :3003 │ │ :3004 │ │ :3005 │ │  :3012        │
-   └─────┬─────┘ └───┬───┘ └───┬───┘ └───┬───┘ └───────┬───────┘
-         │            │         │         │              │
-   ┌─────┴─────┐ ┌───┴────┐ ┌─┴────┐ ┌──┴───┐ ┌────────┴────────┐
-   │ Producer  │ │Inventor│ │Logis-│ │Inci- │ │  Analytics      │
-   │ Service   │ │  y     │ │tics  │ │dent  │ │  Service        │
-   │ :3002     │ │ :3006  │ │:3007 │ │:3008 │ │  :3009          │
-   └───────────┘ └────────┘ └──────┘ └──────┘ └────────┬────────┘
-                                                        │
-   ┌───────────┐ ┌────────┐ ┌────────────┐             │
-   │   ML      │ │Notifi- │ │ Automation │     ┌───────┴───────┐
-   │ Service   │ │cation  │ │  Service   │     │  Observatorio │
-   │ :3010     │ │ :3011  │ │  :3013     │     │  Territorial  │
-   └───────────┘ └────────┘ └────────────┘     └───────────────┘
-         │            │          │          │             │
-         └────────────┴──────────┼──────────┴─────────────┘
                                  │
-                   ┌─────────────┼─────────────┐
-                   │             │             │
-            ┌──────┴──────┐ ┌───┴────┐ ┌──────┴──────┐
-            │ PostgreSQL  │ │ Redis  │ │ Web         │
-            │ + PostGIS   │ │ Cache  │ │ Dashboard   │
-            │ 54 tablas   │ │ Events │ │ (React)     │
-            │ Códigos DANE│ │ Queues │ │             │
-            └─────────────┘ └────────┘ └─────────────┘
+         ┌───────────────────────┼───────────────────────┐
+         │                       │                        │
+   ┌─────┴──────────────────────┴────────────────────────┴─────┐
+   │  Monolito modular — 14 dominios importados por código:     │
+   │  User · Producer · Offer · Demand · Rescue · Inventory ·   │
+   │  Logistics · Incident · Notification · Analytics · ML ·    │
+   │  Automation · Auction · Institution (Ley 2046, IRAT, etc.) │
+   └─────┬──────────────────────┬────────────────────────┬─────┘
+         │                      │                        │
+  ┌──────┴──────┐        ┌──────┴──────┐          ┌──────┴──────┐
+  │ PostgreSQL  │        │ Redis        │          │ Web          │
+  │ + PostGIS   │        │ Pub/Sub      │          │ Dashboard    │
+  │ (Neon)      │        │ BullMQ       │          │ (React)      │
+  │ 54 tablas     │        │ Cache        │          │              │
+  └─────────────┘        └─────────────┘          └──────────────┘
 ```
 
 ### 4.2 Stack tecnológico
@@ -184,17 +198,17 @@ El IRAT permite a los gobiernos municipales y departamentales **priorizar invers
 | Componente | Tecnología |
 |------------|-----------|
 | **Backend** | Node.js ≥22, TypeScript, Express |
-| **Arquitectura** | Hexagonal (Clean Architecture) por microservicio |
-| **Base de datos** | PostgreSQL 18 + PostGIS 3.4 |
+| **Arquitectura** | Hexagonal (Clean Architecture) por dominio, consolidada en un monolito desplegable |
+| **Base de datos** | PostgreSQL + PostGIS, gestionada en Neon (serverless Postgres) |
 | **Cache y eventos** | Redis (Pub/Sub, BullMQ, JWT Blacklist, Rate Limiting) |
 | **Modelo geoespacial** | PostGIS + códigos DANE + GADM + OpenStreetMap |
 | **App móvil** | React Native con GPS nativo y buffer offline |
 | **Dashboard web** | React + Vite + Leaflet (mapas interactivos) |
-| **Testing** | Jest 30 con BDD/Gherkin — 236 tests, 36 suites |
-| **Infraestructura** | Railway (cloud PaaS) — red privada entre servicios |
+| **Testing** | Jest con BDD/Gherkin |
+| **Infraestructura** | Render (Blueprint: monolito + static site + Redis managed) |
 | **API** | OpenAPI 3.1 documentada, JWT Bearer, RBAC por roles |
 
-### 4.3 Los 14 microservicios
+### 4.3 Los 14 dominios de negocio (importados en el monolito)
 
 | # | Servicio | Función principal |
 |---|----------|-------------------|
@@ -278,7 +292,7 @@ País  →  Departamento  →  Municipio  →  Comuna  →  Zona  →  Manzana  
 
 | Concepto | Estimado mensual |
 |----------|-----------------|
-| Infraestructura cloud (Railway + Redis + PostgreSQL) | $150 - $500 USD |
+| Infraestructura cloud (Render + Redis + PostgreSQL/Neon) | $150 - $500 USD |
 | Equipo técnico (3-4 desarrolladores) | Variable según fase |
 | Operaciones y soporte | Variable según escala |
 | Marketing y ventas B2G (Business to Government) | Variable |
@@ -286,20 +300,22 @@ País  →  Departamento  →  Municipio  →  Comuna  →  Zona  →  Manzana  
 ### 5.4 Modelo de escalamiento
 
 ```
-Fase 1 (Año 1):    Piloto Medellín (6 departamentos, 18 municipios cargados)
-                    ├─ Validación con 3-5 comedores comunitarios
-                    ├─ Integración con 10-20 productores rurales
-                    └─ Primeras subastas agrícolas
+Fase 1 (0-6 meses):   Piloto Oriente Antioqueño — hub CORPOÁNGELES en Rionegro
+                      ├─ CORPOÁNGELES como cliente ancla y co-proponente territorial
+                      ├─ 7 municipios objetivo (Rionegro, Marinilla, El Carmen, Guarne,
+                      │  La Ceja, El Retiro, San Vicente) por mínima cuantía
+                      └─ Primer contrato de licenciamiento municipal firmado
 
-Fase 2 (Año 2):    Expansión Eje Cafetero + Valle
-                    ├─ 30+ municipios activos
-                    ├─ Modelo SaaS consolidado
-                    └─ Integración con plataformas gubernamentales
+Fase 2 (6-18 meses):  Consolidación departamental
+                      ├─ Convenio con MANÁ (Gerencia de Seguridad Alimentaria de
+                      │  la Gobernación de Antioquia) para vincular municipios en bloque
+                      ├─ Operadores del PAE del Oriente como canal secundario
+                      └─ Expansión a 30+ municipios de Antioquia
 
-Fase 3 (Año 3):    Escala nacional
-                    ├─ 100+ municipios
-                    ├─ API pública para terceros
-                    └─ Modelo replicable para otros países de LATAM
+Fase 3 (Año 2-3):     Escala nacional
+                      ├─ 100+ municipios
+                      ├─ API pública para terceros
+                      └─ Modelo replicable para otros países de LATAM
 ```
 
 ---
@@ -321,7 +337,38 @@ Fase 3 (Año 3):    Escala nacional
 
 - **TAM (Total Addressable Market)**: 1.122 municipios × licenciamiento SaaS + comisiones de subasta = ~$15.000 millones COP/año
 - **SAM (Serviceable Available Market)**: 200 municipios categoría 4-6 con programas alimentarios activos = ~$2.880 millones COP/año
-- **SOM (Serviceable Obtainable Market)**: 30 municipios del Eje Cafetero + Medellín en los primeros 2 años = ~$432 millones COP/año
+- **SOM (Serviceable Obtainable Market)**: pipeline identificado y validado de 7 municipios del Oriente Antioqueño en los primeros 6-18 meses (ver 6.3), con ruta de expansión departamental vía la Gobernación de Antioquia
+
+### 6.3 Validación de mercado — Oriente Antioqueño y alianza CORPOÁNGELES
+
+A diferencia de un TAM/SAM/SOM puramente estimado, AGRORED tiene un **pipeline comercial concreto y
+mapeado** en el Oriente Antioqueño, con un cliente ancla identificado y evidencia de la brecha exacta
+que la plataforma cierra:
+
+- **COMPAN** (Compras Públicas de Alimentos de Antioquia), la plataforma propia de la Gobernación,
+  registró **609 contratos de compra directa a pequeños productores por $234.000 millones COP** entre
+  enero de 2025 y enero de 2026, con 2.321 productores y 5.962 productos en 91 municipios. Es
+  validación de que el mercado institucional de compra local ya mueve un volumen real — y COMPAN **no
+  calcula trazabilidad por compra, no calcula IRAT, no genera alertas de riesgo alimentario y no
+  produce un observatorio**: exactamente el espacio que ocupa AGRORED, sin competir con COMPAN sino
+  complementándola como capa de gestión territorial.
+- **CORPOÁNGELES** (Corporación Granja Integral Los Ángeles, NIT 900520201-1, activa desde 2012 en
+  Rionegro) es el socio/cliente ancla identificado para el piloto: opera programas agrícolas y
+  comunitarios en el Oriente Antioqueño, tiene legitimidad institucional y red de productores rurales
+  ya activa. La ruta de entrada más rápida (4-8 semanas) es como componente tecnológico dentro de su
+  operación existente, sin que ninguna entidad pública deba abrir un nuevo proceso de contratación.
+- **Compradores institucionales mapeados y con contacto directo**: 9 ESE/hospitales, la red de CDI y
+  hogares comunitarios del ICBF, comedores comunitarios en los 7 municipios objetivo, cadenas de
+  supermercados con presencia regional (Éxito, D1, Ara, Justo & Bueno), el Banco de Alimentos de
+  Medellín y el Aeropuerto Internacional José María Córdova (Rionegro).
+- **Municipios con hallazgos fiscales previos en el PAE** (Guarne y La Ceja, 2021-2022) tienen presión
+  administrativa activa por demostrar transparencia — el argumento de venta más directo para AGRORED,
+  ya que la trazabilidad automática de compra local es exactamente lo que la Contraloría exige poder
+  verificar.
+- **Encaje legal**: la Ley 2046 de 2020 (30% de compra local obligatoria, ver 3.6) aplica a las 116
+  municipios no certificados de Antioquia y a toda entidad pública que compre alimentos — no es un
+  argumento de venta opcional, es una obligación normativa que hoy ninguna de estas entidades puede
+  demostrar con datos sistemáticos.
 
 ---
 
@@ -344,13 +391,14 @@ Fase 3 (Año 3):    Escala nacional
 | **6 algoritmos de subasta agrícola** | AEA, Dutch Auction, Smart Match, Visibility, Anti-Sniping, Proxy Bidding — diseñados para el agro colombiano |
 | **Matching automático oferta↔demanda** | Conexión inteligente local → regional → nacional entre productores y programas alimentarios |
 | **Modelo geoespacial DANE** | Interoperabilidad nativa con sistemas del Estado colombiano (IGAC, QGIS, ArcGIS) |
-| **14 microservicios especializados** | Arquitectura escalable, cada módulo evoluciona independientemente |
+| **Cumplimiento Ley 2046 automático** | Único cálculo conocido de % de compra local por institución con alerta y reporte para Contraloría (ver 3.6) |
+| **Arquitectura modular por 14 dominios** | Separación real de responsabilidades en el código (hexagonal por dominio), consolidada en un monolito para operar con un solo despliegue en esta etapa |
 | **Tracking GPS en tiempo real** | Con buffer offline para zonas rurales con conectividad intermitente |
 | **VRP multi-vehículo** | Optimización de rutas logísticas con algoritmo Clarke-Wright |
 | **Multi-tenancy por municipio** | Un solo despliegue sirve a múltiples municipios de forma aislada y segura |
 | **App móvil para campo** | React Native con GPS nativo, funciona offline, diseñada para operadores logísticos rurales |
 | **Exportación institucional** | PDF y CSV para reportes de contratación pública y rendición de cuentas |
-| **Bus de eventos asíncrono** | Los 14 servicios se comunican por Redis Pub/Sub sin acoplamiento |
+| **Bus de eventos asíncrono** | Los dominios se comunican por Redis Pub/Sub sin acoplamiento |
 | **Spoilage tracking** | Medición de desperdicio en cada eslabón de la cadena (cosecha → distribución → consumo) |
 
 ### 7.3 Propiedad intelectual
@@ -371,7 +419,7 @@ Fase 3 (Año 3):    Escala nacional
 | **ODS 2**: Hambre Cero | 2.1 Acceso universal a alimentos nutritivos | Matching oferta↔demanda, IRAT para priorización, cobertura PAE/comedores |
 | **ODS 12**: Producción y consumo responsables | 12.3 Reducir a la mitad el desperdicio alimentario per cápita | Rescate de excedentes, spoilage tracking, inventario con alertas de vencimiento |
 | **ODS 11**: Ciudades y comunidades sostenibles | 11.a Vínculos económicos urbanos-rurales | Subastas agrícolas, logística campo→ciudad, observatorio territorial |
-| **ODS 9**: Industria, innovación e infraestructura | 9.1 Infraestructuras fiables y sostenibles | 14 microservicios, PostGIS, tracking GPS para conectividad rural |
+| **ODS 9**: Industria, innovación e infraestructura | 9.1 Infraestructuras fiables y sostenibles | Arquitectura modular de 14 dominios, PostGIS, tracking GPS para conectividad rural |
 | **ODS 17**: Alianzas para lograr los objetivos | 17.17 Fomentar alianzas público-privadas | Modelo multi-actor: gobierno + productores + comercio + logística |
 
 ### 8.2 Indicadores de impacto medibles
@@ -395,17 +443,18 @@ Fase 3 (Año 3):    Escala nacional
 
 | Indicador | Valor |
 |-----------|-------|
-| Microservicios implementados | 14/14 (100%) |
-| Tests automatizados | 236 tests, 36 suites — todos pasando |
+| Dominios de negocio implementados | 14/14 (100%), consolidados en un monolito desplegable |
+| Suites de test automatizadas | 43 archivos de test (Jest + BDD/Gherkin) |
 | Features BDD documentadas | 17 especificaciones Gherkin |
-| Tablas en base de datos | 54 tablas con relaciones, índices y vistas |
-| Migraciones SQL | 17 archivos de migración evolutiva |
+| Tablas en base de datos | 54+ tablas con relaciones, índices y vistas |
+| Migraciones SQL | 36 archivos de migración evolutiva, versionadas y aplicadas en Neon |
 | Cobertura territorial cargada | 6 departamentos, 18 municipios, 30 comunas con polígonos reales |
 | Endpoints REST documentados | 80+ endpoints con OpenAPI 3.1 |
-| Despliegue en la nube | Railway (PostgreSQL + Redis + 14 servicios) |
+| Despliegue en la nube | Render (Blueprint: monolito + static site + Redis managed) + PostgreSQL en Neon |
 | Repositorio de código | GitHub — organizado como monorepo |
 | App móvil | React Native con GPS, mapas y modo offline |
 | Dashboard web | React + Vite + Leaflet con KPIs en tiempo real |
+| Auto-evaluación de madurez | Panel interno (`/maturity`) con 27 módulos evaluados en 5 dimensiones — actualizado con evidencia real de cada sesión de desarrollo, no solo puntajes cosméticos |
 
 ### 9.2 Perfil del equipo requerido para escalar
 
@@ -424,13 +473,13 @@ Fase 3 (Año 3):    Escala nacional
 
 ### Fase 0 — Fundación técnica ✅ COMPLETADA
 
-- [x] Monorepo con 14 microservicios
-- [x] PostgreSQL + PostGIS con modelo geoespacial
+- [x] Monorepo con 14 dominios de negocio, consolidados en un monolito desplegable
+- [x] PostgreSQL + PostGIS con modelo geoespacial, gestionado en Neon
 - [x] API Gateway con JWT, RBAC, rate limiting
-- [x] Arquitectura hexagonal (Clean Architecture)
+- [x] Arquitectura hexagonal (Clean Architecture) por dominio
 - [x] Redis Pub/Sub, BullMQ, cache
-- [x] 236 tests automatizados
-- [x] Despliegue en Railway
+- [x] Suite de tests automatizados (Jest + BDD/Gherkin)
+- [x] Despliegue en Render
 
 ### Fase 1 — Identidad y actores ✅ COMPLETADA
 
@@ -469,17 +518,18 @@ Fase 3 (Año 3):    Escala nacional
 
 ### Fase 6 — Piloto y validación (PRÓXIMA)
 
-- [ ] Validación con 3-5 comedores comunitarios en Medellín
-- [ ] Integración con 10-20 productores rurales del Valle de Aburrá
-- [ ] Primeras subastas agrícolas con producto real
-- [ ] Medición de indicadores de impacto (línea base)
-- [ ] Ajustes de UX basados en retroalimentación de campo
+- [ ] Cierre del acuerdo con CORPOÁNGELES en Rionegro (carta de intención / contrato de prestación de servicios tecnológicos)
+- [ ] Registro de MEGAELECTROINGENIERÍA S.A.S. en SECOP II como proveedor de servicios tecnológicos
+- [ ] Integración de 50-100 productores geolocalizados de la red de CORPOÁNGELES (Vda. Abreo y zona rural de Rionegro)
+- [ ] Dashboard territorial de Rionegro + cálculo de IRAT y cumplimiento Ley 2046 en vivo
+- [ ] Ruta de visitas a las 28 entidades identificadas en los 7 municipios del Oriente Antioqueño (ESE, comedores, ICBF, supermercados)
+- [ ] Medición de indicadores de impacto (línea base) con el caso de Rionegro documentado
 
 ### Fase 7 — Escala regional
 
-- [ ] Expansión a 30+ municipios del Eje Cafetero y Valle del Cauca
-- [ ] Modelo SaaS consolidado con facturación
-- [ ] Integración con API de datos abiertos del gobierno
+- [ ] Expansión a 30+ municipios de Antioquia vía convenio con MANÁ (Gobernación de Antioquia)
+- [ ] Modelo SaaS consolidado con facturación por categoría municipal
+- [ ] Integración con COMPAN (capa de gestión territorial complementaria, no competidora)
 - [ ] App móvil publicada en Play Store/App Store
 
 ### Fase 8 — Escala nacional
@@ -498,7 +548,7 @@ Fase 3 (Año 3):    Escala nacional
 | Concepto | Porcentaje | Descripción |
 |----------|-----------|-------------|
 | **Desarrollo tecnológico** | 40% | Completar Fase 6 (piloto), mejorar UX, publicar app móvil, hardening de seguridad |
-| **Infraestructura cloud** | 15% | Servidores Railway/AWS, PostgreSQL managed, Redis, dominio, SSL, monitoreo |
+| **Infraestructura cloud** | 15% | Render, PostgreSQL managed (Neon), Redis, dominio, SSL, monitoreo |
 | **Equipo** | 25% | Contratación de 2-3 perfiles clave (desarrollador, comercial, GIS) |
 | **Piloto en campo** | 10% | Desplazamientos, capacitaciones, equipos para productores, conectividad rural |
 | **Marketing y ventas B2G** | 10% | Material comercial, participación en ferias, relaciones institucionales |
@@ -507,11 +557,11 @@ Fase 3 (Año 3):    Escala nacional
 
 | Hito | Plazo | Entregable |
 |------|-------|-----------|
-| Piloto funcional Medellín | Mes 1-3 | 5 comedores + 20 productores + 2 operadores logísticos activos |
+| Piloto funcional Rionegro con CORPOÁNGELES | Mes 1-3 | 50-100 productores + dashboard IRAT/Ley 2046 en vivo |
 | Métricas de impacto validadas | Mes 3-4 | Reporte con toneladas rescatadas, beneficiarios atendidos, tiempos de entrega |
 | App móvil en Play Store | Mes 2-4 | Aplicación publicada y en uso por operadores logísticos |
-| Primer municipio SaaS | Mes 4-6 | Primer contrato de licenciamiento municipal firmado |
-| Expansión a 5 municipios | Mes 6-9 | 5 municipios con IRAT calculado y operaciones activas |
+| Primer municipio SaaS del Oriente Antioqueño | Mes 4-6 | Primer contrato de licenciamiento municipal firmado |
+| Expansión a 5 municipios del Oriente Antioqueño | Mes 6-9 | 5 municipios con IRAT y cumplimiento Ley 2046 calculados, operaciones activas |
 | Modelo sostenible validado | Mes 9-12 | Ingresos recurrentes cubriendo costos operativos |
 
 ---
@@ -523,7 +573,7 @@ Fase 3 (Año 3):    Escala nacional
 | **Nombre del proyecto** | AGRORED |
 | **Repositorio** | https://github.com/cesarmoreno7/AgroRed |
 | **Emprendedor** | César Moreno |
-| **Estado** | Producto funcional con 14 microservicios, 54 tablas, 236 tests, desplegado en la nube |
+| **Estado** | Producto funcional con arquitectura de 14 dominios (monolito desplegable), 54+ tablas, suite de tests automatizados, desplegado en Render con base de datos en Neon; piloto comercial en curso en el Oriente Antioqueño con CORPOÁNGELES como cliente ancla |
 
 ---
 
@@ -592,9 +642,9 @@ La plataforma expone más de 80 endpoints REST documentados con OpenAPI 3.1, inc
 | Dashboard | React + Vite + Leaflet + Chart.js |
 | Seguridad | JWT, bcrypt, Helmet, CORS, Rate Limiting |
 | Geodatos | GADM, OpenStreetMap, códigos DANE |
-| Cloud | Railway (PaaS) |
+| Cloud | Render (PaaS) + Neon (PostgreSQL serverless) |
 | Monorepo | npm workspaces |
-| Arquitectura | Hexagonal (Clean Architecture) |
+| Arquitectura | Hexagonal (Clean Architecture) por dominio, consolidada en monolito |
 | CI | GitHub |
 
 ---

@@ -21,6 +21,7 @@ import type {
   SpoilageRecord,
   SpoilageCreateCommand,
   SpoilageSummary,
+  Ley2046Compliance,
 } from "../../domain/models/InstitutionalTypes.js";
 
 export class PostgresInstitutionalRepository implements InstitutionalRepository {
@@ -605,7 +606,7 @@ export class PostgresInstitutionalRepository implements InstitutionalRepository 
     // even if nobody happens to open the /alerts screen. Dispatch itself happens
     // via automation-service's scheduled sweep + ActionExecutionEngine.
     if (data.severity === "critical" || data.severity === "high") {
-      await this.notifyTenantAdmins(tenantId, data.title, data.description);
+      await this.notifyTenantAdmins(tenantId, id, data.title, data.description);
     }
 
     return {
@@ -618,7 +619,7 @@ export class PostgresInstitutionalRepository implements InstitutionalRepository 
     };
   }
 
-  private async notifyTenantAdmins(tenantId: string, title: string, message: string): Promise<void> {
+  private async notifyTenantAdmins(tenantId: string, alertId: string, title: string, message: string): Promise<void> {
     try {
       const admins = await this.pool.query<{ email: string }>(
         `SELECT email FROM public.users
@@ -628,11 +629,15 @@ export class PostgresInstitutionalRepository implements InstitutionalRepository 
       );
 
       for (const admin of admins.rows) {
+        // institutional_alert_id satisface chk_notifications_reference_present (033_ley2046_compliance.sql).
+        // Antes de ese fix, este INSERT violaba el CHECK siempre (ninguno de incident_id/
+        // logistics_order_id/offer_id se pasaba) y el catch de abajo lo silenciaba —
+        // ninguna alerta institucional llegó nunca a enviar el correo.
         await this.pool.query(
           `INSERT INTO public.notifications
-             (id, tenant_id, notification_channel, recipient_label, title, message, scheduled_for, status)
-           VALUES (gen_random_uuid(), $1, 'email', $2, $3, $4, NOW(), 'pending')`,
-          [tenantId, admin.email, title, message]
+             (id, tenant_id, institutional_alert_id, notification_channel, recipient_label, title, message, scheduled_for, status)
+           VALUES (gen_random_uuid(), $1, $2, 'email', $3, $4, $5, NOW(), 'pending')`,
+          [tenantId, alertId, admin.email, title, message]
         );
       }
     } catch {
@@ -782,5 +787,110 @@ export class PostgresInstitutionalRepository implements InstitutionalRepository 
       longitude: r.longitude != null ? Number(r.longitude) : null,
       notes: r.notes, createdAt: new Date(r.created_at),
     };
+  }
+
+  // ── Ley 2046/2020 — Cumplimiento de compra local ──
+  //
+  // Fuente: entregas_productos/entregas_detalle, las mismas tablas de compra real
+  // productor→institución que ya alimentan el IRAT por institución (irat.ts). El
+  // numerador (compra a "pequeños productores") usa producers.is_small_producer;
+  // el % solo cubre lo que la institución ha registrado dentro de AgroRed, no la
+  // totalidad de su presupuesto de alimentos — es una herramienta de trazabilidad,
+  // no una fuente de verdad sobre gasto público fuera del sistema.
+
+  async getLey2046Compliance(
+    tenantId?: string,
+    periodStart?: string,
+    periodEnd?: string
+  ): Promise<Ley2046Compliance[]> {
+    const tid = tenantId ? await this.resolveTenantId(tenantId) : null;
+    const now = new Date();
+    const start = periodStart ?? `${now.getUTCFullYear()}-01-01`;
+    const end = periodEnd ?? now.toISOString().slice(0, 10);
+    const minRequiredPct = tid ? await this.getLey2046Threshold(tid) : 30;
+
+    const res = await this.pool.query(
+      `SELECT
+         i.id AS institution_id, i.name AS institution_name, i.institution_type,
+         i.municipality_name, i.tenant_id,
+         COALESCE(SUM(d.cantidad_entregada * d.precio_unitario), 0) AS total_value,
+         COALESCE(SUM(d.cantidad_entregada * d.precio_unitario) FILTER (WHERE p.is_small_producer), 0) AS local_value,
+         COUNT(DISTINCT e.id) AS delivery_count
+       FROM public.institutions i
+       LEFT JOIN public.entregas_productos e
+         ON e.institucion_id = i.id
+        AND e.estado IN ('recibido', 'parcial')
+        AND e.fecha_entrega BETWEEN $2 AND $3
+        AND e.deleted_at IS NULL
+       LEFT JOIN public.entregas_detalle d ON d.entrega_id = e.id
+       LEFT JOIN public.producers p ON p.id = e.productor_id
+       WHERE i.deleted_at IS NULL
+         AND ($1::uuid IS NULL OR i.tenant_id = $1)
+       GROUP BY i.id, i.name, i.institution_type, i.municipality_name, i.tenant_id
+       ORDER BY total_value DESC`,
+      [tid, start, end]
+    );
+
+    return res.rows.map((r: any) => {
+      const totalValue = Number(r.total_value);
+      const localValue = Number(r.local_value);
+      const compliancePct = totalValue > 0 ? Math.round((localValue / totalValue) * 10000) / 100 : 0;
+      const status: Ley2046Compliance["status"] =
+        totalValue === 0
+          ? "sin_datos"
+          : compliancePct >= minRequiredPct
+            ? "cumple"
+            : compliancePct >= minRequiredPct - 10
+              ? "riesgo"
+              : "incumple";
+
+      return {
+        institutionId: r.institution_id,
+        institutionName: r.institution_name,
+        institutionType: r.institution_type,
+        municipalityName: r.municipality_name,
+        tenantId: r.tenant_id,
+        periodStart: start,
+        periodEnd: end,
+        totalValue,
+        localValue,
+        compliancePct,
+        minRequiredPct,
+        deliveryCount: Number(r.delivery_count),
+        status,
+      };
+    });
+  }
+
+  async generateLey2046Alerts(tenantId: string): Promise<InstitutionalAlert[]> {
+    const tid = await this.resolveTenantId(tenantId);
+    const minRequiredPct = await this.getLey2046Threshold(tid);
+    const compliance = await this.getLey2046Compliance(tenantId);
+    const alerts: InstitutionalAlert[] = [];
+
+    for (const c of compliance) {
+      if (c.totalValue <= 0 || c.status === "cumple") continue;
+
+      const alert = await this.createAlert(tid, {
+        alertType: "compra_local_insuficiente",
+        severity: c.compliancePct < minRequiredPct / 2 ? "critical" : c.status === "incumple" ? "high" : "medium",
+        title: `Incumplimiento Ley 2046 en ${c.institutionName}`,
+        description: `Compra directa a pequeños productores: ${c.compliancePct}% del valor rastreado en AgroRed ` +
+          `(mínimo legal ${minRequiredPct}%). Periodo ${c.periodStart} a ${c.periodEnd}, ` +
+          `${c.deliveryCount} entregas registradas.`,
+        indicatorName: "ley2046_compliance_pct",
+        indicatorValue: c.compliancePct,
+        thresholdValue: minRequiredPct,
+        zoneName: `${c.institutionName} (${c.municipalityName})`,
+      });
+      alerts.push(alert);
+    }
+
+    return alerts;
+  }
+
+  private async getLey2046Threshold(tenantId: string): Promise<number> {
+    const thresholds = await this.getAlertThresholds(tenantId);
+    return thresholds.find(t => t.ruleKey === "institutional.ley2046_min_pct")?.value ?? 30;
   }
 }

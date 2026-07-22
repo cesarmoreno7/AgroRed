@@ -292,18 +292,38 @@ Mercado de subastas de excedentes alimentarios.
 
 ### 4.13 Alertas IRAT (`/alerts`)
 
-Panel de alertas institucionales generadas automáticamente por el sistema analítico.
+Panel de alertas institucionales generadas automáticamente por el sistema analítico, con verificación
+horaria automática (`irat-alert-check`) y correo real a los administradores municipales del tenant
+cuando la severidad es alta o crítica.
 
 **Tipos de alerta:**
-- Cluster de incidentes detectado
-- Alta frecuencia de eventos en zona
-- Zona en riesgo
-- Recurrencia de incidente
-- Brecha de SLA
-- Escasez de recursos
-- Riesgo climático
+- IRAT alto (`irat_alto`) — índice de riesgo alimentario territorial por encima del umbral
+- Riesgo de desabastecimiento (`desabastecimiento`) — oferta muy por debajo de la demanda
+- Exceso sin destino (`exceso_sin_destino`) — oferta sin demanda ni logística activa
+- Baja cobertura de programas (`baja_cobertura`)
+- Compra local insuficiente (`compra_local_insuficiente`) — incumplimiento de la Ley 2046 (ver 4.13.1)
 
-**Función:** Ver y reconocer alertas con fecha y responsable.
+**Función:** Ver y reconocer alertas con fecha y responsable; generar una nueva verificación manual con
+el botón "Generar alertas".
+
+#### 4.13.1 Cumplimiento Ley 2046 de 2020 — Compra Local
+
+Panel dentro de `/alerts` que calcula, por cada institución del municipio (ESE, comedores, hogares
+ICBF, aeropuerto, etc.), el porcentaje de compra directa a pequeños productores sobre el valor
+registrado en el módulo de Entregas de Productos — el mínimo legal para entidades públicas es el 30%
+(Ley 2046 de 2020).
+
+- **Estados:** Cumple (≥30%), En riesgo (20–30%), Incumple (<20%), Sin datos (sin entregas registradas
+  en el período).
+- **Botón "Verificar cumplimiento":** ejecuta el chequeo bajo demanda y genera alertas
+  `compra_local_insuficiente` para las instituciones por debajo del umbral (además del chequeo
+  automático horario).
+- **Exportación:** botones CSV y PDF con el reporte completo, pensado para entregar a Contraloría o
+  anexar al Plan de Desarrollo municipal.
+- **Alcance real:** el porcentaje cubre únicamente lo que la institución ha registrado dentro de
+  AgroRed (vía Entregas de Productos), no la totalidad de su presupuesto de alimentos fuera del
+  sistema — es una herramienta de trazabilidad y evidencia, no un reemplazo de la contabilidad
+  institucional completa.
 
 ---
 

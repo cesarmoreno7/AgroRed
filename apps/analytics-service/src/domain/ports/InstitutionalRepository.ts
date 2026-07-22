@@ -11,6 +11,7 @@ import type {
   SpoilageRecord,
   SpoilageCreateCommand,
   SpoilageSummary,
+  Ley2046Compliance,
 } from "../models/InstitutionalTypes.js";
 
 export interface PaginationParams {
@@ -99,6 +100,10 @@ export interface InstitutionalRepository {
   createSpoilageRecord(cmd: SpoilageCreateCommand): Promise<SpoilageRecord>;
   listSpoilageRecords(tenantId: string, params: PaginationParams): Promise<PaginatedResult<SpoilageRecord>>;
   getSpoilageSummary(tenantId: string): Promise<SpoilageSummary[]>;
+
+  // Ley 2046/2020 — cumplimiento de compra local
+  getLey2046Compliance(tenantId?: string, periodStart?: string, periodEnd?: string): Promise<Ley2046Compliance[]>;
+  generateLey2046Alerts(tenantId: string): Promise<InstitutionalAlert[]>;
 }
 
 export interface InstitutionalAlertThreshold {

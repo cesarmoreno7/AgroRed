@@ -236,3 +236,23 @@ export interface SpoilageSummary {
   avgTemperatureC: number | null;
   lastDetected: Date;
 }
+
+// ── Ley 2046/2020 — Cumplimiento de compra local a pequeños productores ──
+
+export type Ley2046Status = "cumple" | "riesgo" | "incumple" | "sin_datos";
+
+export interface Ley2046Compliance {
+  institutionId: string;
+  institutionName: string;
+  institutionType: string;
+  municipalityName: string;
+  tenantId: string;
+  periodStart: string;
+  periodEnd: string;
+  totalValue: number;
+  localValue: number;
+  compliancePct: number;
+  minRequiredPct: number;
+  deliveryCount: number;
+  status: Ley2046Status;
+}

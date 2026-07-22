@@ -221,12 +221,34 @@ const MODULES: ModuleMaturity[] = [
     label: "Alertas IRAT",
     icon: "🔔",
     category: "inteligencia",
-    dimensions: { funcional: 88, datos: 72, integracion: 88, seguridad: 78, operacional: 75 },
+    dimensions: { funcional: 88, datos: 78, integracion: 90, seguridad: 80, operacional: 80 },
     estado: "produccion",
     notes: "Umbrales configurables. Jul-2026: conectado el tramo que faltaba — las alertas de " +
       "severidad alta/crítica ahora encolan un correo real a los admin_municipal del tenant, y el " +
       "barrido horario de automation-service las despacha de verdad (antes quedaban solo como " +
-      "registro pasivo en pantalla, sin avisar a nadie proactivamente).",
+      "registro pasivo en pantalla, sin avisar a nadie proactivamente). Jul-2026 (sesión Ley 2046): " +
+      "se encontró y corrigió el bug real que explicaba por qué ese correo nunca salía — el INSERT en " +
+      "notifications violaba siempre chk_notifications_reference_present (no pasaba incident_id/" +
+      "logistics_order_id/offer_id) y quedaba silenciado por un catch vacío. Se agregó la columna " +
+      "institutional_alert_id y se amplió el CHECK; verificado end-to-end contra Neon (alerta real → " +
+      "notificación de email real insertada, dentro de una transacción revertida).",
+  },
+  {
+    id: "ley2046",
+    label: "Cumplimiento Ley 2046",
+    icon: "⚖️",
+    category: "inteligencia",
+    dimensions: { funcional: 78, datos: 58, integracion: 82, seguridad: 78, operacional: 55 },
+    estado: "beta",
+    notes: "Nuevo (jul-2026): calcula por institución el % de compra directa a pequeños productores " +
+      "sobre lo registrado en entregas_productos/entregas_detalle (mínimo legal 30%, Ley 2046 de 2020), " +
+      "con estado cumple/riesgo/incumple, alerta automática (compra_local_insuficiente) integrada al " +
+      "mismo barrido horario del IRAT, y exportación CSV/PDF pensada para Contraloría. Requirió agregar " +
+      "producers.is_small_producer (default TRUE — sin ese campo no existía forma de calcular el " +
+      "numerador). Limitación honesta: el % solo cubre lo que la institución registra dentro de " +
+      "AgroRed, no la totalidad de su presupuesto de alimentos fuera del sistema — es una herramienta " +
+      "de trazabilidad, no una fuente de verdad sobre gasto público externo. Puntaje de datos bajo " +
+      "porque is_small_producer aún no se ha curado con criterio real por productor (todo en default).",
   },
   {
     id: "notifications",
@@ -722,6 +744,7 @@ export function MaturityPage() {
             { icon: "⚙️", title: "Automatizar acciones de negocio", desc: "Hoy solo el despacho de notificaciones se ejecuta de verdad; acciones como programar logística o rebalancear inventario aún requieren decisión humana (quedan auditadas, no ejecutadas).", prioridad: "Media" },
             { icon: "📊", title: "Estacionalidad en ML", desc: "Extender la dimensión de tendencia (30d vs. 30d previos) a patrones estacionales usando los 14 meses de histórico ya sembrados.", prioridad: "Media" },
             { icon: "📱", title: "App móvil productores", desc: "Habilitar app móvil para registro de entregas y ofertas desde campo.", prioridad: "Alta" },
+            { icon: "⚖️", title: "Curar clasificación de pequeño productor", desc: "producers.is_small_producer quedó en TRUE por defecto para todos; falta un criterio auditable real (UAF, volumen, registro ante la entidad territorial) para que el % de cumplimiento Ley 2046 sea defendible ante Contraloría, no solo una cifra por defecto.", prioridad: "Alta" },
           ].map(item => {
             const pColor = item.prioridad === "Alta" ? "#f87171" : item.prioridad === "Media" ? "#f59e0b" : "#6b7280";
             return (
