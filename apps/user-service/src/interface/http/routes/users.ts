@@ -201,9 +201,7 @@ export function createUsersRouter(deps: UsersRouterDeps): Router {
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
     const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "100"), 10) || 100));
     const tenantId = req.headers["x-tenant-id"] as string | undefined;
-    const userRole  = req.headers["x-user-role"]  as string | undefined;
-    const filterTenantId = userRole === "admin_municipal" ? null : (tenantId ?? null);
-    const result = await deps.repository.list({ page, limit }, filterTenantId);
+    const result = await deps.repository.list({ page, limit }, tenantId ?? null);
     return sendPaginatedSuccess(res, result.data.map(toUserResponse), { total: result.total, page: result.page, limit: result.limit });
   }));
 

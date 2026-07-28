@@ -99,12 +99,7 @@ export function createProducersRouter(repository: ProducerRepository): Router {
     const page  = Math.max(1, parseInt(String(req.query.page  ?? "1"),   10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "20"), 10) || 20));
     const tenantId = req.headers["x-tenant-id"] as string | undefined;
-    const userRole = req.headers["x-user-role"]  as string | undefined;
-
-    // admin_municipal has cross-tenant visibility for operational oversight
-    const filterTenantId = userRole === "admin_municipal" ? null : (tenantId ?? null);
-
-    const result = await repository.list({ page, limit }, filterTenantId);
+    const result = await repository.list({ page, limit }, tenantId ?? null);
     return sendPaginatedSuccess(res, result.data.map(toProducerResponse), { total: result.total, page: result.page, limit: result.limit });
   }));
 
