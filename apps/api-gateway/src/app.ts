@@ -22,6 +22,7 @@ import { traceabilityMiddleware } from "./shared/traceability.js";
 import { createAuthMiddleware } from "./interface/http/middlewares/auth.js";
 import { createRateLimiters } from "./interface/http/middlewares/rateLimiter.js";
 import { rbacMiddleware } from "./interface/http/middlewares/rbac.js";
+import { tenantContext } from "../../shared/middleware/tenantContext.js";
 import type { GatewayHealthDependencies } from "./interface/http/routes/health.js";
 
 function parseAllowedOrigins(value: string): string[] {
@@ -65,6 +66,12 @@ export async function buildApp(
   app.use(traceabilityMiddleware);
   app.use(createAuthMiddleware(env.JWT_SECRET, blacklist));
   app.use(rbacMiddleware);
+  // Forces req.body.tenantId to match the trusted x-tenant-id header set by auth above,
+  // so an authenticated user cannot create/query resources under a spoofed foreign tenantId.
+  // This middleware existed (apps/shared/middleware/tenantContext.ts) but was never mounted —
+  // found during the Rionegro QA pilot (RIO-ADM-003) where an admin_municipal could create a
+  // producer under an arbitrary tenantId by just passing a different one in the request body.
+  app.use(tenantContext);
   app.use(createAuditTrailMiddleware(pool));
 
   app.use(createHealthRouter(services, gatewayDependencies));
