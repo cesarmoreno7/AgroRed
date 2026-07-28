@@ -192,11 +192,27 @@ export function createIratRouter(pool: Pool): Router {
         `Diversidad: ${Number(row.diversity_risk).toFixed(0)} · Incidencias: ${Number(row.incident_risk).toFixed(0)} · ` +
         `Logística: ${Number(row.logistics_risk).toFixed(0)}. Acción inmediata requerida.`;
 
+      // NOTA QA (hallazgo del pilot Rionegro): esto insertaba antes en public.notifications sin
+      // incident_id/logistics_order_id, violando chk_notifications_reference_present (esa tabla
+      // exige que la alerta referencie una incidencia o una orden logística) y provocando un 500
+      // en TODO /api/v1/analytics/irat/check en cuanto algún tenant cruzaba el umbral. Esta alerta
+      // es de riesgo institucional agregado, no atada a una incidencia puntual — el destino
+      // correcto es public.institutional_alerts (008_modulos_revision.sql), que ya modela
+      // 'irat_alto' como alert_type y no tiene esa restricción.
       await pool.query(
-        `INSERT INTO public.notifications
-           (id, tenant_id, notification_channel, recipient_label, title, message, scheduled_for, status)
-         VALUES (gen_random_uuid(), $1, 'in_app', 'admin_municipal', $2, $3, NOW(), 'pending')`,
-        [row.tenant_id, title, message]
+        `INSERT INTO public.institutional_alerts
+           (id, tenant_id, alert_type, severity, title, description, indicator_name, indicator_value, threshold_value, zone_name, auto_generated)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, 'irat_score', $6, $7, $8, true)`,
+        [
+          row.tenant_id,
+          level === "CRITICAL" ? "irat_critico" : "irat_alto",
+          level === "CRITICAL" ? "critical" : "high",
+          title,
+          message,
+          score,
+          level === "CRITICAL" ? thr.critical : thr.high,
+          row.institution_name,
+        ]
       );
 
       fired.push({ institution: row.institution_name, score, level });
