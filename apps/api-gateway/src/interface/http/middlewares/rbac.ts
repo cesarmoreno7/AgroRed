@@ -30,8 +30,9 @@ const ROUTE_POLICIES: RoutePolicy[] = [
   { method: "GET",  pathPrefix: "/api/v1/producers",          allowedRoles: ["admin_municipal", "producer", "territorial_analyst", "logistics_operator"] },
 
   // --- Offers ---
-  { method: "POST", pathPrefix: "/api/v1/offers",   allowedRoles: ["admin_municipal", "producer", "supermarket"] },
-  { method: "GET",  pathPrefix: "/api/v1/offers",    allowedRoles: ["admin_municipal", "producer", "supermarket", "community_kitchen", "territorial_analyst", "logistics_operator"] },
+  { method: "POST",  pathPrefix: "/api/v1/offers",     allowedRoles: ["admin_municipal", "producer", "supermarket"] },
+  { method: "PATCH", pathPrefix: "/api/v1/offers/:id", allowedRoles: ["admin_municipal", "producer", "supermarket"] },
+  { method: "GET",   pathPrefix: "/api/v1/offers",     allowedRoles: ["admin_municipal", "producer", "supermarket", "community_kitchen", "territorial_analyst", "logistics_operator"] },
 
   // --- Rescues ---
   { method: "POST", pathPrefix: "/api/v1/rescues",  allowedRoles: ["admin_municipal", "producer", "community_kitchen"] },

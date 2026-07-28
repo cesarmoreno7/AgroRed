@@ -169,6 +169,14 @@ export function createOffersRouter(
   router.patch("/api/v1/offers/:id", asyncHandler(async (req, res) => {
     const existing = await repository.findById(String(req.params.id));
     if (!existing) return sendError(res, 404, "OFFER_NOT_FOUND", "Oferta no encontrada.");
+
+    // Same tenant-isolation check as GET /:id — without this, any authenticated user
+    // from any municipio could edit another tenant's offer by guessing/enumerating ids.
+    const tenantId = req.headers["x-tenant-id"] as string | undefined;
+    if (tenantId && existing.tenantId !== tenantId) {
+      return sendError(res, 404, "OFFER_NOT_FOUND", "Oferta no encontrada.");
+    }
+
     const updated = await repository.patch(String(req.params.id), req.body as Record<string, unknown>);
     if (!updated) return sendError(res, 404, "OFFER_NOT_FOUND", "Oferta no encontrada.");
     return sendSuccess(res, toOfferResponse(updated));
