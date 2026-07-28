@@ -242,10 +242,26 @@ export class PostgresLogisticsOrderRepository implements LogisticsOrderRepositor
   }
 
   async patch(id: string, fields: Record<string, unknown>): Promise<LogisticsOrder | null> {
+    // NOTA QA (hallazgo del pilot Rionegro): esta implementación apuntaba antes a la tabla
+    // `logistics_zones` con columnas de geocercas (zoneName/centerLat/...), ninguna de las
+    // cuales coincide con los campos reales de logistics_orders — el UPDATE nunca se ejecutaba
+    // (sets.length siempre 0) y el endpoint devolvía 200 con el registro sin cambios.
     const COLS: Record<string, string> = {
-      zoneName: "zone_name", zoneType: "zone_type",
-      centerLat: "center_lat", centerLng: "center_lng", radiusM: "radius_m",
-      metadata: "metadata",
+      status: "status",
+      notes: "notes",
+      routeMode: "route_mode",
+      originLocationName: "origin_location_name",
+      destinationOrganizationName: "destination_organization_name",
+      destinationAddress: "destination_address",
+      municipalityName: "municipality_name",
+      demandId: "demand_id",
+      quantityAssigned: "quantity_assigned",
+      scheduledPickupAt: "scheduled_pickup_at",
+      scheduledDeliveryAt: "scheduled_delivery_at",
+      originLatitude: "origin_latitude",
+      originLongitude: "origin_longitude",
+      destinationLatitude: "destination_latitude",
+      destinationLongitude: "destination_longitude",
     };
     const sets: string[] = []; const vals: unknown[] = []; let i = 1;
     for (const [k, v] of Object.entries(fields)) {
@@ -253,7 +269,7 @@ export class PostgresLogisticsOrderRepository implements LogisticsOrderRepositor
     }
     if (sets.length === 0) return this.findById(id);
     sets.push(`updated_at = NOW()`); vals.push(id);
-    await this.pool.query(`UPDATE public.logistics_zones SET ${sets.join(", ")} WHERE id = $${i}`, vals);
+    await this.pool.query(`UPDATE public.logistics_orders SET ${sets.join(", ")} WHERE id = $${i}`, vals);
     return this.findById(id);
   }
 
