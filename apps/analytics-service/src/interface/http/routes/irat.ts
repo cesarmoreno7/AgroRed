@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { Pool } from "pg";
 import { asyncHandler, sendSuccess } from "../response.js";
+import { logError, logInfo } from "../../../shared/logger.js";
 
 /**
  * IRAT = Indicador de Riesgo Alimentario Territorial.
@@ -123,6 +124,114 @@ function computeIratScore(row: IratDimensionsRow): number {
   return Math.round(score * 100) / 100;
 }
 
+export interface IratCheckResult {
+  checked: number;
+  fired: number;
+  alerts: { institution: string; score: number; level: string }[];
+  checkedAt: string;
+}
+
+/**
+ * Runs the composite IRAT sweep and fires institutional_alerts for every
+ * institution crossing its tenant's threshold. Shared by the HTTP route and
+ * by the real-time trigger (Bug #11) fired from incident/demand mutations.
+ */
+export async function runIratCheck(pool: Pool): Promise<IratCheckResult> {
+  const { rows } = await pool.query<IratDimensionsRow>(DIMENSIONS_QUERY);
+
+  // Per-tenant thresholds (fall back to defaults)
+  const { rows: thresholdRows } = await pool.query<{
+    tenant_id: string;
+    irat_high: number;
+    irat_critical: number;
+  }>(`
+    SELECT
+      tenant_id,
+      MAX(CASE WHEN rule_key = 'institutional.irat_high'     THEN value END) AS irat_high,
+      MAX(CASE WHEN rule_key = 'institutional.irat_critical' THEN value END) AS irat_critical
+    FROM public.alert_thresholds
+    WHERE rule_key IN ('institutional.irat_high','institutional.irat_critical')
+    GROUP BY tenant_id
+  `);
+
+  const thresholdMap = new Map(
+    thresholdRows.map((r) => [r.tenant_id, {
+      high:     r.irat_high     ?? 60,
+      critical: r.irat_critical ?? 80,
+    }])
+  );
+
+  const fired: { institution: string; score: number; level: string }[] = [];
+
+  for (const row of rows) {
+    const score = computeIratScore(row);
+    const thr = thresholdMap.get(row.tenant_id) ?? { high: 60, critical: 80 };
+    const level = score >= thr.critical ? "CRITICAL"
+                : score >= thr.high     ? "HIGH"
+                : null;
+
+    if (!level) continue;
+
+    const title   = `IRAT ${level}: ${row.institution_name}`;
+    const message = `Indicador de Riesgo Alimentario en ${level.toLowerCase()} (${score}%). ` +
+      `Cobertura: ${Number(row.coverage_risk).toFixed(0)} · Tendencia: ${Number(row.trend_risk).toFixed(0)} · ` +
+      `Diversidad: ${Number(row.diversity_risk).toFixed(0)} · Incidencias: ${Number(row.incident_risk).toFixed(0)} · ` +
+      `Logística: ${Number(row.logistics_risk).toFixed(0)}. Acción inmediata requerida.`;
+
+    // NOTA QA (hallazgo del pilot Rionegro): esto insertaba antes en public.notifications sin
+    // incident_id/logistics_order_id, violando chk_notifications_reference_present (esa tabla
+    // exige que la alerta referencie una incidencia o una orden logística) y provocando un 500
+    // en TODO /api/v1/analytics/irat/check en cuanto algún tenant cruzaba el umbral. Esta alerta
+    // es de riesgo institucional agregado, no atada a una incidencia puntual — el destino
+    // correcto es public.institutional_alerts (008_modulos_revision.sql), que ya modela
+    // 'irat_alto' como alert_type y no tiene esa restricción.
+    await pool.query(
+      `INSERT INTO public.institutional_alerts
+         (id, tenant_id, alert_type, severity, title, description, indicator_name, indicator_value, threshold_value, zone_name, auto_generated)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, 'irat_score', $6, $7, $8, true)`,
+      [
+        row.tenant_id,
+        level === "CRITICAL" ? "irat_critico" : "irat_alto",
+        level === "CRITICAL" ? "critical" : "high",
+        title,
+        message,
+        score,
+        level === "CRITICAL" ? thr.critical : thr.high,
+        row.institution_name,
+      ]
+    );
+
+    fired.push({ institution: row.institution_name, score, level });
+  }
+
+  return {
+    checked: rows.length,
+    fired: fired.length,
+    alerts: fired,
+    checkedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Fire-and-forget IRAT recalculation (Bug #11): incidents/demands used to
+ * only affect the IRAT score on the next manual/scheduled POST .../irat/check.
+ * Call this right after an incident or demand is created/closed so the
+ * institutional_alerts table reflects the new risk level immediately,
+ * without making the caller's request wait on (or fail because of) the sweep.
+ */
+export function triggerIratRecheck(pool: Pool, reason: string): void {
+  void runIratCheck(pool)
+    .then((result) => {
+      logInfo("irat.realtime_recheck", { reason, checked: result.checked, fired: result.fired });
+    })
+    .catch((error) => {
+      logError("irat.realtime_recheck_failed", {
+        reason,
+        message: error instanceof Error ? error.message : String(error)
+      });
+    });
+}
+
 export function createIratRouter(pool: Pool): Router {
   const router = Router();
 
@@ -151,79 +260,8 @@ export function createIratRouter(pool: Pool): Router {
 
   /* POST /api/v1/analytics/irat/check — evaluate composite score & fire notifications */
   router.post("/api/v1/analytics/irat/check", asyncHandler(async (_req, res) => {
-    const { rows } = await pool.query<IratDimensionsRow>(DIMENSIONS_QUERY);
-
-    // Per-tenant thresholds (fall back to defaults)
-    const { rows: thresholdRows } = await pool.query<{
-      tenant_id: string;
-      irat_high: number;
-      irat_critical: number;
-    }>(`
-      SELECT
-        tenant_id,
-        MAX(CASE WHEN rule_key = 'institutional.irat_high'     THEN value END) AS irat_high,
-        MAX(CASE WHEN rule_key = 'institutional.irat_critical' THEN value END) AS irat_critical
-      FROM public.alert_thresholds
-      WHERE rule_key IN ('institutional.irat_high','institutional.irat_critical')
-      GROUP BY tenant_id
-    `);
-
-    const thresholdMap = new Map(
-      thresholdRows.map((r) => [r.tenant_id, {
-        high:     r.irat_high     ?? 60,
-        critical: r.irat_critical ?? 80,
-      }])
-    );
-
-    const fired: { institution: string; score: number; level: string }[] = [];
-
-    for (const row of rows) {
-      const score = computeIratScore(row);
-      const thr = thresholdMap.get(row.tenant_id) ?? { high: 60, critical: 80 };
-      const level = score >= thr.critical ? "CRITICAL"
-                  : score >= thr.high     ? "HIGH"
-                  : null;
-
-      if (!level) continue;
-
-      const title   = `IRAT ${level}: ${row.institution_name}`;
-      const message = `Indicador de Riesgo Alimentario en ${level.toLowerCase()} (${score}%). ` +
-        `Cobertura: ${Number(row.coverage_risk).toFixed(0)} · Tendencia: ${Number(row.trend_risk).toFixed(0)} · ` +
-        `Diversidad: ${Number(row.diversity_risk).toFixed(0)} · Incidencias: ${Number(row.incident_risk).toFixed(0)} · ` +
-        `Logística: ${Number(row.logistics_risk).toFixed(0)}. Acción inmediata requerida.`;
-
-      // NOTA QA (hallazgo del pilot Rionegro): esto insertaba antes en public.notifications sin
-      // incident_id/logistics_order_id, violando chk_notifications_reference_present (esa tabla
-      // exige que la alerta referencie una incidencia o una orden logística) y provocando un 500
-      // en TODO /api/v1/analytics/irat/check en cuanto algún tenant cruzaba el umbral. Esta alerta
-      // es de riesgo institucional agregado, no atada a una incidencia puntual — el destino
-      // correcto es public.institutional_alerts (008_modulos_revision.sql), que ya modela
-      // 'irat_alto' como alert_type y no tiene esa restricción.
-      await pool.query(
-        `INSERT INTO public.institutional_alerts
-           (id, tenant_id, alert_type, severity, title, description, indicator_name, indicator_value, threshold_value, zone_name, auto_generated)
-         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, 'irat_score', $6, $7, $8, true)`,
-        [
-          row.tenant_id,
-          level === "CRITICAL" ? "irat_critico" : "irat_alto",
-          level === "CRITICAL" ? "critical" : "high",
-          title,
-          message,
-          score,
-          level === "CRITICAL" ? thr.critical : thr.high,
-          row.institution_name,
-        ]
-      );
-
-      fired.push({ institution: row.institution_name, score, level });
-    }
-
-    return sendSuccess(res, {
-      checked: rows.length,
-      fired: fired.length,
-      alerts: fired,
-      checkedAt: new Date().toISOString(),
-    });
+    const result = await runIratCheck(pool);
+    return sendSuccess(res, result);
   }));
 
   return router;

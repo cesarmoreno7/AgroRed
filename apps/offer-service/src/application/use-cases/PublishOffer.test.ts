@@ -18,6 +18,18 @@ class InMemoryOfferRepository implements OfferRepository {
     const start = (params.page - 1) * params.limit;
     return { data: all.slice(start, start + params.limit), total: all.length, page: params.page, limit: params.limit };
   }
+
+  async patch(id: string, fields: Record<string, unknown>): Promise<Offer | null> {
+    const existing = this.store.get(id);
+    if (!existing) return null;
+    const updated = { ...existing, ...fields } as Offer;
+    this.store.set(id, updated);
+    return updated;
+  }
+
+  async findLatestActiveByProducerId(producerId: string): Promise<Offer | null> {
+    return Array.from(this.store.values()).find((o) => o.producerId === producerId && o.status === "published") ?? null;
+  }
 }
 
 describe("PublishOffer use-case", () => {

@@ -1,8 +1,7 @@
 import type { Pool } from "pg";
 import type { AutomationAction } from "../../domain/entities/AutomationRun.js";
-import type { NotificationSender } from "../../../../notification-service/src/domain/ports/NotificationSender.js";
 import { PostgresNotificationRepository } from "../../../../notification-service/src/infrastructure/repositories/PostgresNotificationRepository.js";
-import { DispatchNotification } from "../../../../notification-service/src/application/use-cases/DispatchNotification.js";
+import { DispatchNotification, type NotificationSenderRegistry } from "../../../../notification-service/src/application/use-cases/DispatchNotification.js";
 import { createAuditLogger } from "../../shared/audit.js";
 import { logInfo, logError } from "../../shared/logger.js";
 
@@ -24,7 +23,7 @@ const EXECUTABLE_ACTION_CODES = new Set(["dispatch_notifications"]);
 export class ActionExecutionEngine {
   constructor(
     private readonly pool: Pool,
-    private readonly notificationSender: NotificationSender
+    private readonly notificationSenders: NotificationSenderRegistry
   ) {}
 
   async execute(actions: AutomationAction[], context: ActionExecutionContext): Promise<void> {
@@ -52,11 +51,11 @@ export class ActionExecutionEngine {
   /** Mirrors POST /api/v1/notifications/dispatch-pending — real dispatch, not a simulation. */
   private async dispatchPendingNotifications(): Promise<void> {
     const repository = new PostgresNotificationRepository(this.pool);
-    const dispatchNotification = new DispatchNotification(repository, this.notificationSender);
+    const dispatchNotification = new DispatchNotification(repository, this.notificationSenders);
     const pending = await repository.findPending(50);
 
     for (const notification of pending) {
-      if (notification.notificationChannel !== "email") continue;
+      if (!this.notificationSenders[notification.notificationChannel]) continue;
       await dispatchNotification.execute(notification.id);
     }
   }

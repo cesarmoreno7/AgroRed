@@ -9,6 +9,8 @@ import {
   PRODUCER_ZONES,
   PRODUCER_STATUSES
 } from "../../../domain/value-objects/ProducerType.js";
+import type { AuditLogger } from "../../../shared/audit.js";
+import { auditGodViewAccess, resolveTenantFilter } from "../../../../../shared/middleware/tenantContext.js";
 import { asyncHandler, sendError, sendPaginatedSuccess, sendSuccess } from "../response.js";
 
 const registerProducerSchema = z.object({
@@ -44,7 +46,7 @@ function toProducerResponse(producer: Producer) {
   };
 }
 
-export function createProducersRouter(repository: ProducerRepository): Router {
+export function createProducersRouter(repository: ProducerRepository, auditLogger?: AuditLogger): Router {
   const router = Router();
   const registerProducer = new RegisterProducer(repository);
 
@@ -98,8 +100,8 @@ export function createProducersRouter(repository: ProducerRepository): Router {
   router.get("/api/v1/producers", asyncHandler(async (req, res) => {
     const page  = Math.max(1, parseInt(String(req.query.page  ?? "1"),   10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "20"), 10) || 20));
-    const tenantId = req.headers["x-tenant-id"] as string | undefined;
-    const result = await repository.list({ page, limit }, tenantId ?? null);
+    await auditGodViewAccess(req, auditLogger, { serviceName: "producer-service", entityName: "producers" });
+    const result = await repository.list({ page, limit }, resolveTenantFilter(req));
     return sendPaginatedSuccess(res, result.data.map(toProducerResponse), { total: result.total, page: result.page, limit: result.limit });
   }));
 

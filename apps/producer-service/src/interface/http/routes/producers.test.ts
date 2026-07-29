@@ -8,6 +8,7 @@ import type {
   PaginatedResult,
   ProducerStats
 } from "../../../domain/ports/ProducerRepository.js";
+import type { AuditLogger } from "../../../shared/audit.js";
 
 class InMemoryProducerRepository implements ProducerRepository {
   private readonly store = new Map<string, Producer>();
@@ -53,10 +54,10 @@ class InMemoryProducerRepository implements ProducerRepository {
   }
 }
 
-function buildApp(repo: ProducerRepository) {
+function buildApp(repo: ProducerRepository, auditLogger?: AuditLogger) {
   const app = express();
   app.use(express.json());
-  app.use(createProducersRouter(repo));
+  app.use(createProducersRouter(repo, auditLogger));
   return app;
 }
 
@@ -129,6 +130,37 @@ describe("Producer routes", () => {
 
       expect(res.body.data).toHaveLength(1);
       expect(res.body.pagination.total).toBe(2);
+    });
+
+    it("scopes a regular admin_municipal to its own tenant even when other tenants have data (Bug #9 baseline)", async () => {
+      await request(app).post("/api/v1/producers/register").send(validPayload);
+      await request(app).post("/api/v1/producers/register").send({ ...validPayload, tenantId: "t-2", organizationName: "Otro municipio" });
+
+      const res = await request(app).get("/api/v1/producers").set("x-tenant-id", "t-1").set("x-user-role", "admin_municipal");
+
+      expect(res.body.pagination.total).toBe(1);
+    });
+
+    it("gives SUPERADMIN real cross-tenant visibility and audits the access (Bug #9)", async () => {
+      const auditLogger = jest.fn(async () => undefined);
+      const godViewApp = buildApp(repo, auditLogger);
+
+      await request(godViewApp).post("/api/v1/producers/register").send(validPayload);
+      await request(godViewApp).post("/api/v1/producers/register").send({ ...validPayload, tenantId: "t-2", organizationName: "Otro municipio" });
+
+      const res = await request(godViewApp)
+        .get("/api/v1/producers")
+        .set("x-tenant-id", "t-1")
+        .set("x-user-role", "SUPERADMIN")
+        .set("x-user-id", "superadmin-1");
+
+      expect(res.body.pagination.total).toBe(2);
+      expect(auditLogger).toHaveBeenCalledWith(expect.objectContaining({
+        serviceName: "producer-service",
+        entityName: "producers",
+        actionName: "godview.cross_tenant_read",
+        actorId: "superadmin-1"
+      }));
     });
   });
 

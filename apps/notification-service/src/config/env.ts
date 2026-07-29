@@ -15,7 +15,15 @@ const envSchema = z.object({
   SMTP_SECURE: z.coerce.boolean().default(false),
   SMTP_USER: z.string().default(""),
   SMTP_PASS: z.string().default(""),
-  SMTP_FROM: z.string().email().default("noreply@agrored.co")
+  SMTP_FROM: z.string().email().default("noreply@agrored.co"),
+
+  // Bug #10 — omnichannel alerts (sms/whatsapp) via Twilio. Empty by default;
+  // TwilioSmsSender/TwilioWhatsappSender report a clear "not configured"
+  // failure instead of pretending to send when these are blank.
+  TWILIO_ACCOUNT_SID: z.string().default(""),
+  TWILIO_AUTH_TOKEN: z.string().default(""),
+  TWILIO_SMS_FROM: z.string().default(""),
+  TWILIO_WHATSAPP_FROM: z.string().default("")
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

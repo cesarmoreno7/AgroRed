@@ -5,6 +5,8 @@ import { ImportNearExpiryItems } from "../../../application/use-cases/ImportNear
 import type { InventoryItem } from "../../../domain/entities/InventoryItem.js";
 import type { InventoryItemRepository } from "../../../domain/ports/InventoryItemRepository.js";
 import { INVENTORY_SOURCE_TYPES } from "../../../domain/value-objects/InventorySourceType.js";
+import type { AuditLogger } from "../../../shared/audit.js";
+import { auditGodViewAccess, resolveTenantFilter } from "../../../../../shared/middleware/tenantContext.js";
 import { asyncHandler, sendError, sendPaginatedSuccess, sendSuccess } from "../response.js";
 
 const registerInventoryItemSchema = z.object({
@@ -50,7 +52,7 @@ function toInventoryResponse(item: InventoryItem) {
   };
 }
 
-export function createInventoryRouter(repository: InventoryItemRepository): Router {
+export function createInventoryRouter(repository: InventoryItemRepository, auditLogger?: AuditLogger): Router {
   const router = Router();
   const registerInventoryItem = new RegisterInventoryItem(repository);
 
@@ -96,8 +98,8 @@ export function createInventoryRouter(repository: InventoryItemRepository): Rout
   router.get("/api/v1/inventory", asyncHandler(async (req, res) => {
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
     const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "100"), 10) || 100));
-    const tenantId = req.headers["x-tenant-id"] as string | undefined;
-    const result = await repository.list({ page, limit }, tenantId ?? null);
+    await auditGodViewAccess(req, auditLogger, { serviceName: "inventory-service", entityName: "inventory" });
+    const result = await repository.list({ page, limit }, resolveTenantFilter(req));
     return sendPaginatedSuccess(res, result.data.map(toInventoryResponse), { total: result.total, page: result.page, limit: result.limit });
   }));
 

@@ -4,6 +4,7 @@ import { RegisterRescue } from "../../../application/use-cases/RegisterRescue.js
 import type { Rescue } from "../../../domain/entities/Rescue.js";
 import type { RescueRepository } from "../../../domain/ports/RescueRepository.js";
 import type { AuditLogger } from "../../../shared/audit.js";
+import { auditGodViewAccess, resolveTenantFilter } from "../../../../../shared/middleware/tenantContext.js";
 import { RESCUE_CHANNELS } from "../../../domain/value-objects/RescueChannel.js";
 import type { EventBus } from "../../../../../shared/redis/EventBus.js";
 import { asyncHandler, sendError, sendPaginatedSuccess, sendSuccess } from "../response.js";
@@ -104,8 +105,8 @@ export function createRescuesRouter(
   router.get("/api/v1/rescues", asyncHandler(async (req, res) => {
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "20"), 10) || 20));
-    const tenantId = req.headers["x-tenant-id"] as string | undefined;
-    const result = await repository.list({ page, limit }, tenantId ?? null);
+    await auditGodViewAccess(req, auditLogger, { serviceName: "rescue-service", entityName: "rescues" });
+    const result = await repository.list({ page, limit }, resolveTenantFilter(req));
     return sendPaginatedSuccess(res, result.data.map(toRescueResponse), { total: result.total, page: result.page, limit: result.limit });
   }));
 

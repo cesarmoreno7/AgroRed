@@ -84,7 +84,7 @@ describe("DispatchNotification use-case", () => {
   beforeEach(() => {
     repository = new InMemoryNotificationRepository();
     sender = new FakeEmailSender();
-    useCase = new DispatchNotification(repository, sender);
+    useCase = new DispatchNotification(repository, { email: sender });
   });
 
   it("sends a pending email notification and marks it as sent", async () => {
@@ -137,7 +137,7 @@ describe("DispatchNotification use-case", () => {
     await expect(useCase.execute("n-2")).rejects.toThrow("NOTIFICATION_NOT_PENDING");
   });
 
-  it("throws UNSUPPORTED_NOTIFICATION_CHANNEL for non-email channel", async () => {
+  it("throws UNSUPPORTED_NOTIFICATION_CHANNEL when no sender is registered for the channel", async () => {
     const notification = new Notification({
       id: "n-3",
       tenantId: "t-1",
@@ -152,6 +152,46 @@ describe("DispatchNotification use-case", () => {
     });
     await repository.save(notification);
 
+    // `useCase` only has an "email" sender registered — sms has no sender here.
     await expect(useCase.execute("n-3")).rejects.toThrow("UNSUPPORTED_NOTIFICATION_CHANNEL");
+  });
+
+  it("dispatches sms/whatsapp/in_app when their senders are registered (Bug #10)", async () => {
+    const smsSender = new FakeEmailSender();
+    const whatsappSender = new FakeEmailSender();
+    const inAppSender = new FakeEmailSender();
+    const omnichannelUseCase = new DispatchNotification(repository, {
+      email: sender,
+      sms: smsSender,
+      whatsapp: whatsappSender,
+      in_app: inAppSender
+    });
+
+    const channels: Array<["sms" | "whatsapp" | "in_app", FakeEmailSender]> = [
+      ["sms", smsSender],
+      ["whatsapp", whatsappSender],
+      ["in_app", inAppSender]
+    ];
+
+    for (const [channel, channelSender] of channels) {
+      const notification = new Notification({
+        id: `n-${channel}`,
+        tenantId: "t-1",
+        incidentId: "inc-1",
+        logisticsOrderId: null,
+        notificationChannel: channel,
+        recipientLabel: "+573001234567",
+        title: `Alerta ${channel}`,
+        message: "Incidencia detectada en la cadena logística del municipio.",
+        scheduledFor: new Date("2025-07-01T08:00:00Z"),
+        status: "pending"
+      });
+      await repository.save(notification);
+
+      const result = await omnichannelUseCase.execute(`n-${channel}`);
+
+      expect(result.status).toBe("sent");
+      expect(channelSender.sent).toHaveLength(1);
+    }
   });
 });

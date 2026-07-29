@@ -1,8 +1,7 @@
 import { Queue, Worker, type Job } from "bullmq";
 import { Redis } from "ioredis";
 import type { NotificationRepository } from "../../domain/ports/NotificationRepository.js";
-import type { NotificationSender } from "../../domain/ports/NotificationSender.js";
-import { DispatchNotification } from "../../application/use-cases/DispatchNotification.js";
+import { DispatchNotification, type NotificationSenderRegistry } from "../../application/use-cases/DispatchNotification.js";
 import { logError, logInfo } from "../../shared/logger.js";
 
 const QUEUE_NAME = "notification-dispatch";
@@ -10,7 +9,7 @@ const QUEUE_NAME = "notification-dispatch";
 export interface NotificationQueueDeps {
   redis: Redis;
   repository: NotificationRepository;
-  sender: NotificationSender;
+  senders: NotificationSenderRegistry;
 }
 
 /**
@@ -25,7 +24,7 @@ export function createNotificationQueue(redis: Redis): Queue {
  * Spawns a BullMQ worker that processes notification dispatch jobs.
  */
 export function createNotificationWorker(deps: NotificationQueueDeps): Worker {
-  const dispatch = new DispatchNotification(deps.repository, deps.sender);
+  const dispatch = new DispatchNotification(deps.repository, deps.senders);
 
   const worker = new Worker(
     QUEUE_NAME,

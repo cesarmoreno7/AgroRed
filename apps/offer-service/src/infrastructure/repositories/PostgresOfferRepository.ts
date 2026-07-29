@@ -137,6 +137,24 @@ export class PostgresOfferRepository implements OfferRepository {
     };
   }
 
+  async findLatestActiveByProducerId(producerId: string, tenantId: string): Promise<Offer | null> {
+    const result = await this.pool.query<OfferRow>(
+      `
+        SELECT id, tenant_id, producer_id, title, product_name, category, unit, quantity_available, price_amount, currency, available_from, available_until, municipality_name, notes, status, latitude::text AS latitude, longitude::text AS longitude, created_at
+        FROM public.offers
+        WHERE producer_id = $1
+          AND tenant_id = $2
+          AND status = 'published'
+          AND deleted_at IS NULL
+        ORDER BY created_at DESC
+        LIMIT 1
+      `,
+      [producerId, tenantId]
+    );
+
+    return result.rows[0] ? this.mapRow(result.rows[0]) : null;
+  }
+
   private async resolveTenantId(tenantKey: string): Promise<string> {
     const result = await this.pool.query<{ id: string }>(
       `

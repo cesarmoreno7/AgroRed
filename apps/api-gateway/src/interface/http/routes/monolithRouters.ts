@@ -12,10 +12,12 @@ import { createRedisConnection } from "../../../../../shared/redis/RedisClient.j
 // ── User service ──
 import { PostgresUserRepository } from "../../../../../user-service/src/infrastructure/repositories/PostgresUserRepository.js";
 import { createUsersRouter } from "../../../../../user-service/src/interface/http/routes/users.js";
+import { createAuditLogger as createUserAuditLogger } from "../../../../../user-service/src/shared/audit.js";
 
 // ── Producer service ──
 import { PostgresProducerRepository } from "../../../../../producer-service/src/infrastructure/repositories/PostgresProducerRepository.js";
 import { createProducersRouter } from "../../../../../producer-service/src/interface/http/routes/producers.js";
+import { createAuditLogger as createProducerAuditLogger } from "../../../../../producer-service/src/shared/audit.js";
 
 // ── Offer service ──
 import { PostgresOfferRepository } from "../../../../../offer-service/src/infrastructure/repositories/PostgresOfferRepository.js";
@@ -38,6 +40,7 @@ import { createAuditLogger as createDemandAuditLogger } from "../../../../../dem
 // ── Inventory service ──
 import { PostgresInventoryItemRepository } from "../../../../../inventory-service/src/infrastructure/repositories/PostgresInventoryItemRepository.js";
 import { createInventoryRouter } from "../../../../../inventory-service/src/interface/http/routes/inventory.js";
+import { createAuditLogger as createInventoryAuditLogger } from "../../../../../inventory-service/src/shared/audit.js";
 
 // ── Logistics service ──
 import { PostgresLogisticsOrderRepository } from "../../../../../logistics-service/src/infrastructure/repositories/PostgresLogisticsOrderRepository.js";
@@ -58,6 +61,10 @@ import { createAuditLogger as createIncidentAuditLogger } from "../../../../../i
 // ── Notification service ──
 import { PostgresNotificationRepository } from "../../../../../notification-service/src/infrastructure/repositories/PostgresNotificationRepository.js";
 import { SmtpEmailSender } from "../../../../../notification-service/src/infrastructure/email/SmtpEmailSender.js";
+import { TwilioSmsSender } from "../../../../../notification-service/src/infrastructure/sms/TwilioSmsSender.js";
+import { TwilioWhatsappSender } from "../../../../../notification-service/src/infrastructure/whatsapp/TwilioWhatsappSender.js";
+import { InAppNotificationSender } from "../../../../../notification-service/src/infrastructure/inapp/InAppNotificationSender.js";
+import type { NotificationSenderRegistry } from "../../../../../notification-service/src/application/use-cases/DispatchNotification.js";
 import { createNotificationsRouter } from "../../../../../notification-service/src/interface/http/routes/notifications.js";
 import { createNotificationQueue, createNotificationWorker } from "../../../../../notification-service/src/infrastructure/queue/NotificationQueue.js";
 
@@ -69,7 +76,7 @@ import { createAnalyticsRouter } from "../../../../../analytics-service/src/inte
 import { createMapRouter } from "../../../../../analytics-service/src/interface/http/routes/map.js";
 import { createInstitutionalRouter } from "../../../../../analytics-service/src/interface/http/routes/institutional.js";
 import { createOriginsRouter } from "../../../../../analytics-service/src/interface/http/routes/origins.js";
-import { createIratRouter } from "../../../../../analytics-service/src/interface/http/routes/irat.js";
+import { createIratRouter, triggerIratRecheck } from "../../../../../analytics-service/src/interface/http/routes/irat.js";
 
 // ── ML service ──
 import { PostgresDecisionSupportRepository } from "../../../../../ml-service/src/infrastructure/repositories/PostgresDecisionSupportRepository.js";
@@ -91,6 +98,7 @@ import { startAuctionScheduler } from "../../../../../auction-service/src/applic
 // ── Institution service ──
 import { PostgresInstitutionRepository } from "../../../../../institution-service/src/infrastructure/repositories/PostgresInstitutionRepository.js";
 import { createInstitutionsRouter } from "../../../../../institution-service/src/interface/http/routes/institutions.js";
+import { createAuditLogger as createInstitutionAuditLogger } from "../../../../../institution-service/src/shared/audit.js";
 
 // ── Location service ──
 import {
@@ -121,6 +129,36 @@ async function supportsBullMq(redisUrl: string): Promise<boolean> {
   } finally {
     await probe.quit();
   }
+}
+
+/**
+ * Bug #10 — one sender per channel so email/sms/whatsapp/in_app all actually
+ * dispatch instead of only email. SMS/WhatsApp gracefully report "not
+ * configured" via SendResult.success=false when TWILIO_* env vars are blank,
+ * rather than throwing UNSUPPORTED_NOTIFICATION_CHANNEL as before.
+ */
+function buildNotificationSenders(env: AppEnv): NotificationSenderRegistry {
+  return {
+    email: new SmtpEmailSender({
+      host: env.SMTP_HOST,
+      port: env.SMTP_PORT,
+      secure: env.SMTP_SECURE,
+      user: env.SMTP_USER,
+      pass: env.SMTP_PASS,
+      from: env.SMTP_FROM
+    }),
+    sms: new TwilioSmsSender({
+      accountSid: env.TWILIO_ACCOUNT_SID,
+      authToken: env.TWILIO_AUTH_TOKEN,
+      smsFrom: env.TWILIO_SMS_FROM
+    }),
+    whatsapp: new TwilioWhatsappSender({
+      accountSid: env.TWILIO_ACCOUNT_SID,
+      authToken: env.TWILIO_AUTH_TOKEN,
+      whatsappFrom: env.TWILIO_WHATSAPP_FROM
+    }),
+    in_app: new InAppNotificationSender()
+  };
 }
 
 let _cleanup: (() => Promise<void>) | null = null;
@@ -196,14 +234,7 @@ export async function registerMonolithRouters(
 
   // ── BullMQ workers (notification + automation) ──
   if (redis && await supportsBullMq(env.REDIS_URL)) {
-    const smtpSenderForQueue = new SmtpEmailSender({
-      host: env.SMTP_HOST,
-      port: env.SMTP_PORT,
-      secure: env.SMTP_SECURE,
-      user: env.SMTP_USER,
-      pass: env.SMTP_PASS,
-      from: env.SMTP_FROM
-    });
+    const notificationSendersForQueue = buildNotificationSenders(env);
 
     // Notification worker
     try {
@@ -213,7 +244,7 @@ export async function registerMonolithRouters(
       const notifWorker = createNotificationWorker({
         redis: wRedis,
         repository: new PostgresNotificationRepository(pool),
-        sender: smtpSenderForQueue
+        senders: notificationSendersForQueue
       });
       await notifQueue.waitUntilReady();
       await notifWorker.waitUntilReady();
@@ -238,7 +269,7 @@ export async function registerMonolithRouters(
       const automWorker = createAutomationWorker({
         redis: wRedis,
         repository: new PostgresAutomationRepository(pool),
-        actionEngine: new ActionExecutionEngine(pool, smtpSenderForQueue),
+        actionEngine: new ActionExecutionEngine(pool, notificationSendersForQueue),
         iratAlertChecker: new PostgresInstitutionalRepository(pool)
       });
       await automQueue.waitUntilReady();
@@ -286,35 +317,44 @@ export async function registerMonolithRouters(
     jwtExpiresIn: env.JWT_EXPIRES_IN,
     emailUser: env.EMAIL_USER,
     emailPass: env.EMAIL_PASS,
-    frontendUrl: env.FRONTEND_URL
+    frontendUrl: env.FRONTEND_URL,
+    auditLogger: createUserAuditLogger(pool)
   }));
 
   // Producer
-  app.use(createProducersRouter(new PostgresProducerRepository(pool)));
+  const producerRepository = new PostgresProducerRepository(pool);
+  app.use(createProducersRouter(producerRepository, createProducerAuditLogger(pool)));
 
   // Offer + Products catalog
+  const offerRepository = new PostgresOfferRepository(pool);
   const offerAuditLogger = createOfferAuditLogger(pool);
   app.use(createOffersRouter(
-    new PostgresOfferRepository(pool),
+    offerRepository,
     new PostgresDemandQueryAdapter(pool),
     new NullNotificationAdapter(),
     offerEventBus,
-    offerAuditLogger
+    offerAuditLogger,
+    producerRepository
   ));
   app.use(createProductsRouter(pool));
 
   // Rescue
+  const rescueRepository = new PostgresRescueRepository(pool);
   app.use(createRescuesRouter(
-    new PostgresRescueRepository(pool),
+    rescueRepository,
     rescueEventBus,
     createRescueAuditLogger(pool)
   ));
 
   // Demand
-  app.use(createDemandsRouter(new PostgresDemandRepository(pool), createDemandAuditLogger(pool)));
+  app.use(createDemandsRouter(
+    new PostgresDemandRepository(pool),
+    createDemandAuditLogger(pool),
+    (reason) => triggerIratRecheck(pool, reason)
+  ));
 
   // Inventory
-  app.use(createInventoryRouter(new PostgresInventoryItemRepository(pool)));
+  app.use(createInventoryRouter(new PostgresInventoryItemRepository(pool), createInventoryAuditLogger(pool)));
 
   // Logistics (tracking + route-planning must precede generic orders to avoid path shadowing)
   const logisticsAuditLogger = createLogisticsAuditLogger(pool);
@@ -324,18 +364,16 @@ export async function registerMonolithRouters(
   app.use(createLogisticsRouter(new PostgresLogisticsOrderRepository(pool), logisticsAuditLogger));
 
   // Incident
-  app.use(createIncidentsRouter(new PostgresIncidentRepository(pool), createIncidentAuditLogger(pool)));
+  app.use(createIncidentsRouter(
+    new PostgresIncidentRepository(pool),
+    createIncidentAuditLogger(pool),
+    (reason) => triggerIratRecheck(pool, reason),
+    { producerRepository, offerRepository, rescueRepository }
+  ));
 
   // Notification
-  const smtpSender = new SmtpEmailSender({
-    host: env.SMTP_HOST,
-    port: env.SMTP_PORT,
-    secure: env.SMTP_SECURE,
-    user: env.SMTP_USER,
-    pass: env.SMTP_PASS,
-    from: env.SMTP_FROM
-  });
-  app.use(createNotificationsRouter(new PostgresNotificationRepository(pool), smtpSender));
+  const notificationSenders = buildNotificationSenders(env);
+  app.use(createNotificationsRouter(new PostgresNotificationRepository(pool), notificationSenders));
 
   // Analytics (map, institutional, origins, IRAT)
   app.use(createAnalyticsRouter(new PostgresAnalyticsRepository(pool), analyticsCache));
@@ -348,13 +386,13 @@ export async function registerMonolithRouters(
   app.use(createMlRouter(new PostgresDecisionSupportRepository(pool), mlCache));
 
   // Automation
-  app.use(createAutomationRouter(new PostgresAutomationRepository(pool), new ActionExecutionEngine(pool, smtpSender)));
+  app.use(createAutomationRouter(new PostgresAutomationRepository(pool), new ActionExecutionEngine(pool, notificationSenders)));
 
   // Auction
   app.use(createAuctionsRouter(auctionRepo, bidRepo, auctionEventBus));
 
   // Institution
-  app.use(createInstitutionsRouter(new PostgresInstitutionRepository(pool)));
+  app.use(createInstitutionsRouter(new PostgresInstitutionRepository(pool), createInstitutionAuditLogger(pool)));
 
   // Location (departamentos, municipios, corregimientos, veredas)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

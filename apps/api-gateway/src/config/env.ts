@@ -42,6 +42,11 @@ const envSchema = z.object({
   SMTP_USER: z.string().default(""),
   SMTP_PASS: z.string().default(""),
   SMTP_FROM: z.string().default("noreply@agrored.co"),
+  // ── Notification service: omnichannel alerts (Bug #10) ──
+  TWILIO_ACCOUNT_SID: z.string().default(""),
+  TWILIO_AUTH_TOKEN: z.string().default(""),
+  TWILIO_SMS_FROM: z.string().default(""),
+  TWILIO_WHATSAPP_FROM: z.string().default(""),
   // ── Logistics service ──
   OSRM_URL: z.string().url().default("https://router.project-osrm.org")
 });

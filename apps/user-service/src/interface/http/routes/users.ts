@@ -6,6 +6,8 @@ import type { User } from "../../../domain/entities/User.js";
 import type { UserRepository } from "../../../domain/ports/UserRepository.js";
 import { USER_ROLES } from "../../../domain/value-objects/UserRole.js";
 import { asyncHandler, sendError, sendPaginatedSuccess, sendSuccess } from "../response.js";
+import type { AuditLogger } from "../../../shared/audit.js";
+import { auditGodViewAccess, resolveTenantFilter } from "../../../../../shared/middleware/tenantContext.js";
 import { randomUUID } from "node:crypto";
 import bcrypt from "bcrypt";
 import nodemailer from "nodemailer";
@@ -54,6 +56,7 @@ interface UsersRouterDeps {
   emailUser: string;
   emailPass: string;
   frontendUrl: string;
+  auditLogger?: AuditLogger;
 }
 
 function isPasswordRecoveryAvailable(deps: UsersRouterDeps): deps is UsersRouterDeps & { redis: Redis } {
@@ -200,8 +203,8 @@ export function createUsersRouter(deps: UsersRouterDeps): Router {
   router.get("/api/v1/users", asyncHandler(async (req, res) => {
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
     const limit = Math.min(200, Math.max(1, parseInt(String(req.query.limit ?? "100"), 10) || 100));
-    const tenantId = req.headers["x-tenant-id"] as string | undefined;
-    const result = await deps.repository.list({ page, limit }, tenantId ?? null);
+    await auditGodViewAccess(req, deps.auditLogger, { serviceName: "user-service", entityName: "users" });
+    const result = await deps.repository.list({ page, limit }, resolveTenantFilter(req));
     return sendPaginatedSuccess(res, result.data.map(toUserResponse), { total: result.total, page: result.page, limit: result.limit });
   }));
 

@@ -24,12 +24,20 @@ class InMemoryDemandRepository implements DemandRepository {
     const start = (params.page - 1) * params.limit;
     return { data: values.slice(start, start + params.limit), total: values.length, page: params.page, limit: params.limit };
   }
+
+  async patch(id: string, fields: Record<string, unknown>): Promise<Demand | null> {
+    const existing = this.store.get(id);
+    if (!existing) return null;
+    const updated = new Demand({ ...existing, ...fields } as ConstructorParameters<typeof Demand>[0]);
+    this.store.set(id, updated);
+    return updated;
+  }
 }
 
-function buildApp(repository: DemandRepository, auditLogger?: AuditLogger) {
+function buildApp(repository: DemandRepository, auditLogger?: AuditLogger, onIratRecheck?: (reason: string) => void) {
   const app = express();
   app.use(express.json());
-  app.use(createDemandsRouter(repository, auditLogger));
+  app.use(createDemandsRouter(repository, auditLogger, onIratRecheck));
   return app;
 }
 
@@ -70,5 +78,48 @@ describe("Demand routes", () => {
       actorId: "actor-2",
       correlationId: "corr-demand-1"
     }));
+  });
+
+  describe("IRAT real-time recheck trigger (Bug #11)", () => {
+    it("triggers a recheck after registering a demand", async () => {
+      const repo = new InMemoryDemandRepository();
+      const onIratRecheck = jest.fn();
+      const app = buildApp(repo, undefined, onIratRecheck);
+
+      const res = await request(app).post("/api/v1/demands/register").send(validPayload);
+
+      expect(res.status).toBe(201);
+      expect(onIratRecheck).toHaveBeenCalledWith("demand.registered");
+    });
+
+    it("triggers a recheck when a demand transitions to closed", async () => {
+      const repo = new InMemoryDemandRepository();
+      const onIratRecheck = jest.fn();
+      const app = buildApp(repo, undefined, onIratRecheck);
+
+      const created = await request(app).post("/api/v1/demands/register").send(validPayload);
+      onIratRecheck.mockClear();
+      const id = created.body.data.id;
+
+      const res = await request(app).patch(`/api/v1/demands/${id}`).send({ status: "closed" });
+
+      expect(res.status).toBe(200);
+      expect(onIratRecheck).toHaveBeenCalledWith("demand.closed");
+    });
+
+    it("does not trigger a recheck for unrelated field updates", async () => {
+      const repo = new InMemoryDemandRepository();
+      const onIratRecheck = jest.fn();
+      const app = buildApp(repo, undefined, onIratRecheck);
+
+      const created = await request(app).post("/api/v1/demands/register").send(validPayload);
+      onIratRecheck.mockClear();
+      const id = created.body.data.id;
+
+      const res = await request(app).patch(`/api/v1/demands/${id}`).send({ notes: "Actualizacion menor" });
+
+      expect(res.status).toBe(200);
+      expect(onIratRecheck).not.toHaveBeenCalled();
+    });
   });
 });

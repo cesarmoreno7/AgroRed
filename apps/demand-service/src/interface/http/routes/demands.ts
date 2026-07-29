@@ -4,6 +4,7 @@ import { RegisterDemand } from "../../../application/use-cases/RegisterDemand.js
 import type { Demand } from "../../../domain/entities/Demand.js";
 import type { DemandRepository } from "../../../domain/ports/DemandRepository.js";
 import type { AuditLogger } from "../../../shared/audit.js";
+import { auditGodViewAccess, resolveTenantFilter } from "../../../../../shared/middleware/tenantContext.js";
 import { DEMAND_CHANNELS } from "../../../domain/value-objects/DemandChannel.js";
 import { asyncHandler, sendError, sendPaginatedSuccess, sendSuccess } from "../response.js";
 
@@ -48,7 +49,11 @@ function toDemandResponse(demand: Demand) {
   };
 }
 
-export function createDemandsRouter(repository: DemandRepository, auditLogger?: AuditLogger): Router {
+export function createDemandsRouter(
+  repository: DemandRepository,
+  auditLogger?: AuditLogger,
+  onIratRecheck?: (reason: string) => void
+): Router {
   const router = Router();
   const registerDemand = new RegisterDemand(repository);
 
@@ -82,6 +87,8 @@ export function createDemandsRouter(repository: DemandRepository, auditLogger?: 
           }
         });
       }
+
+      onIratRecheck?.("demand.registered");
 
       return sendSuccess(res, toDemandResponse(demand), 201);
     } catch (error) {
@@ -119,8 +126,8 @@ export function createDemandsRouter(repository: DemandRepository, auditLogger?: 
   router.get("/api/v1/demands", asyncHandler(async (req, res) => {
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "20"), 10) || 20));
-    const tenantId = req.headers["x-tenant-id"] as string | undefined;
-    const result = await repository.list({ page, limit }, tenantId ?? null);
+    await auditGodViewAccess(req, auditLogger, { serviceName: "demand-service", entityName: "demands" });
+    const result = await repository.list({ page, limit }, resolveTenantFilter(req));
     return sendPaginatedSuccess(res, result.data.map(toDemandResponse), { total: result.total, page: result.page, limit: result.limit });
   }));
 
@@ -144,6 +151,11 @@ export function createDemandsRouter(repository: DemandRepository, auditLogger?: 
     if (!existing) return sendError(res, 404, "DEMAND_NOT_FOUND", "Demanda no encontrada.");
     const updated = await repository.patch(String(req.params.id), req.body as Record<string, unknown>);
     if (!updated) return sendError(res, 404, "DEMAND_NOT_FOUND", "Demanda no encontrada.");
+
+    if (updated.status === "closed" && existing.status !== "closed") {
+      onIratRecheck?.("demand.closed");
+    }
+
     return sendSuccess(res, toDemandResponse(updated));
   }));
 

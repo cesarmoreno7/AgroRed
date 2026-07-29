@@ -8,6 +8,8 @@ import {
 } from "../../../domain/value-objects/InstitutionType.js";
 import { RegisterInstitution } from "../../../application/use-cases/RegisterInstitution.js";
 import { ImportInstitutions } from "../../../application/use-cases/ImportInstitutions.js";
+import type { AuditLogger } from "../../../shared/audit.js";
+import { auditGodViewAccess, resolveTenantFilter } from "../../../../../shared/middleware/tenantContext.js";
 import {
   asyncHandler,
   sendError,
@@ -81,7 +83,7 @@ function toResponse(i: Institution) {
   };
 }
 
-export function createInstitutionsRouter(repository: InstitutionRepository): Router {
+export function createInstitutionsRouter(repository: InstitutionRepository, auditLogger?: AuditLogger): Router {
   const router = Router();
   const registerUseCase = new RegisterInstitution(repository);
 
@@ -148,8 +150,8 @@ export function createInstitutionsRouter(repository: InstitutionRepository): Rou
   router.get("/api/v1/institutions", asyncHandler(async (req, res) => {
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "20"), 10) || 20));
-    const tenantId = req.headers["x-tenant-id"] as string | undefined;
-    const result = await repository.list({ page, limit }, tenantId ?? null);
+    await auditGodViewAccess(req, auditLogger, { serviceName: "institution-service", entityName: "institutions" });
+    const result = await repository.list({ page, limit }, resolveTenantFilter(req));
     return sendPaginatedSuccess(res, result.data.map(toResponse), {
       total: result.total,
       page: result.page,

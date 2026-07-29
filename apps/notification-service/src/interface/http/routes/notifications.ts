@@ -1,10 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
 import { RegisterNotification } from "../../../application/use-cases/RegisterNotification.js";
-import { DispatchNotification } from "../../../application/use-cases/DispatchNotification.js";
+import { DispatchNotification, type NotificationSenderRegistry } from "../../../application/use-cases/DispatchNotification.js";
 import type { Notification } from "../../../domain/entities/Notification.js";
 import type { NotificationRepository } from "../../../domain/ports/NotificationRepository.js";
-import type { NotificationSender } from "../../../domain/ports/NotificationSender.js";
 import { NOTIFICATION_CHANNELS } from "../../../domain/value-objects/NotificationChannel.js";
 import { asyncHandler, sendError, sendPaginatedSuccess, sendSuccess } from "../response.js";
 
@@ -39,11 +38,11 @@ function toNotificationResponse(notification: Notification) {
 
 export function createNotificationsRouter(
   repository: NotificationRepository,
-  sender: NotificationSender
+  senders: NotificationSenderRegistry
 ): Router {
   const router = Router();
   const registerNotification = new RegisterNotification(repository);
-  const dispatchNotification = new DispatchNotification(repository, sender);
+  const dispatchNotification = new DispatchNotification(repository, senders);
 
   router.post("/api/v1/notifications/register", asyncHandler(async (req, res) => {
     const parsed = registerNotificationSchema.safeParse(req.body);
@@ -126,7 +125,7 @@ export function createNotificationsRouter(
     const results = [];
 
     for (const notification of pending) {
-      if (notification.notificationChannel !== "email") continue;
+      if (!senders[notification.notificationChannel]) continue;
 
       try {
         const result = await dispatchNotification.execute(notification.id);

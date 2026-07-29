@@ -1,11 +1,14 @@
 import type { NotificationRepository } from "../../domain/ports/NotificationRepository.js";
 import type { NotificationSender } from "../../domain/ports/NotificationSender.js";
+import type { NotificationChannel } from "../../domain/value-objects/NotificationChannel.js";
 import { Notification } from "../../domain/entities/Notification.js";
+
+export type NotificationSenderRegistry = Partial<Record<NotificationChannel, NotificationSender>>;
 
 export class DispatchNotification {
   constructor(
     private readonly repository: NotificationRepository,
-    private readonly sender: NotificationSender
+    private readonly senders: NotificationSenderRegistry
   ) {}
 
   async execute(notificationId: string): Promise<{ status: "sent" | "failed"; errorMessage?: string }> {
@@ -19,11 +22,12 @@ export class DispatchNotification {
       throw new Error("NOTIFICATION_NOT_PENDING");
     }
 
-    if (notification.notificationChannel !== "email") {
+    const sender = this.senders[notification.notificationChannel];
+    if (!sender) {
       throw new Error("UNSUPPORTED_NOTIFICATION_CHANNEL");
     }
 
-    const result = await this.sender.send(notification);
+    const result = await sender.send(notification);
 
     const dispatchStatus = result.success ? "sent" as const : "failed" as const;
 

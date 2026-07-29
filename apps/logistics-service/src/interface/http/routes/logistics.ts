@@ -4,6 +4,7 @@ import { RegisterLogisticsOrder } from "../../../application/use-cases/RegisterL
 import type { LogisticsOrder } from "../../../domain/entities/LogisticsOrder.js";
 import type { LogisticsOrderRepository } from "../../../domain/ports/LogisticsOrderRepository.js";
 import type { AuditLogger } from "../../../shared/audit.js";
+import { auditGodViewAccess, resolveTenantFilter } from "../../../../../shared/middleware/tenantContext.js";
 import { ROUTE_MODES } from "../../../domain/value-objects/RouteMode.js";
 import { asyncHandler, sendError, sendPaginatedSuccess, sendSuccess } from "../response.js";
 
@@ -114,8 +115,8 @@ export function createLogisticsRouter(repository: LogisticsOrderRepository, audi
   router.get("/api/v1/logistics", asyncHandler(async (req, res) => {
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "20"), 10) || 20));
-    const tenantId = req.headers["x-tenant-id"] as string | undefined;
-    const result = await repository.list({ page, limit }, tenantId ?? null);
+    await auditGodViewAccess(req, auditLogger, { serviceName: "logistics-service", entityName: "logistics_orders" });
+    const result = await repository.list({ page, limit }, resolveTenantFilter(req));
     return sendPaginatedSuccess(res, result.data.map(toLogisticsResponse), { total: result.total, page: result.page, limit: result.limit });
   }));
 

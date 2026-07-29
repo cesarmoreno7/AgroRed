@@ -16,6 +16,7 @@ import type {
 } from "../../../domain/ports/IncidentRepository.js";
 import type { IncidentStatus } from "../../../domain/value-objects/IncidentStatus.js";
 import type { AuditLogger } from "../../../shared/audit.js";
+import type { ActivateRescueFromIncidentDeps } from "../../../application/use-cases/ActivateRescueFromIncident.js";
 
 class InMemoryIncidentRepository implements IncidentRepository {
   private readonly store = new Map<string, Incident>();
@@ -65,10 +66,15 @@ class InMemoryIncidentRepository implements IncidentRepository {
   }
 }
 
-function buildApp(repository: IncidentRepository, auditLogger?: AuditLogger) {
+function buildApp(
+  repository: IncidentRepository,
+  auditLogger?: AuditLogger,
+  onIratRecheck?: (reason: string) => void,
+  autoRescueDeps?: ActivateRescueFromIncidentDeps
+) {
   const app = express();
   app.use(express.json());
-  app.use(createIncidentsRouter(repository, auditLogger));
+  app.use(createIncidentsRouter(repository, auditLogger, onIratRecheck, autoRescueDeps));
   return app;
 }
 
@@ -140,6 +146,98 @@ describe("Incident routes", () => {
       actorId: "actor-status-1",
       correlationId: "corr-status-1"
     }));
+  });
+
+  it("falls back reportedBy to x-user-id when the client omits it (Bug #12)", async () => {
+    const repository = new InMemoryIncidentRepository();
+    const app = buildApp(repository);
+
+    const { reportedBy, ...payloadWithoutReportedBy } = validPayload;
+    const res = await request(app)
+      .post("/api/v1/incidents/register")
+      .set("x-user-id", "user-producer-42")
+      .send(payloadWithoutReportedBy);
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.reportedBy).toBe("user-producer-42");
+  });
+
+  it("keeps the client-supplied reportedBy when explicitly provided", async () => {
+    const repository = new InMemoryIncidentRepository();
+    const app = buildApp(repository);
+
+    const res = await request(app)
+      .post("/api/v1/incidents/register")
+      .set("x-user-id", "ops-staff-1")
+      .send(validPayload);
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.reportedBy).toBe("brigada-1");
+  });
+
+  describe("automatic rescue activation (Bug #12)", () => {
+    it("includes autoRescueActivation:null in the response when no autoRescueDeps are wired", async () => {
+      const repository = new InMemoryIncidentRepository();
+      const app = buildApp(repository);
+
+      const res = await request(app).post("/api/v1/incidents/register").send(validPayload);
+
+      expect(res.status).toBe(201);
+      expect(res.body.data.autoRescueActivation).toBeNull();
+    });
+
+    it("reports a skip reason when the reporter is not a known producer", async () => {
+      const repository = new InMemoryIncidentRepository();
+      const autoRescueDeps: ActivateRescueFromIncidentDeps = {
+        producerRepository: { findByUserId: async () => null } as any,
+        offerRepository: { findLatestActiveByProducerId: async () => null } as any,
+        rescueRepository: { save: async () => undefined } as any
+      };
+      const app = buildApp(repository, undefined, undefined, autoRescueDeps);
+
+      const res = await request(app)
+        .post("/api/v1/incidents/register")
+        .send({ ...validPayload, incidentType: "desperdicio_alimentario" });
+
+      expect(res.status).toBe(201);
+      expect(res.body.data.autoRescueActivation).toEqual({
+        triggered: false,
+        reason: "REPORTER_NOT_A_PRODUCER"
+      });
+    });
+  });
+
+  describe("IRAT real-time recheck trigger (Bug #11)", () => {
+    it("triggers a recheck after registering an incident", async () => {
+      const repository = new InMemoryIncidentRepository();
+      const onIratRecheck = jest.fn();
+      const app = buildApp(repository, undefined, onIratRecheck);
+
+      const res = await request(app).post("/api/v1/incidents/register").send(validPayload);
+
+      expect(res.status).toBe(201);
+      expect(onIratRecheck).toHaveBeenCalledWith("incident.registered");
+    });
+
+    it("triggers a recheck after an incident status update", async () => {
+      const repository = new InMemoryIncidentRepository();
+      const incident = new Incident({
+        ...validPayload,
+        id: "incident-1",
+        status: "open",
+        createdAt: new Date("2026-05-27T09:00:00.000Z")
+      });
+      await repository.save(incident);
+      const onIratRecheck = jest.fn();
+      const app = buildApp(repository, undefined, onIratRecheck);
+
+      const res = await request(app)
+        .patch("/api/v1/incidents/incident-1/status")
+        .send({ status: "en_analisis", performedBy: "actor-status-1" });
+
+      expect(res.status).toBe(200);
+      expect(onIratRecheck).toHaveBeenCalledWith("incident.status_updated");
+    });
   });
 
   it("writes an audit event after registering an incident action", async () => {

@@ -6,9 +6,11 @@ import { RegisterIncidentAction } from "../../../application/use-cases/RegisterI
 import { PrioritizeIncident } from "../../../application/use-cases/PrioritizeIncident.js";
 import { GenerateIncidentAlerts } from "../../../application/use-cases/GenerateIncidentAlerts.js";
 import { classifyIncident } from "../../../application/use-cases/ClassifyIncident.js";
+import { activateRescueFromIncident, type ActivateRescueFromIncidentDeps } from "../../../application/use-cases/ActivateRescueFromIncident.js";
 import type { Incident } from "../../../domain/entities/Incident.js";
 import type { IncidentRepository, IncidentAction, IncidentAlert } from "../../../domain/ports/IncidentRepository.js";
 import type { AuditLogger } from "../../../shared/audit.js";
+import { auditGodViewAccess, isGodViewRole } from "../../../../../shared/middleware/tenantContext.js";
 import { INCIDENT_SEVERITIES } from "../../../domain/value-objects/IncidentSeverity.js";
 import { INCIDENT_TYPES } from "../../../domain/value-objects/IncidentType.js";
 import { INCIDENT_STATUSES } from "../../../domain/value-objects/IncidentStatus.js";
@@ -116,7 +118,12 @@ function toAlertResponse(a: IncidentAlert) {
   };
 }
 
-export function createIncidentsRouter(repository: IncidentRepository, auditLogger?: AuditLogger): Router {
+export function createIncidentsRouter(
+  repository: IncidentRepository,
+  auditLogger?: AuditLogger,
+  onIratRecheck?: (reason: string) => void,
+  autoRescueDeps?: ActivateRescueFromIncidentDeps
+): Router {
   const router = Router();
   const registerIncident = new RegisterIncident(repository);
   const updateIncidentStatus = new UpdateIncidentStatus(repository);
@@ -132,7 +139,14 @@ export function createIncidentsRouter(repository: IncidentRepository, auditLogge
     }
 
     try {
-      const incident = await registerIncident.execute(parsed.data);
+      // Bug #12: fall back to the authenticated caller's user id when the client didn't
+      // supply reportedBy, so a producer reporting their own incident (Bug #8) is
+      // resolvable to a producer record for automatic rescue activation, without
+      // depending on frontend code remembering to pass it explicitly.
+      const reportedBy = parsed.data.reportedBy
+        ?? (typeof req.headers["x-user-id"] === "string" ? req.headers["x-user-id"] : null);
+
+      const incident = await registerIncident.execute({ ...parsed.data, reportedBy });
 
       if (auditLogger) {
         await auditLogger({
@@ -153,7 +167,13 @@ export function createIncidentsRouter(repository: IncidentRepository, auditLogge
         });
       }
 
-      return sendSuccess(res, toIncidentResponse(incident), 201);
+      onIratRecheck?.("incident.registered");
+
+      const autoRescue = autoRescueDeps
+        ? await activateRescueFromIncident(incident, autoRescueDeps)
+        : undefined;
+
+      return sendSuccess(res, { ...toIncidentResponse(incident), autoRescueActivation: autoRescue ?? null }, 201);
     } catch (error) {
       if (error instanceof Error && error.message === "TENANT_NOT_FOUND") {
         return sendError(res, 404, "TENANT_NOT_FOUND", "Municipio o tenant no encontrado.");
@@ -175,7 +195,10 @@ export function createIncidentsRouter(repository: IncidentRepository, auditLogge
   router.get("/api/v1/incidents", asyncHandler(async (req, res) => {
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "20"), 10) || 20));
-    const tenantId = (req.headers["x-tenant-id"] as string | undefined) ?? (req.query.tenantId ? String(req.query.tenantId) : undefined);
+    await auditGodViewAccess(req, auditLogger, { serviceName: "incident-service", entityName: "incidents" });
+    const tenantId = isGodViewRole(req)
+      ? undefined
+      : (req.headers["x-tenant-id"] as string | undefined) ?? (req.query.tenantId ? String(req.query.tenantId) : undefined);
     const filter = {
       tenantId,
       status: req.query.status ? String(req.query.status) as any : undefined,
@@ -235,6 +258,9 @@ export function createIncidentsRouter(repository: IncidentRepository, auditLogge
           }
         });
       }
+
+      onIratRecheck?.("incident.status_updated");
+
       return sendSuccess(res, toIncidentResponse(incident));
     } catch (error) {
       if (error instanceof Error && error.message === "INCIDENT_NOT_FOUND") {

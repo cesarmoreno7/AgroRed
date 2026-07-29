@@ -5,6 +5,10 @@ import { loadEnv } from "./config/env.js";
 import { createPostgresPool, checkPostgres } from "./infrastructure/persistence/postgres.js";
 import { PostgresNotificationRepository } from "./infrastructure/repositories/PostgresNotificationRepository.js";
 import { SmtpEmailSender } from "./infrastructure/email/SmtpEmailSender.js";
+import { TwilioSmsSender } from "./infrastructure/sms/TwilioSmsSender.js";
+import { TwilioWhatsappSender } from "./infrastructure/whatsapp/TwilioWhatsappSender.js";
+import { InAppNotificationSender } from "./infrastructure/inapp/InAppNotificationSender.js";
+import type { NotificationSenderRegistry } from "./application/use-cases/DispatchNotification.js";
 import { createNotificationQueue, createNotificationWorker } from "./infrastructure/queue/NotificationQueue.js";
 import { createRedisConnection, closeRedis } from "../../shared/redis/RedisClient.js";
 import { createHealthRouter } from "./interface/http/routes/health.js";
@@ -36,14 +40,27 @@ async function main(): Promise<void> {
   let worker = null;
   let queueRedis = null;
   let workerRedis = null;
-  const emailSender = new SmtpEmailSender({
-    host: env.SMTP_HOST,
-    port: env.SMTP_PORT,
-    secure: env.SMTP_SECURE,
-    user: env.SMTP_USER,
-    pass: env.SMTP_PASS,
-    from: env.SMTP_FROM
-  });
+  const senders: NotificationSenderRegistry = {
+    email: new SmtpEmailSender({
+      host: env.SMTP_HOST,
+      port: env.SMTP_PORT,
+      secure: env.SMTP_SECURE,
+      user: env.SMTP_USER,
+      pass: env.SMTP_PASS,
+      from: env.SMTP_FROM
+    }),
+    sms: new TwilioSmsSender({
+      accountSid: env.TWILIO_ACCOUNT_SID,
+      authToken: env.TWILIO_AUTH_TOKEN,
+      smsFrom: env.TWILIO_SMS_FROM
+    }),
+    whatsapp: new TwilioWhatsappSender({
+      accountSid: env.TWILIO_ACCOUNT_SID,
+      authToken: env.TWILIO_AUTH_TOKEN,
+      whatsappFrom: env.TWILIO_WHATSAPP_FROM
+    }),
+    in_app: new InAppNotificationSender()
+  };
 
   // Redis + BullMQ worker
   if (await supportsBullMq(env.REDIS_URL)) {
@@ -51,7 +68,7 @@ async function main(): Promise<void> {
       queueRedis = createRedisConnection({ url: env.REDIS_URL, maxRetriesPerRequest: null });
       workerRedis = createRedisConnection({ url: env.REDIS_URL, maxRetriesPerRequest: null });
       queue = createNotificationQueue(queueRedis);
-      worker = createNotificationWorker({ redis: workerRedis, repository, sender: emailSender });
+      worker = createNotificationWorker({ redis: workerRedis, repository, senders });
       await queue.waitUntilReady();
       await worker.waitUntilReady();
       logInfo("queue.notification.worker_started", {});
@@ -99,7 +116,7 @@ async function main(): Promise<void> {
       }
     })
   );
-  app.use(createNotificationsRouter(repository, emailSender));
+  app.use(createNotificationsRouter(repository, senders));
   app.use(notFoundHandler);
   app.use(globalErrorHandler);
 
