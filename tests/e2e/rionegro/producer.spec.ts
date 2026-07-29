@@ -96,7 +96,7 @@ test.describe("TC-RIONEGRO-PROD — Productor (Rionegro)", () => {
     expect(Number(patched.data.priceAmount)).toBe(2700);
   });
 
-  test("RIO-PROD-005 | [seguridad] otro productor del mismo municipio NO debería poder editar esta oferta", async ({ page, request }) => {
+  test("RIO-PROD-005 | [seguridad] otro productor del mismo municipio NO puede editar esta oferta (Bug #6 corregido)", async ({ page, request }) => {
     const token = await page.evaluate(() => localStorage.getItem("agrored_token"));
     const producer = await findProducerByOrgSubstring(page, request, token!, "Corpoángeles");
 
@@ -126,18 +126,11 @@ test.describe("TC-RIONEGRO-PROD — Productor (Rionegro)", () => {
       data: { priceAmount: 1 },
     });
 
-    // Hallazgo QA: hoy el backend solo valida rol + tenant (ambos son 'producer' en Rionegro),
-    // no existe verificación de propiedad por productor. Este test documenta el estado real;
-    // si en el futuro se agrega el chequeo de ownership, se debe esperar 403 aquí.
-    if (patchRes.status() === 200) {
-      test.info().annotations.push({
-        type: "known-gap",
-        description:
-          "PATCH /api/v1/offers/:id no valida que el productor autenticado sea dueño de la oferta " +
-          "(solo valida tenant). Un productor puede editar ofertas de otro productor del mismo municipio.",
-      });
-    }
-    expect([200, 403]).toContain(patchRes.status());
+    // Bug #6 corregido: PATCH /api/v1/offers/:id ahora resuelve el productor autenticado
+    // (via producerRepository.findByUserId) y compara contra el dueño real de la oferta.
+    expect(patchRes.status()).toBe(403);
+    const patchBody = await patchRes.json();
+    expect(patchBody.error.code).toBe("FORBIDDEN");
   });
 
   test("RIO-PROD-006 | [seguridad] productor de otro tenant NO puede editar oferta de Rionegro (cross-tenant)", async ({ page, request }) => {
@@ -174,7 +167,7 @@ test.describe("TC-RIONEGRO-PROD — Productor (Rionegro)", () => {
     expect(patchRes.status()).toBe(404); // tenant isolation -> not found, not leaked
   });
 
-  test("RIO-PROD-007 | reportar incidencia — verifica RBAC real del rol producer", async ({ page, request }) => {
+  test("RIO-PROD-007 | reportar incidencia — rol producer autorizado (Bug #8 corregido)", async ({ page, request }) => {
     const token = await page.evaluate(() => localStorage.getItem("agrored_token"));
     const payload = JSON.parse(atob(token!.split(".")[1]));
     const res = await request.post(`${API_URL}/api/v1/incidents/register`, {
@@ -184,17 +177,67 @@ test.describe("TC-RIONEGRO-PROD — Productor (Rionegro)", () => {
         incidentType: "access_blockage",
         severity: "medium",
         title: "TEST_QA_RIONEGRO Reporte de productor",
-        description: "Intento de reporte de incidencia por un usuario con rol producer.",
+        description: "Reporte de incidencia por un usuario con rol producer.",
         locationDescription: "Vereda El Tablazo, Rionegro",
         occurredAt: new Date().toISOString(),
         municipalityName: "Municipio de Rionegro",
       },
     });
-    // El flujo de negocio esperado (ver AGRORED_Prompt_Pruebas_ClaudeCode.md) asume que un
-    // productor puede reportar incidencias, pero la política RBAC actual
-    // (apps/api-gateway/.../middlewares/rbac.ts) solo permite POST /api/v1/incidents a
-    // admin_municipal, logistics_operator y territorial_analyst. Documentamos el 403 real.
-    expect(res.status()).toBe(403);
+    // Bug #8 corregido: rbac.ts ahora incluye 'producer' en los roles permitidos para
+    // POST /api/v1/incidents (además de admin_municipal, logistics_operator, territorial_analyst).
+    expect(res.status()).toBe(201);
+    const body = await res.json();
+    expect(body.data.reportedBy ?? null).not.toBeUndefined();
+  });
+
+  test("RIO-PROD-009 | reporta desperdicio alimentario con oferta activa -> rescate automático (Bug #12 corregido)", async ({ page, request }) => {
+    const token = await page.evaluate(() => localStorage.getItem("agrored_token"));
+    const payload = JSON.parse(atob(token!.split(".")[1]));
+    const producer = await findProducerByOrgSubstring(page, request, token!, "Corpoángeles");
+
+    // Asegura que el productor tiene una oferta activa (publicada) para que el rescate
+    // automático tenga datos reales de producto/cantidad que enlazar.
+    await request.post(`${API_URL}/api/v1/offers/publish`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data: {
+        tenantId: producer.tenantId,
+        producerId: producer.id,
+        title: "TEST_QA_RIONEGRO Excedente para rescate automático E2E",
+        productName: "Tomate chonto",
+        category: "hortaliza",
+        unit: "kg",
+        quantityAvailable: 150,
+        priceAmount: 1800,
+        currency: "COP",
+        availableFrom: new Date().toISOString(),
+        municipalityName: producer.municipalityName,
+      },
+    });
+
+    const res = await request.post(`${API_URL}/api/v1/incidents/register`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data: {
+        tenantId: payload.tenantId,
+        incidentType: "desperdicio_alimentario",
+        severity: "high",
+        title: "TEST_QA_RIONEGRO Excedente en riesgo de pérdida",
+        description: "Producto perecedero sin comprador, riesgo de pérdida en 24h.",
+        locationDescription: "Vereda El Tablazo, Rionegro",
+        occurredAt: new Date().toISOString(),
+        municipalityName: "Municipio de Rionegro",
+        affectedPopulation: 30,
+        // reportedBy no se envía a propósito: el gateway ahora lo completa con el
+        // x-user-id del token (Bug #12), así activateRescueFromIncident puede resolver
+        // al productor autenticado sin que el cliente tenga que pasarlo explícitamente.
+      },
+    });
+    expect(res.status()).toBe(201);
+    const body = await res.json();
+
+    // El reportante autenticado (x-user-id del productor) debe resolverse a su registro de
+    // productor y activar un rescate real (rescueChannel food_bank) contra su oferta activa.
+    expect(body.data.autoRescueActivation?.triggered).toBe(true);
+    expect(body.data.autoRescueActivation?.rescueId).toBeTruthy();
   });
 
   test("RIO-PROD-008 | publica subasta ascendente (vendedor)", async ({ page, request }) => {

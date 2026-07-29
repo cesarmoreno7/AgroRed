@@ -5,14 +5,19 @@ import { RIONEGRO_USERS } from "../fixtures/users.rionegro";
 
 // QA Pilot — Rionegro — Incidencia -> Clasificación de severidad -> Alerta omnicanal -> Rescate
 //
-// Hallazgo QA importante (documentado también en el informe): en el código actual este flujo
-// NO está encadenado automáticamente. Cada paso es una llamada HTTP explícita:
+// Estado tras la corrección de los Bugs #10, #11 y #12 (ver AGRORED_Informe_QA_Oriente_Antioqueno_Completo.docx):
 //   1) POST /api/v1/incidents/register-auto   (clasifica y registra en un solo paso)
 //   2) POST /api/v1/incidents/alerts/:tenantId/generate  (evalúa umbrales y genera alertas)
-//   3) POST /api/v1/notifications/register + POST /api/v1/notifications/:id/dispatch (envío real, solo canal email)
-//   4) POST /api/v1/incidents/:id/trigger-logistics  (crea una orden logística automática, NO una fila en 'rescues')
-// La activación real "hacia banco de alimentos" (rescues.rescueChannel = 'food_bank') sigue
-// siendo 100% manual — no existe ningún caso de uso que la dispare desde una incidencia.
+//   3) POST /api/v1/notifications/register + POST /api/v1/notifications/:id/dispatch
+//      (Bug #10 corregido: email/sms/whatsapp/in_app tienen un sender real cada uno;
+//      sms/whatsapp reportan éxito o un fallo de configuración claro, ya no 400 UNSUPPORTED_NOTIFICATION_CHANNEL)
+//   4) POST /api/v1/incidents/:id/trigger-logistics  (sigue creando una orden logística, no una fila en 'rescues';
+//      sigue dependiendo de LOGISTICS_SERVICE_URL — no corregido, es un problema de orquestación distinto al Bug #12)
+//   5) POST /api/v1/incidents/register: si la incidencia es de tipo 'desperdicio_alimentario'/'inseguridad_alimentaria'
+//      y el reportante es un productor con una oferta activa (Bug #12 corregido), la respuesta incluye
+//      `autoRescueActivation` con el rescate real activado automáticamente — ver RIO-INC-005 abajo.
+// El IRAT ahora se recalcula en tiempo real (Bug #11) al registrar o cambiar el estado de una incidencia
+// — ver el trigger onIratRecheck en apps/incident-service/.../incidents.ts.
 
 test.describe("TC-RIONEGRO-INC — Incidencia -> Alerta -> Rescate (Rionegro)", () => {
   test.beforeEach(async ({ page }) => {
@@ -115,7 +120,7 @@ test.describe("TC-RIONEGRO-INC — Incidencia -> Alerta -> Rescate (Rionegro)", 
     }
   });
 
-  test("RIO-INC-003b | canales sms/whatsapp/in_app no tienen envío real implementado (hallazgo QA)", async ({ page, request }) => {
+  test("RIO-INC-003b | canales sms/whatsapp/in_app ahora tienen envío real implementado (Bug #10 corregido)", async ({ page, request }) => {
     const token = await page.evaluate(() => localStorage.getItem("agrored_token"));
     const payload = JSON.parse(atob(token!.split(".")[1]));
 
@@ -125,8 +130,8 @@ test.describe("TC-RIONEGRO-INC — Incidencia -> Alerta -> Rescate (Rionegro)", 
         tenantId: payload.tenantId,
         incidentType: "access_blockage",
         severity: "high",
-        title: "TEST_QA_RIONEGRO Incidente canal SMS E2E",
-        description: "Incidente de prueba para validar el canal SMS (no implementado en DispatchNotification).",
+        title: "TEST_QA_RIONEGRO Incidente canal omnicanal E2E",
+        description: "Incidente de prueba para validar los canales sms/whatsapp/in_app tras el fix del Bug #10.",
         locationDescription: "Vía El Tablazo - Rionegro",
         occurredAt: new Date().toISOString(),
         municipalityName: "Municipio de Rionegro",
@@ -134,28 +139,59 @@ test.describe("TC-RIONEGRO-INC — Incidencia -> Alerta -> Rescate (Rionegro)", 
     });
     const incident = (await incRes.json()).data;
 
-    const notifRes = await request.post(`${API_URL}/api/v1/notifications/register`, {
+    // in_app no depende de ningún proveedor externo: la fila persistida ES la entrega —
+    // debe despachar sin error real (200 con status "sent").
+    const inAppNotifRes = await request.post(`${API_URL}/api/v1/notifications/register`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data: {
+        tenantId: payload.tenantId,
+        incidentId: incident.id,
+        notificationChannel: "in_app",
+        recipientLabel: "admin_municipal:rionegro",
+        title: "TEST_QA_RIONEGRO Alerta in-app Rionegro",
+        message: "Prueba de canal in_app tras el fix omnicanal.",
+        scheduledFor: new Date().toISOString(),
+      },
+    });
+    expect(inAppNotifRes.status()).toBe(201);
+    const inAppNotification = (await inAppNotifRes.json()).data;
+
+    const inAppDispatchRes = await request.post(`${API_URL}/api/v1/notifications/${inAppNotification.id}/dispatch`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(inAppDispatchRes.status()).toBe(200);
+    expect((await inAppDispatchRes.json()).data.status).toBe("sent");
+
+    // sms sí tiene un sender real registrado (TwilioSmsSender), pero este entorno de prueba
+    // no tiene TWILIO_* configurado — el dispatch ya no lanza UNSUPPORTED_NOTIFICATION_CHANNEL
+    // (400); ahora responde 200 con status "failed" y un motivo claro de configuración.
+    const smsNotifRes = await request.post(`${API_URL}/api/v1/notifications/register`, {
       headers: { Authorization: `Bearer ${token}` },
       data: {
         tenantId: payload.tenantId,
         incidentId: incident.id,
         notificationChannel: "sms",
-        recipientLabel: "admin_municipal",
+        recipientLabel: "+573001234567",
         title: "TEST_QA_RIONEGRO Alerta SMS Rionegro",
-        message: "Prueba de canal SMS — se espera que el registro funcione pero el envío falle.",
+        message: "Prueba de canal SMS tras el fix omnicanal.",
         scheduledFor: new Date().toISOString(),
       },
     });
-    expect(notifRes.status()).toBe(201); // el registro sí funciona: la tabla acepta cualquier canal válido
-    const notification = (await notifRes.json()).data;
+    expect(smsNotifRes.status()).toBe(201);
+    const smsNotification = (await smsNotifRes.json()).data;
 
-    const dispatchRes = await request.post(`${API_URL}/api/v1/notifications/${notification.id}/dispatch`, {
+    const smsDispatchRes = await request.post(`${API_URL}/api/v1/notifications/${smsNotification.id}/dispatch`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    // apps/notification-service/.../DispatchNotification.ts solo implementa el envío para
-    // 'email'; sms/whatsapp lanzan UNSUPPORTED_NOTIFICATION_CHANNEL -> 400. "Omnicanal" es
-    // hoy aspiracional para estos dos canales.
-    expect(dispatchRes.status()).toBe(400);
+    expect(smsDispatchRes.status()).toBe(200);
+    const smsDispatchBody = (await smsDispatchRes.json()).data;
+    if (smsDispatchBody.status === "failed") {
+      expect(smsDispatchBody.errorMessage).toMatch(/not configured/i);
+      test.info().annotations.push({
+        type: "needs-review",
+        description: "SMS se despacha con un sender real (Twilio) pero TWILIO_* no está configurado en este entorno — configurar credenciales antes del piloto real con Corpoángeles.",
+      });
+    }
   });
 
   test("RIO-INC-004 | activación de rescate hacia orquestación logística (trigger-logistics)", async ({ page, request }) => {

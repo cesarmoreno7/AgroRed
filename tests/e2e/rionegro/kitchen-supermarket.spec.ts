@@ -167,23 +167,24 @@ test.describe("TC-RIONEGRO-SUPER — Supermercado (Rionegro)", () => {
     expect(res.status()).toBe(200);
   });
 
-  test("RIO-SUPER-002 | [hallazgo QA] supermarket NO puede pujar en subastas pese a ser rol de demanda", async ({ page, request }) => {
+  test("RIO-SUPER-002 | supermarket ahora puede leer y pujar en subastas (Bug #7 corregido)", async ({ page, request }) => {
     const token = await page.evaluate(() => localStorage.getItem("agrored_token"));
     const auctionsRes = await request.get(`${API_URL}/api/v1/auctions?limit=1`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    // El propio GET de subastas ya está fuera de la política RBAC para 'supermarket'
-    // (apps/api-gateway/.../rbac.ts:80-85 no incluye 'supermarket' en ninguna entrada de /auctions).
-    expect(auctionsRes.status()).toBe(403);
+    // rbac.ts ahora incluye 'supermarket' en GET /api/v1/auctions (Bug #7): el enunciado de
+    // negocio agrupa "Cocina Comunitaria/Supermercado" como compradores de la holandesa.
+    expect(auctionsRes.status()).toBe(200);
 
     const bidRes = await request.post(`${API_URL}/api/v1/auctions/00000000-0000-0000-0000-000000000000/bid`, {
       headers: { Authorization: `Bearer ${token}` },
       data: { bidderId: "00000000-0000-0000-0000-000000000000", bidderType: "supermarket", amount: 1 },
     });
-    // Documentamos el hallazgo: el enunciado de negocio dice que "Cocina Comunitaria/Supermercado"
-    // participa como comprador en la subasta holandesa, pero RBAC solo habilita
-    // admin_municipal, community_kitchen y logistics_operator para pujar/aceptar — 'supermarket'
-    // queda excluido de todo el módulo de subastas (ni siquiera puede leerlas).
-    expect(bidRes.status()).toBe(403);
+    // Ya no lo bloquea RBAC (403): pasa la autorización y llega a la lógica de negocio, que
+    // responde 404 porque la subasta de prueba no existe — la ausencia de un 403 es lo que
+    // prueba que Bug #7 quedó corregido.
+    expect(bidRes.status()).toBe(404);
+    const bidBody = await bidRes.json();
+    expect(bidBody.error.code).toBe("AUCTION_NOT_FOUND");
   });
 });

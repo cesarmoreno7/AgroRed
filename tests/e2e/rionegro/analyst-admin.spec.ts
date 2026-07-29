@@ -180,9 +180,10 @@ test.describe("TC-RIONEGRO-ADMIN — Administrador Municipal (Rionegro)", () => 
     expect(check.status()).toBe(200);
     const body = await check.json();
     expect(typeof body.data.checked).toBe("number");
-    // Nota QA: la creación/cierre de incidencias NO recalcula IRAT automáticamente
-    // (apps/analytics-service/.../irat.ts no tiene ningún trigger); hay que invocar
-    // POST /api/v1/analytics/irat/check explícitamente, como hace este test.
+    // Bug #11 corregido: cada POST /api/v1/incidents/register de arriba ya dispara un
+    // recalculo de IRAT en segundo plano (triggerIratRecheck, fire-and-forget — no bloquea
+    // la respuesta del registro). Esta llamada explícita a /irat/check sigue siendo válida
+    // como barrido manual/on-demand; ya no es la única forma de refrescar el indicador.
   });
 
   test("RIO-ADM-005 | copiloto IA — 2 consultas reales sobre el municipio", async ({ page, request }) => {
@@ -201,11 +202,13 @@ test.describe("TC-RIONEGRO-ADMIN — Administrador Municipal (Rionegro)", () => 
     }
   });
 
-  test("RIO-ADM-006 | [hallazgo QA] rol SUPERADMIN (\"visión de Dios\") no está reconocido por el RBAC del gateway", async ({ page, request }) => {
+  test("RIO-ADM-006 | rol SUPERADMIN (\"visión de Dios\") tiene lectura cross-tenant real (Bug #9 corregido)", async ({ page, request }) => {
     // Ver infra/postgres/028_superadmin_role.sql — crea un usuario SUPERADMIN con
-    // metadata.ai_copilot_unrestricted, pero apps/api-gateway/.../rbac.ts nunca compara
-    // contra el string 'SUPERADMIN' en ninguna política. Documentamos el estado real:
-    // hoy ese rol queda bloqueado por la mayoría de rutas protegidas, no habilitado.
+    // metadata.ai_copilot_unrestricted. rbac.ts ahora concede a SUPERADMIN acceso de
+    // lectura a todo módulo GET (Bug #9), y los repositorios de producers/users/inventory/
+    // rescues/institutions/offers/demands/logistics/incidents devuelven datos de TODOS los
+    // tenants para este rol (resolveTenantFilter en apps/shared/middleware/tenantContext.ts),
+    // en vez de solo el tenant "sistema" fijo del propio SUPERADMIN.
     let token: string | null = null;
     try {
       token = await loginViaAPI(page, "superadmin@agrored.co", process.env.E2E_SUPERADMIN_PASS ?? "SuperAdmin@2024!");
@@ -213,15 +216,24 @@ test.describe("TC-RIONEGRO-ADMIN — Administrador Municipal (Rionegro)", () => 
       test.skip(true, "No fue posible autenticar SUPERADMIN con la contraseña por defecto (rotada/desconocida) — define E2E_SUPERADMIN_PASS para correr este caso");
       return;
     }
-    const res = await request.get(`${API_URL}/api/v1/producers`, { headers: { Authorization: `Bearer ${token}` } });
-    // Si algún día se implementa god-mode real en rbac.ts, este test deberá esperar 200
-    // con datos cruzando tenants. Hoy documentamos que NO tiene acceso especial.
-    expect([200, 403]).toContain(res.status());
-    if (res.status() === 403) {
-      test.info().annotations.push({
-        type: "known-gap",
-        description: "SUPERADMIN no tiene ninguna regla especial en rbac.ts: la 'visión de Dios' es hoy solo un concepto de UI (apps/web-dashboard/src/types/index.ts), no un control de acceso real en el gateway.",
-      });
-    }
+    const res = await request.get(`${API_URL}/api/v1/producers?limit=100`, { headers: { Authorization: `Bearer ${token}` } });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    const list = Array.isArray(body.data) ? body.data : body.data?.data ?? [];
+    const distinctTenants = new Set(list.map((p: any) => p.tenantId));
+    // Con los 9 municipios del Oriente Antioqueño sembrados, un SUPERADMIN real debe ver
+    // productores de más de un tenant en la misma respuesta (visión cruzada real, no solo
+    // el tenant "sistema" al que pertenece su propio usuario).
+    expect(distinctTenants.size).toBeGreaterThan(1);
+
+    // Auditoría: cada lectura cross-tenant de SUPERADMIN queda registrada en audit_log, y
+    // SUPERADMIN también tiene acceso de lectura a GET /api/v1/audit (Bug #9: SUPERADMIN
+    // se agrega a todas las políticas GET existentes, incluida esta).
+    const auditRes = await request.get(`${API_URL}/api/v1/audit?serviceName=producer-service&actionName=godview.cross_tenant_read&limit=1`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(auditRes.status()).toBe(200);
+    const auditBody = await auditRes.json();
+    expect(auditBody.data.length).toBeGreaterThanOrEqual(1);
   });
 });
