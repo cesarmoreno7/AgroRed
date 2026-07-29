@@ -104,6 +104,87 @@ describe("rbacMiddleware dynamic route matching", () => {
     expect(res.status).toHaveBeenCalledWith(403);
   });
 
+  it("allows producer to report incidents (Bug #8)", () => {
+    const req = createReq("/api/v1/incidents", "POST", "producer");
+    const res = createRes();
+    const next: NextFunction = jest.fn();
+
+    rbacMiddleware(req, res, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it("allows supermarket to read auctions (Bug #7)", () => {
+    const req = createReq("/api/v1/auctions", "GET", "supermarket");
+    const res = createRes();
+    const next: NextFunction = jest.fn();
+
+    rbacMiddleware(req, res, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it("allows supermarket to bid on auctions (Bug #7)", () => {
+    const req = createReq("/api/v1/auctions/abc123/bid", "POST", "supermarket");
+    const res = createRes();
+    const next: NextFunction = jest.fn();
+
+    rbacMiddleware(req, res, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it("allows supermarket to accept a dutch-auction price (Bug #7)", () => {
+    const req = createReq("/api/v1/auctions/abc123/accept-dutch", "POST", "supermarket");
+    const res = createRes();
+    const next: NextFunction = jest.fn();
+
+    rbacMiddleware(req, res, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it("grants SUPERADMIN cross-tenant read access on every module (Bug #9)", () => {
+    const readRoutes: Array<[string, string]> = [
+      ["/api/v1/producers", "GET"],
+      ["/api/v1/users", "GET"],
+      ["/api/v1/inventory", "GET"],
+      ["/api/v1/rescues", "GET"],
+      ["/api/v1/institutions", "GET"],
+      ["/api/v1/offers", "GET"],
+      ["/api/v1/demands", "GET"],
+      ["/api/v1/logistics", "GET"],
+      ["/api/v1/incidents", "GET"],
+      ["/api/v1/audit", "GET"]
+    ];
+
+    for (const [path, method] of readRoutes) {
+      const req = createReq(path, method, "SUPERADMIN");
+      const res = createRes();
+      const next: NextFunction = jest.fn();
+
+      rbacMiddleware(req, res, next);
+
+      expect(next).toHaveBeenCalledTimes(1);
+      expect(res.status).not.toHaveBeenCalled();
+    }
+  });
+
+  it("keeps SUPERADMIN out of write operations — monitoring only, not operating tenants", () => {
+    const req = createReq("/api/v1/logistics", "POST", "SUPERADMIN");
+    const res = createRes();
+    const next: NextFunction = jest.fn();
+
+    rbacMiddleware(req, res, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(403);
+  });
+
   it("skips RBAC when role header is missing", () => {
     const req = createReq("/api/v1/incidents", "POST");
     const res = createRes();

@@ -227,6 +227,35 @@ export class PostgresProducerRepository implements ProducerRepository {
     return result.rows[0] ? this.mapRow(result.rows[0]) : null;
   }
 
+  async findByUserId(userId: string): Promise<Producer | null> {
+    const result = await this.pool.query<ProducerRow>(
+      `
+        SELECT
+          id,
+          tenant_id,
+          user_id,
+          producer_type,
+          organization_name,
+          contact_name,
+          contact_phone,
+          municipality_name,
+          zone_type,
+          product_categories,
+          status,
+          latitude,
+          longitude,
+          created_at
+        FROM public.producers
+        WHERE user_id = $1
+          AND deleted_at IS NULL
+        LIMIT 1
+      `,
+      [userId]
+    );
+
+    return result.rows[0] ? this.mapRow(result.rows[0]) : null;
+  }
+
   async findStats(producerId: string): Promise<ProducerStats | null> {
     const producer = await this.findById(producerId);
     if (!producer) return null;

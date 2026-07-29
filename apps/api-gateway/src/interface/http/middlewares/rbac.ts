@@ -51,7 +51,9 @@ const ROUTE_POLICIES: RoutePolicy[] = [
   { method: "GET",  pathPrefix: "/api/v1/logistics",  allowedRoles: ["admin_municipal", "logistics_operator", "territorial_analyst"] },
 
   // --- Incidents ---
-  { method: "POST", pathPrefix: "/api/v1/incidents", allowedRoles: ["admin_municipal", "logistics_operator", "territorial_analyst"] },
+  // producer can report incidents from the field (Bug #8) but does not get the
+  // broader incident-management read access that ops/analyst roles have.
+  { method: "POST", pathPrefix: "/api/v1/incidents", allowedRoles: ["admin_municipal", "logistics_operator", "territorial_analyst", "producer"] },
   { method: "GET",  pathPrefix: "/api/v1/incidents",  allowedRoles: ["admin_municipal", "logistics_operator", "territorial_analyst"] },
 
   // --- Analytics map: capas GeoJSON abiertas a roles que usan el mapa ---
@@ -78,12 +80,15 @@ const ROUTE_POLICIES: RoutePolicy[] = [
   { method: "GET",  pathPrefix: "/api/v1/automation",  allowedRoles: ["admin_municipal", "territorial_analyst"] },
 
   // --- Auctions ---
+  // supermarket is a buyer role (grouped with community_kitchen as "Cocina
+  // Comunitaria/Supermercado" for the Dutch/ascending auctions) — Bug #7 gave it
+  // no entry at all, blocking it even from reading auctions.
   { method: "POST", pathPrefix: "/api/v1/auctions/publish",      allowedRoles: ["admin_municipal", "producer"] },
   { method: "POST", pathPrefix: "/api/v1/auctions",              allowedRoles: ["admin_municipal", "producer"] },
-  { method: "POST", pathPrefix: "/api/v1/auctions/:id/bid",      allowedRoles: ["admin_municipal", "community_kitchen", "logistics_operator"] },
-  { method: "POST", pathPrefix: "/api/v1/auctions/:id/accept-dutch", allowedRoles: ["admin_municipal", "community_kitchen", "logistics_operator"] },
+  { method: "POST", pathPrefix: "/api/v1/auctions/:id/bid",      allowedRoles: ["admin_municipal", "community_kitchen", "logistics_operator", "supermarket"] },
+  { method: "POST", pathPrefix: "/api/v1/auctions/:id/accept-dutch", allowedRoles: ["admin_municipal", "community_kitchen", "logistics_operator", "supermarket"] },
   { method: "POST", pathPrefix: "/api/v1/auctions/:id/close",   allowedRoles: ["admin_municipal"] },
-  { method: "GET",  pathPrefix: "/api/v1/auctions",              allowedRoles: ["admin_municipal", "producer", "community_kitchen", "logistics_operator", "territorial_analyst"] },
+  { method: "GET",  pathPrefix: "/api/v1/auctions",              allowedRoles: ["admin_municipal", "producer", "community_kitchen", "logistics_operator", "territorial_analyst", "supermarket"] },
 
   // --- Institutions ---
   { method: "POST",   pathPrefix: "/api/v1/institutions/register",    allowedRoles: ["admin_municipal"] },
@@ -95,6 +100,19 @@ const ROUTE_POLICIES: RoutePolicy[] = [
   // --- Audit (admin only) ---
   { method: "GET",  pathPrefix: "/api/v1/audit", allowedRoles: ["admin_municipal"] }
 ];
+
+// --- SUPERADMIN "Vision de Dios" (Bug #9) ---
+// SUPERADMIN is seeded in the DB (infra/postgres/028_superadmin_role.sql) for
+// cross-tenant monitoring, but this RBAC layer never referenced it — the role
+// was a UI-only concept, blocked by every protected route. Grant it real
+// read access across every module instead of hand-listing it on each policy
+// above, so no GET route is missed as new ones get added. Write access stays
+// scoped to admin_municipal: SUPERADMIN monitors, it does not operate tenants.
+for (const policy of ROUTE_POLICIES) {
+  if (policy.method === "GET" && !policy.allowedRoles.includes("SUPERADMIN")) {
+    policy.allowedRoles.push("SUPERADMIN");
+  }
+}
 
 function normalizePath(path: string): string {
   const clean = path.split("?")[0]?.replace(/\/+$/, "");

@@ -8,6 +8,8 @@ import type { DemandQueryPort } from "../../../domain/ports/DemandQueryPort.js";
 import type { NotificationPort } from "../../../domain/ports/NotificationPort.js";
 import type { EventBus } from "../../../../../shared/redis/EventBus.js";
 import type { AuditLogger } from "../../../shared/audit.js";
+import type { ProducerRepository } from "../../../../../producer-service/src/domain/ports/ProducerRepository.js";
+import { auditGodViewAccess, resolveTenantFilter } from "../../../../../shared/middleware/tenantContext.js";
 import { asyncHandler, sendError, sendPaginatedSuccess, sendSuccess } from "../response.js";
 
 const publishOfferSchema = z.object({
@@ -56,7 +58,8 @@ export function createOffersRouter(
   demandQuery: DemandQueryPort,
   notificationPort: NotificationPort,
   eventBus: EventBus | null = null,
-  auditLogger?: AuditLogger
+  auditLogger?: AuditLogger,
+  producerRepository?: ProducerRepository
 ): Router {
   const router = Router();
   const publishOffer = new PublishOffer(repository);
@@ -146,8 +149,8 @@ export function createOffersRouter(
   router.get("/api/v1/offers", asyncHandler(async (req, res) => {
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "20"), 10) || 20));
-    const tenantId = req.headers["x-tenant-id"] as string | undefined;
-    const result = await repository.list({ page, limit }, tenantId ?? null);
+    await auditGodViewAccess(req, auditLogger, { serviceName: "offer-service", entityName: "offers" });
+    const result = await repository.list({ page, limit }, resolveTenantFilter(req));
     return sendPaginatedSuccess(res, result.data.map(toOfferResponse), { total: result.total, page: result.page, limit: result.limit });
   }));
 
@@ -175,6 +178,17 @@ export function createOffersRouter(
     const tenantId = req.headers["x-tenant-id"] as string | undefined;
     if (tenantId && existing.tenantId !== tenantId) {
       return sendError(res, 404, "OFFER_NOT_FOUND", "Oferta no encontrada.");
+    }
+
+    // Ownership check: a 'producer' can only edit their own offers, not another
+    // producer's offer in the same municipio (tenant isolation alone doesn't cover this).
+    const userRole = req.headers["x-user-role"] as string | undefined;
+    const userId = req.headers["x-user-id"] as string | undefined;
+    if (userRole === "producer" && producerRepository && userId) {
+      const requestingProducer = await producerRepository.findByUserId(userId);
+      if (!requestingProducer || requestingProducer.id !== existing.producerId) {
+        return sendError(res, 403, "FORBIDDEN", "No puede editar ofertas de otro productor.");
+      }
     }
 
     const updated = await repository.patch(String(req.params.id), req.body as Record<string, unknown>);

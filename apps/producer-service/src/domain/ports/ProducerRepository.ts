@@ -40,5 +40,6 @@ export interface ProducerRepository {
   findById(id: string): Promise<Producer | null>;
   list(params: PaginationParams, tenantId?: string | null): Promise<PaginatedResult<Producer>>;
   findByOrganizationName(tenantId: string, organizationName: string): Promise<Producer | null>;
+  findByUserId(userId: string): Promise<Producer | null>;
   findStats(producerId: string): Promise<ProducerStats | null>;
 }

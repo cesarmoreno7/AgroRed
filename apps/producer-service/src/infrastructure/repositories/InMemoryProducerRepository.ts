@@ -68,6 +68,13 @@ export class InMemoryProducerRepository implements ProducerRepository {
     return this.producersByOrganization.get(buildKey(tenantId, organizationName)) ?? null;
   }
 
+  async findByUserId(userId: string): Promise<Producer | null> {
+    for (const producer of this.producersById.values()) {
+      if (producer.userId === userId) return producer;
+    }
+    return null;
+  }
+
   async findStats(producerId: string): Promise<ProducerStats | null> {
     const producer = this.producersById.get(producerId);
     if (!producer) return null;
