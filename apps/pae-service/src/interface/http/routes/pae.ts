@@ -227,6 +227,64 @@ export function createPaeRouter(deps: PaeRouterDeps): Router {
     })
   );
 
+  // Auditoría aleatoria de la Gobernación: programa una visita a un colegio,
+  // o dispara el muestreo automático si no se indica institución.
+  router.post(
+    "/api/v1/pae/audits",
+    asyncHandler(async (req, res) => {
+      const schema = z.object({
+        targetTenantId: z.string().uuid().optional(),
+        institutionId: z.string().uuid().optional(),
+        foodProgramId: z.string().uuid().optional(),
+        operatorId: z.string().uuid().optional(),
+        sampleCount: z.number().int().min(1).max(20).optional()
+      });
+      const parsed = schema.safeParse(req.body ?? {});
+      if (!parsed.success) {
+        return sendError(res, 400, "INVALID_PAYLOAD", "Payload inválido.");
+      }
+
+      if (!parsed.data.institutionId) {
+        const out = await deps.repository.sampleRandomAudits(parsed.data.sampleCount ?? 3);
+        return sendSuccess(res, { mode: "muestreo", ...out }, 201);
+      }
+
+      const targetTenantId = parsed.data.targetTenantId ?? getTenantId(req);
+      if (!targetTenantId || !assertTenantInOversight(req, targetTenantId)) {
+        return sendError(res, 403, "TENANT_NOT_ALLOWED", "El municipio no está bajo su supervisión.");
+      }
+      const stub = await deps.repository.createInspection({
+        tenantId: targetTenantId,
+        operatorId: parsed.data.operatorId ?? null,
+        institutionId: parsed.data.institutionId,
+        foodProgramId: parsed.data.foodProgramId ?? null,
+        inspectionKind: "auditoria_aleatoria",
+        inspectorRole: (req.headers["x-user-role"] as string) ?? "supervisor_departamental",
+        inspectorUserId: (req.headers["x-user-id"] as string) ?? null,
+        inspectorTenantId: getTenantId(req) ?? null,
+        inspectedAt: new Date().toISOString(),
+        locationDescription: null,
+        latitude: null,
+        longitude: null,
+        portionWeightG: null,
+        portionWeightExpectedG: null,
+        temperatureC: null,
+        coldChainOk: null,
+        expiryCheckOk: null,
+        earliestExpiryDate: null,
+        hygieneScore: null,
+        answers: {},
+        failedItems: [],
+        result: "pendiente",
+        status: "programada",
+        evidenceUrls: [],
+        notes: null,
+        createdBy: (req.headers["x-user-id"] as string) ?? null
+      });
+      return sendSuccess(res, { mode: "programada", inspection: stub }, 201);
+    })
+  );
+
   router.get(
     "/api/v1/pae/inspections",
     asyncHandler(async (req, res) => {
