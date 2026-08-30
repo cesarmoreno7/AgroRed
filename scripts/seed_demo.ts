@@ -120,6 +120,7 @@ const DEMO_USERS = [
   { slug: "planeacion", fullName: `${TAG}Secretaria de Planeacion`, note: "Guion seccion 3.2" },
   { slug: "desarrollo-social", fullName: `${TAG}Secretaria de Desarrollo Social / PAE municipal`, note: "Guion seccion 1 (fila 4)" },
   { slug: "operador-pae-calidad", fullName: `${TAG}Operador PAE - Coordinacion de Calidad / Interventoria`, note: "Guion seccion 9.3" },
+  { slug: "operador-pae-gerencia", fullName: `${TAG}Operador PAE - Gerencia / Representante Legal`, note: "Guion seccion 9.4" },
 ];
 
 async function seed(): Promise<void> {
