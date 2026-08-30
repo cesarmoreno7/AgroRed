@@ -24,6 +24,8 @@ import { PAE_THRESHOLD_KEYS, type PaeThresholds } from "../../domain/checklist/p
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function mapOperator(row: any): PaeOperator {
   return {
     id: row.id,
@@ -629,6 +631,9 @@ export class PostgresPaeRepository implements PaeRepository {
   }
 
   async findCaeCommitteeByToken(token: string): Promise<PaeCaeCommittee | null> {
+    if (!UUID_RE.test(token)) {
+      return null;
+    }
     const res = await this.pool.query(
       `SELECT ${COMMITTEE_COLS} FROM public.pae_cae_committees WHERE token = $1 AND is_active`,
       [token]
@@ -639,6 +644,9 @@ export class PostgresPaeRepository implements PaeRepository {
   async getPublicCaeForm(
     token: string
   ): Promise<{ committeeId: string; tenantId: string; schoolName: string; municipality: string } | null> {
+    if (!UUID_RE.test(token)) {
+      return null;
+    }
     const res = await this.pool.query<{
       committee_id: string;
       tenant_id: string;
