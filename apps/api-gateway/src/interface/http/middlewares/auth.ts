@@ -17,6 +17,8 @@ const PUBLIC_PATHS = [
   "/api/v1/users/login",
   "/api/v1/users/recover-password",
   "/api/v1/users/reset-password",
+  // Tokenized public CAE (Comité de Alimentación Escolar) report form — no auth.
+  "/api/v1/pae/cae/public",
   "/health",
   "/ping"
 ];

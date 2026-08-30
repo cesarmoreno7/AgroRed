@@ -23,7 +23,8 @@
     "../auction-service/src/**/*",
     "../institution-service/src/**/*",
     "../location-service/src/**/*",
-    "../delivery-service/src/**/*"
+    "../delivery-service/src/**/*",
+    "../pae-service/src/**/*"
   ],
   "exclude": [
     "src/**/*.test.ts",

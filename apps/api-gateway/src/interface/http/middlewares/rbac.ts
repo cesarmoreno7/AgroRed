@@ -54,16 +54,16 @@ const ROUTE_POLICIES: RoutePolicy[] = [
   // producer can report incidents from the field (Bug #8) but does not get the
   // broader incident-management read access that ops/analyst roles have.
   { method: "POST", pathPrefix: "/api/v1/incidents", allowedRoles: ["admin_municipal", "logistics_operator", "territorial_analyst", "producer"] },
-  { method: "GET",  pathPrefix: "/api/v1/incidents",  allowedRoles: ["admin_municipal", "logistics_operator", "territorial_analyst"] },
+  { method: "GET",  pathPrefix: "/api/v1/incidents",  allowedRoles: ["admin_municipal", "logistics_operator", "territorial_analyst", "supervisor_departamental"] },
 
   // --- Analytics map: capas GeoJSON abiertas a roles que usan el mapa ---
-  { method: "GET",  pathPrefix: "/api/v1/analytics/map", allowedRoles: ["admin_municipal", "territorial_analyst", "producer", "logistics_operator", "community_kitchen"] },
+  { method: "GET",  pathPrefix: "/api/v1/analytics/map", allowedRoles: ["admin_municipal", "territorial_analyst", "producer", "logistics_operator", "community_kitchen", "supervisor_departamental"] },
 
   // --- Orígenes Aliados: lectura abierta a todos los roles que intervienen en rescates ---
   { method: "GET",  pathPrefix: "/api/v1/analytics/origins", allowedRoles: ["admin_municipal", "territorial_analyst", "producer", "community_kitchen", "logistics_operator", "supermarket"] },
 
-  // --- Analytics (summary, overview, reports) ---
-  { method: "GET",  pathPrefix: "/api/v1/analytics", allowedRoles: ["admin_municipal", "territorial_analyst"] },
+  // --- Analytics (summary, overview, reports, institutional/*) ---
+  { method: "GET",  pathPrefix: "/api/v1/analytics", allowedRoles: ["admin_municipal", "territorial_analyst", "supervisor_departamental"] },
 
   // --- AI chat bridge ---
   { method: "POST", pathPrefix: "/api/v1/ai-chat", allowedRoles: ["admin_municipal", "territorial_analyst", "ADMIN", "TERRITORIAL_MANAGER"] },
@@ -95,10 +95,22 @@ const ROUTE_POLICIES: RoutePolicy[] = [
   { method: "PUT",    pathPrefix: "/api/v1/institutions/:id",          allowedRoles: ["admin_municipal"] },
   { method: "PATCH",  pathPrefix: "/api/v1/institutions/:id/status",   allowedRoles: ["admin_municipal"] },
   { method: "DELETE", pathPrefix: "/api/v1/institutions/:id",          allowedRoles: ["admin_municipal"] },
-  { method: "GET",    pathPrefix: "/api/v1/institutions",              allowedRoles: ["admin_municipal", "territorial_analyst", "logistics_operator", "community_kitchen"] },
+  { method: "GET",    pathPrefix: "/api/v1/institutions",              allowedRoles: ["admin_municipal", "territorial_analyst", "logistics_operator", "community_kitchen", "supervisor_departamental"] },
 
   // --- Audit (admin only) ---
-  { method: "GET",  pathPrefix: "/api/v1/audit", allowedRoles: ["admin_municipal"] }
+  { method: "GET",  pathPrefix: "/api/v1/audit", allowedRoles: ["admin_municipal"] },
+
+  // --- PAE oversight (Supervisión del Programa de Alimentación Escolar) ---
+  // `/api/v1/pae/cae/public/*` has NO policy on purpose: it is in auth PUBLIC_PATHS,
+  // so no x-user-role reaches RBAC and it falls through (rbac skips when no role).
+  { method: "GET",   pathPrefix: "/api/v1/pae",                                       allowedRoles: ["admin_municipal", "territorial_analyst", "supervisor_departamental"] },
+  { method: "POST",  pathPrefix: "/api/v1/pae",                                       allowedRoles: ["admin_municipal", "supervisor_departamental"] },
+  { method: "PATCH", pathPrefix: "/api/v1/pae",                                       allowedRoles: ["admin_municipal", "supervisor_departamental"] },
+  { method: "POST",  pathPrefix: "/api/v1/pae/operators",                             allowedRoles: ["admin_municipal"] },
+  { method: "POST",  pathPrefix: "/api/v1/pae/audits",                                allowedRoles: ["supervisor_departamental"] },
+  { method: "PATCH", pathPrefix: "/api/v1/pae/requerimientos/:id/respond",           allowedRoles: ["admin_municipal"] },
+  { method: "POST",  pathPrefix: "/api/v1/pae/requerimientos/:id/escalate-to-sanction", allowedRoles: ["supervisor_departamental"] },
+  { method: "POST",  pathPrefix: "/api/v1/pae/sanctions/:id/apply",                  allowedRoles: ["admin_municipal"] }
 ];
 
 // --- SUPERADMIN "Vision de Dios" (Bug #9) ---

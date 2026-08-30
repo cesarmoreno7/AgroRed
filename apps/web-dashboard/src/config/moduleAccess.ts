@@ -20,6 +20,7 @@ export const MODULE_ACCESS: Record<string, string[]> = {
     "ml-service",
     "catalog-service",
     "delivery-service",
+    "pae-service",
   ],
   territorial_analyst: [
     "producer-service",
@@ -33,6 +34,16 @@ export const MODULE_ACCESS: Record<string, string[]> = {
     "analytics-service",
     "ml-service",
     "catalog-service",
+    "delivery-service",
+    "pae-service",
+  ],
+  // Gobernación / interventoría externa: supervisión del PAE sobre varios municipios.
+  // Solo lectura + acciones de inspección/auditoría/requerimiento; nunca opera un tenant.
+  supervisor_departamental: [
+    "pae-service",
+    "analytics-service",
+    "incident-service",
+    "institution-service",
     "delivery-service",
   ],
   logistics_operator: [

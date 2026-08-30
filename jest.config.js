@@ -16,6 +16,7 @@ module.exports = {
     "<rootDir>/apps/automation-service",
     "<rootDir>/apps/auction-service",
     "<rootDir>/apps/institution-service",
+    "<rootDir>/apps/pae-service",
     "<rootDir>/apps/shared",
     "<rootDir>/tests/integration"
   ],

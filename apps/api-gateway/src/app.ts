@@ -23,6 +23,7 @@ import { createAuthMiddleware } from "./interface/http/middlewares/auth.js";
 import { createRateLimiters } from "./interface/http/middlewares/rateLimiter.js";
 import { rbacMiddleware } from "./interface/http/middlewares/rbac.js";
 import { tenantContext } from "../../shared/middleware/tenantContext.js";
+import { createOversightContextMiddleware } from "./interface/http/middlewares/oversightContext.js";
 import type { GatewayHealthDependencies } from "./interface/http/routes/health.js";
 
 function parseAllowedOrigins(value: string): string[] {
@@ -72,6 +73,11 @@ export async function buildApp(
   // found during the Rionegro QA pilot (RIO-ADM-003) where an admin_municipal could create a
   // producer under an arbitrary tenantId by just passing a different one in the request body.
   app.use(tenantContext);
+  // Resolves the municipio set a `supervisor_departamental` (Gobernación /
+  // interventoría externa) may see, into the x-oversight-tenant-ids header.
+  if (pool) {
+    app.use(createOversightContextMiddleware(pool, redis));
+  }
   app.use(createAuditTrailMiddleware(pool));
 
   app.use(createHealthRouter(services, gatewayDependencies));

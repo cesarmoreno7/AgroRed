@@ -71,8 +71,15 @@ export type UserRole = 'ADMIN' | 'SUPERADMIN' | 'TERRITORIAL_MANAGER' | 'PRODUCE
 
 export const SUPERADMIN_ROLE = 'SUPERADMIN';
 
+/** Gobernación / interventoría externa — supervisión del PAE sobre varios municipios. */
+export const PAE_SUPERVISOR_ROLE = 'supervisor_departamental';
+
 export function isSuperadmin(user: User | null): boolean {
   return user?.role === SUPERADMIN_ROLE;
+}
+
+export function isPaeSupervisor(user: User | null): boolean {
+  return user?.role === PAE_SUPERVISOR_ROLE;
 }
 
 export function isAdmin(user: User | null): boolean {
