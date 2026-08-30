@@ -59,7 +59,7 @@ function signForRole(role: string): string {
 // "not configured" response (mounted unconditionally, unaffected by the Pool gap).
 type Case = {
   title: string;
-  method: "get" | "post";
+  method: "get" | "post" | "patch";
   path: string;
   role: string;
   expected: 403 | 404 | 503;
@@ -184,7 +184,17 @@ const CASES: Case[] = [
     path: "/api/v1/auctions/auction-1/close",
     role: "logistics_operator",
     expected: 403
-  }
+  },
+
+  // ── PAE oversight ──
+  { title: "supervisor_departamental can list PAE inspections", method: "get", path: "/api/v1/pae/inspections", role: "supervisor_departamental", expected: 404 },
+  { title: "supervisor_departamental can record a random audit", method: "post", path: "/api/v1/pae/audits", role: "supervisor_departamental", expected: 404 },
+  { title: "supervisor_departamental cannot apply a sanction", method: "patch", path: "/api/v1/pae/sanctions/x/apply", role: "supervisor_departamental", expected: 403 },
+  { title: "admin_municipal can respond a requerimiento", method: "patch", path: "/api/v1/pae/requerimientos/x/respond", role: "admin_municipal", expected: 404 },
+  { title: "producer cannot record a PAE inspection", method: "post", path: "/api/v1/pae/inspections", role: "producer", expected: 403 },
+  { title: "community_kitchen cannot list requerimientos", method: "get", path: "/api/v1/pae/requerimientos", role: "community_kitchen", expected: 403 },
+  { title: "monitoring_agent cannot read the PAE panel", method: "get", path: "/api/v1/pae", role: "monitoring_agent", expected: 403 },
+  { title: "supervisor_departamental stays narrow (no offers)", method: "post", path: "/api/v1/offers", role: "supervisor_departamental", expected: 403 }
 ];
 
 describe("Gateway role access matrix", () => {
@@ -192,7 +202,7 @@ describe("Gateway role access matrix", () => {
     const token = signForRole(role);
     const req = request(app)[method](path).set("Authorization", `Bearer ${token}`);
 
-    if (method === "post") {
+    if (method === "post" || method === "patch") {
       req.send({});
     }
 
@@ -208,5 +218,17 @@ describe("Gateway role access matrix", () => {
     expect(res.body?.error?.code).toBe(
       expected === 503 ? "AI_CHAT_NOT_CONFIGURED" : "RESOURCE_NOT_FOUND"
     );
+  });
+
+  it("public CAE form skips auth (404, not 401) — GET", async () => {
+    const res = await request(app).get("/api/v1/pae/cae/public/anytoken");
+    expect(res.status).toBe(404);
+    expect(res.body?.error?.code).toBe("RESOURCE_NOT_FOUND");
+  });
+
+  it("public CAE form skips auth (404, not 401) — POST", async () => {
+    const res = await request(app).post("/api/v1/pae/cae/public/anytoken").send({});
+    expect(res.status).toBe(404);
+    expect(res.body?.error?.code).toBe("RESOURCE_NOT_FOUND");
   });
 });

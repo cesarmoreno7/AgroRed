@@ -89,6 +89,18 @@ const MENU_GROUPS: MenuGroup[] = [
       { to: "/madurez",       icon: "🎯", label: "Mapa de Madurez" },
     ],
   },
+  {
+    id: "pae",
+    label: "Supervisión PAE",
+    icon: "🍎",
+    items: [
+      { to: "/pae",                icon: "📋", label: "Panel PAE",       module: "pae-service" },
+      { to: "/pae/inspecciones",   icon: "✅", label: "Inspecciones",    module: "pae-service" },
+      { to: "/pae/requerimientos", icon: "📨", label: "Requerimientos",  module: "pae-service" },
+      { to: "/pae/operadores",     icon: "🏢", label: "Operadores",      module: "pae-service" },
+      { to: "/pae/reportes-cae",   icon: "🧑‍🏫", label: "Reportes CAE",  module: "pae-service" },
+    ],
+  },
 ];
 
 interface Props {

@@ -50,6 +50,47 @@ export function resolveTenantFilter(req: Request): string | null {
   return getTenantId(req) ?? null;
 }
 
+/**
+ * PAE oversight — the set of municipio tenant IDs a `supervisor_departamental`
+ * (Gobernación / external interventoría) may read/act on, resolved by the gateway
+ * `oversightContext` middleware into the `x-oversight-tenant-ids` header (CSV).
+ *
+ * Returns null when there is no oversight list (any other role, or the header is
+ * absent) — callers then fall back to `resolveTenantFilter` (own tenant).
+ */
+export function resolveOversightTenantIds(req: Request): string[] | null {
+  const raw = req.headers["x-oversight-tenant-ids"];
+  if (typeof raw !== "string" || raw.trim() === "") {
+    return null;
+  }
+  const ids = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return ids.length > 0 ? ids : null;
+}
+
+/**
+ * True when `tenantId` is one the caller is allowed to target:
+ *  - SUPERADMIN: always (god view);
+ *  - `supervisor_departamental`: only if `tenantId` is in its oversight list;
+ *  - anyone else: only their own `x-tenant-id`.
+ * Used by PAE routes to gate `?tenantId=` drill-down and `targetTenantId` writes.
+ */
+export function assertTenantInOversight(req: Request, tenantId: string): boolean {
+  if (!tenantId) {
+    return false;
+  }
+  if (isGodViewRole(req)) {
+    return true;
+  }
+  const oversight = resolveOversightTenantIds(req);
+  if (oversight) {
+    return oversight.includes(tenantId);
+  }
+  return getTenantId(req) === tenantId;
+}
+
 export interface GodViewAuditEvent {
   tenantId: string | null;
   serviceName: string;

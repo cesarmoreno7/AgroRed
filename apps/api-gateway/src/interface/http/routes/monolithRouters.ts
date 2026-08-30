@@ -112,6 +112,13 @@ import { createLocationsRouter } from "../../../../../location-service/src/inter
 // ── Delivery service ──
 import { createDeliveriesRouter } from "../../../../../delivery-service/src/interface/http/routes/deliveries.js";
 
+// ── PAE oversight service (Supervisión del Programa de Alimentación Escolar) ──
+import { PostgresPaeRepository } from "../../../../../pae-service/src/infrastructure/repositories/PostgresPaeRepository.js";
+import { PaeEscalationRepository } from "../../../../../pae-service/src/infrastructure/repositories/PaeEscalationRepository.js";
+import { RunOverdueRequerimientoSweep } from "../../../../../pae-service/src/application/use-cases/RunOverdueRequerimientoSweep.js";
+import { createPaeRouter } from "../../../../../pae-service/src/interface/http/routes/pae.js";
+import { createAuditLogger as createPaeAuditLogger } from "../../../../../pae-service/src/shared/audit.js";
+
 // In-process notification adapter: offer match notifications are available
 // directly via the notification routes; no HTTP hop needed.
 class NullNotificationAdapter implements NotificationPort {
@@ -266,11 +273,20 @@ export async function registerMonolithRouters(
       const qRedis = createRedisConnection({ url: env.REDIS_URL, maxRetriesPerRequest: null });
       const wRedis = createRedisConnection({ url: env.REDIS_URL, maxRetriesPerRequest: null });
       const automQueue = createAutomationQueue(qRedis);
+      const paeRepoForSweeps = new PostgresPaeRepository(pool);
+      const paeOverdueSweep = new RunOverdueRequerimientoSweep({
+        repository: paeRepoForSweeps,
+        escalation: new PaeEscalationRepository(pool)
+      });
       const automWorker = createAutomationWorker({
         redis: wRedis,
         repository: new PostgresAutomationRepository(pool),
         actionEngine: new ActionExecutionEngine(pool, notificationSendersForQueue),
-        iratAlertChecker: new PostgresInstitutionalRepository(pool)
+        iratAlertChecker: new PostgresInstitutionalRepository(pool),
+        paeSweeper: {
+          runOverdueRequerimientoSweep: () => paeOverdueSweep.execute(),
+          sampleRandomAudits: () => paeRepoForSweeps.sampleRandomAudits(3)
+        }
       });
       await automQueue.waitUntilReady();
       await automWorker.waitUntilReady();
@@ -406,7 +422,14 @@ export async function registerMonolithRouters(
   // Delivery (entregas de productos)
   app.use(createDeliveriesRouter(pool));
 
-  logInfo("monolith.routers.registered", { services: 17 });
+  // PAE oversight (inspecciones, requerimientos, sanciones, reportes CAE)
+  app.use(createPaeRouter({
+    repository: new PostgresPaeRepository(pool),
+    escalation: new PaeEscalationRepository(pool),
+    auditLogger: createPaeAuditLogger(pool)
+  }));
+
+  logInfo("monolith.routers.registered", { services: 18 });
 
   _cleanup = async () => {
     await Promise.allSettled(cleanupTasks.map((fn) => fn()));

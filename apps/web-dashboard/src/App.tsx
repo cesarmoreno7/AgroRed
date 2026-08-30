@@ -33,6 +33,12 @@ import { CorregimientosMaestrasPage } from "./pages/CorregimientosMaestrasPage";
 import { VeredasMaestrasPage } from "./pages/VeredasMaestrasPage";
 import { DeliveriesPage } from "./pages/DeliveriesPage";
 import { MaturityPage } from "./pages/MaturityPage";
+import { PaeOverviewPage } from "./pages/PaeOverviewPage";
+import { PaeInspectionsPage } from "./pages/PaeInspectionsPage";
+import { PaeRequerimientosPage } from "./pages/PaeRequerimientosPage";
+import { PaeOperatorsPage } from "./pages/PaeOperatorsPage";
+import { PaeCaeReportsPage } from "./pages/PaeCaeReportsPage";
+import { CaePublicFormPage } from "./pages/CaePublicFormPage";
 import type { ReactNode } from "react";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -81,6 +87,14 @@ export default function App() {
           <Route path="/categories"    element={<ProtectedRoute><ModuleGuard module="catalog-service"><CategoriesPage /></ModuleGuard></ProtectedRoute>} />
           <Route path="/entregas" element={<ProtectedRoute><ModuleGuard module="delivery-service"><DeliveriesPage /></ModuleGuard></ProtectedRoute>} />
           <Route path="/madurez" element={<ProtectedRoute><MaturityPage /></ProtectedRoute>} />
+          {/* Supervisión PAE */}
+          <Route path="/pae" element={<ProtectedRoute><ModuleGuard module="pae-service"><PaeOverviewPage /></ModuleGuard></ProtectedRoute>} />
+          <Route path="/pae/inspecciones" element={<ProtectedRoute><ModuleGuard module="pae-service"><PaeInspectionsPage /></ModuleGuard></ProtectedRoute>} />
+          <Route path="/pae/requerimientos" element={<ProtectedRoute><ModuleGuard module="pae-service"><PaeRequerimientosPage /></ModuleGuard></ProtectedRoute>} />
+          <Route path="/pae/operadores" element={<ProtectedRoute><ModuleGuard module="pae-service"><PaeOperatorsPage /></ModuleGuard></ProtectedRoute>} />
+          <Route path="/pae/reportes-cae" element={<ProtectedRoute><ModuleGuard module="pae-service"><PaeCaeReportsPage /></ModuleGuard></ProtectedRoute>} />
+          {/* Formulario público del CAE — sin Layout ni autenticación */}
+          <Route path="/cae/:token" element={<CaePublicFormPage />} />
           <Route path="/maestras/departamentos" element={<ProtectedRoute><DepartamentosMaestrasPage /></ProtectedRoute>} />
           <Route path="/maestras/municipios" element={<ProtectedRoute><MunicipiosMaestrasPage /></ProtectedRoute>} />
           <Route path="/maestras/corregimientos" element={<ProtectedRoute><CorregimientosMaestrasPage /></ProtectedRoute>} />

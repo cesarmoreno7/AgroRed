@@ -42,6 +42,24 @@ export async function scheduleAutomationFlows(queue: Queue): Promise<void> {
       },
       every: 24 * 60 * 60 * 1000, // 24 hours
     },
+    {
+      name: "pae-requerimiento-overdue-sweep",
+      data: {
+        tenantId:      "system",
+        triggerSource: "daily_sweep",
+        notes:         "PAE: escalate overdue requerimientos to the alcaldía",
+      },
+      every: 6 * 60 * 60 * 1000, // 6 hours
+    },
+    {
+      name: "pae-random-audit-sampling",
+      data: {
+        tenantId:      "system",
+        triggerSource: "daily_sweep",
+        notes:         "PAE: sample random Gobernación audits per supervised municipio",
+      },
+      every: 7 * 24 * 60 * 60 * 1000, // 7 days
+    },
   ];
 
   for (const flow of flows) {
