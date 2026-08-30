@@ -1,6 +1,13 @@
 import type { PaeInspection } from "../entities/PaeInspection.js";
 import type { PaeOperator, PaeOperatorInput } from "../entities/PaeOperator.js";
 import type { PaeRequerimiento, PaeRequerimientoInput, RequerimientoStatus } from "../entities/PaeRequerimiento.js";
+import type {
+  PaeCaeCommittee,
+  PaeCaeCommitteeInput,
+  PaeCaeReport,
+  PaeCaeReportInput,
+  CaeReportStatus
+} from "../entities/PaeCae.js";
 import type { PaeThresholds } from "../checklist/paeChecklistTemplate.js";
 
 export interface PaeInspectionListFilter {
@@ -60,6 +67,7 @@ export interface PaeRepository {
   // ── Requerimientos (Fase 2) ──
   createRequerimiento(input: PaeRequerimientoInput, dueDate: string): Promise<PaeRequerimiento>;
   findRequerimientoByInspectionId(inspectionId: string): Promise<PaeRequerimiento | null>;
+  findRequerimientoByCaeReportId(caeReportId: string): Promise<PaeRequerimiento | null>;
   findRequerimientoById(id: string): Promise<PaeRequerimiento | null>;
   listRequerimientos(filter: PaeRequerimientoListFilter): Promise<{ data: PaeRequerimiento[]; total: number }>;
   backfillRequerimientoLinks(
@@ -81,6 +89,19 @@ export interface PaeRepository {
   ): Promise<void>;
   /** Crea stubs de pae_inspections (auditoria_aleatoria) para colegios de los municipios supervisados. */
   sampleRandomAudits(perSupervisor: number): Promise<{ created: number; runs: number }>;
+
+  // ── Control social CAE (Fase 4) ──
+  createCaeCommittee(input: PaeCaeCommitteeInput): Promise<PaeCaeCommittee>;
+  rotateCaeCommitteeToken(id: string): Promise<PaeCaeCommittee | null>;
+  listCaeCommittees(tenantIds: string[]): Promise<PaeCaeCommittee[]>;
+  findCaeCommitteeByToken(token: string): Promise<PaeCaeCommittee | null>;
+  /** Datos públicos del formulario (nombre del colegio + municipio) por token. */
+  getPublicCaeForm(token: string): Promise<{ committeeId: string; tenantId: string; schoolName: string; municipality: string } | null>;
+  createCaeReport(input: PaeCaeReportInput): Promise<PaeCaeReport>;
+  findCaeReportById(id: string): Promise<PaeCaeReport | null>;
+  listCaeReports(filter: { tenantIds?: string[]; status?: string; limit: number; offset: number }): Promise<{ data: PaeCaeReport[]; total: number }>;
+  linkCaeReportRequerimiento(reportId: string, requerimientoId: string): Promise<void>;
+  triageCaeReport(id: string, data: { status: CaeReportStatus; triageNotes: string | null; triagedBy: string | null }): Promise<PaeCaeReport | null>;
 }
 
 export interface PaeRequerimientoListFilter {

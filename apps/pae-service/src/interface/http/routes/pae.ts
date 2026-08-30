@@ -391,5 +391,164 @@ export function createPaeRouter(deps: PaeRouterDeps): Router {
     })
   );
 
+  // ══════════════ Control social — CAE ══════════════
+  const CAE_CATEGORIES = ["gramaje", "cadena_frio", "vencimiento", "higiene", "inasistencia_entrega", "otro"] as const;
+
+  // Público, SIN autenticación (en auth PUBLIC_PATHS + rate limiter en app.ts).
+  router.get(
+    "/api/v1/pae/cae/public/:token",
+    asyncHandler(async (req, res) => {
+      const form = await deps.repository.getPublicCaeForm(String(req.params.token));
+      if (!form) {
+        return sendError(res, 404, "RESOURCE_NOT_FOUND", "Enlace de reporte no válido o inactivo.");
+      }
+      return sendSuccess(res, {
+        schoolName: form.schoolName,
+        municipality: form.municipality,
+        categories: CAE_CATEGORIES
+      });
+    })
+  );
+
+  router.post(
+    "/api/v1/pae/cae/public/:token",
+    asyncHandler(async (req, res) => {
+      const committee = await deps.repository.findCaeCommitteeByToken(String(req.params.token));
+      if (!committee) {
+        return sendError(res, 404, "RESOURCE_NOT_FOUND", "Enlace de reporte no válido o inactivo.");
+      }
+      const schema = z.object({
+        reporterName: z.string().max(255).optional(),
+        reporterRole: z.enum(["rector", "docente", "padre_familia", "estudiante", "otro"]).optional(),
+        reporterContact: z.string().max(120).optional(),
+        category: z.enum(CAE_CATEGORIES),
+        description: z.string().min(10).max(4000),
+        evidenceUrls: z.array(z.string().url()).max(10).optional(),
+        occurredOn: z.string().optional()
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return sendError(res, 400, "INVALID_PAYLOAD", parsed.error.issues[0]?.message ?? "Payload inválido.");
+      }
+
+      const report = await deps.repository.createCaeReport({
+        committeeId: committee.id,
+        tenantId: committee.tenantId,
+        reporterName: parsed.data.reporterName ?? null,
+        reporterRole: parsed.data.reporterRole ?? null,
+        reporterContact: parsed.data.reporterContact ?? null,
+        category: parsed.data.category,
+        description: parsed.data.description,
+        evidenceUrls: parsed.data.evidenceUrls ?? [],
+        occurredOn: parsed.data.occurredOn ?? null,
+        clientIp: (req.ip as string) ?? null
+      });
+
+      let requerimiento = null;
+      if (escalateFinding) {
+        requerimiento = await escalateFinding.fromCaeReport({
+          id: report.id,
+          tenantId: report.tenantId,
+          category: report.category,
+          description: report.description,
+          reporterRole: report.reporterRole
+        });
+        if (requerimiento) {
+          await deps.repository.linkCaeReportRequerimiento(report.id, requerimiento.id);
+        }
+      }
+
+      await deps.auditLogger?.({
+        tenantId: report.tenantId,
+        serviceName: "pae-service",
+        entityName: "pae_cae_reports",
+        entityId: report.id,
+        actionName: "cae_report.received",
+        actorId: null,
+        payload: { category: report.category, requerimientoId: requerimiento?.id ?? null }
+      });
+
+      return sendSuccess(
+        res,
+        { trackingCode: report.id.slice(0, 8).toUpperCase(), status: "recibido" },
+        201
+      );
+    })
+  );
+
+  // Autenticado — emisión/rotación de token del comité.
+  router.post(
+    "/api/v1/pae/cae/committees",
+    asyncHandler(async (req, res) => {
+      const schema = z.object({
+        targetTenantId: z.string().uuid().optional(),
+        institutionId: z.string().uuid(),
+        committeeName: z.string().optional(),
+        contactEmail: z.string().email().optional(),
+        contactPhone: z.string().optional()
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return sendError(res, 400, "INVALID_PAYLOAD", parsed.error.issues[0]?.message ?? "Payload inválido.");
+      }
+      const targetTenantId = parsed.data.targetTenantId ?? getTenantId(req);
+      if (!targetTenantId || !assertTenantInOversight(req, targetTenantId)) {
+        return sendError(res, 403, "TENANT_NOT_ALLOWED", "No puede crear comités en ese municipio.");
+      }
+      const committee = await deps.repository.createCaeCommittee({
+        tenantId: targetTenantId,
+        institutionId: parsed.data.institutionId,
+        committeeName: parsed.data.committeeName ?? null,
+        contactEmail: parsed.data.contactEmail ?? null,
+        contactPhone: parsed.data.contactPhone ?? null
+      });
+      const base = process.env.FRONTEND_URL ?? "";
+      return sendSuccess(res, { ...committee, publicUrl: `${base}/cae/${committee.token}` }, 201);
+    })
+  );
+
+  router.get(
+    "/api/v1/pae/cae/reports",
+    asyncHandler(async (req, res) => {
+      const scope = listTenantIds(req);
+      if (!scope.ok) {
+        return sendError(res, 404, "RESOURCE_NOT_FOUND", "Recurso no encontrado.");
+      }
+      const page = Math.max(1, Number(req.query.page ?? 1));
+      const limit = Math.min(100, Math.max(1, Number(req.query.limit ?? 20)));
+      const { data, total } = await deps.repository.listCaeReports({
+        tenantIds: scope.tenantIds,
+        status: typeof req.query.status === "string" ? req.query.status : undefined,
+        limit,
+        offset: (page - 1) * limit
+      });
+      return sendPaginatedSuccess(res, data, { total, page, limit });
+    })
+  );
+
+  router.patch(
+    "/api/v1/pae/cae/reports/:id/triage",
+    asyncHandler(async (req, res) => {
+      const report = await deps.repository.findCaeReportById(String(req.params.id));
+      if (!report || !assertTenantInOversight(req, report.tenantId)) {
+        return sendError(res, 404, "RESOURCE_NOT_FOUND", "Reporte no encontrado.");
+      }
+      const schema = z.object({
+        status: z.enum(["triage", "derivado", "descartado"]),
+        triageNotes: z.string().optional()
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return sendError(res, 400, "INVALID_PAYLOAD", "Payload inválido.");
+      }
+      const updated = await deps.repository.triageCaeReport(String(req.params.id), {
+        status: parsed.data.status,
+        triageNotes: parsed.data.triageNotes ?? null,
+        triagedBy: (req.headers["x-user-id"] as string) ?? null
+      });
+      return sendSuccess(res, updated);
+    })
+  );
+
   return router;
 }

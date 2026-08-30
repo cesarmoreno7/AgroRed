@@ -12,6 +12,13 @@ import type {
   PaeRequerimientoInput,
   RequerimientoStatus
 } from "../../domain/entities/PaeRequerimiento.js";
+import type {
+  PaeCaeCommittee,
+  PaeCaeCommitteeInput,
+  PaeCaeReport,
+  PaeCaeReportInput,
+  CaeReportStatus
+} from "../../domain/entities/PaeCae.js";
 import { PAE_THRESHOLD_KEYS, type PaeThresholds } from "../../domain/checklist/paeChecklistTemplate.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -102,6 +109,48 @@ const REQ_COLS = `id, tenant_id, source_type, inspection_id, cae_report_id, oper
   legal_basis, severity, status, escalation_level, sla_hours, due_date, first_notified_at,
   responded_at, response_notes, closed_at, institutional_alert_id, coordination_task_id,
   created_by_tenant_id, created_by_role, created_at, updated_at`;
+
+const COMMITTEE_COLS = `id, tenant_id, institution_id, token, committee_name, contact_email, contact_phone, is_active, created_at, updated_at`;
+const CAE_REPORT_COLS = `id, committee_id, tenant_id, reporter_name, reporter_role, reporter_contact, category,
+  description, evidence_urls, occurred_on, status, requerimiento_id, inspection_id, triaged_by, triage_notes,
+  created_at, updated_at`;
+
+function mapCommittee(row: any): PaeCaeCommittee {
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    institutionId: row.institution_id,
+    token: row.token,
+    committeeName: row.committee_name,
+    contactEmail: row.contact_email,
+    contactPhone: row.contact_phone,
+    isActive: row.is_active,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function mapCaeReport(row: any): PaeCaeReport {
+  return {
+    id: row.id,
+    committeeId: row.committee_id,
+    tenantId: row.tenant_id,
+    reporterName: row.reporter_name,
+    reporterRole: row.reporter_role,
+    reporterContact: row.reporter_contact,
+    category: row.category,
+    description: row.description,
+    evidenceUrls: row.evidence_urls ?? [],
+    occurredOn: row.occurred_on ? String(row.occurred_on).slice(0, 10) : null,
+    status: row.status,
+    requerimientoId: row.requerimiento_id,
+    inspectionId: row.inspection_id,
+    triagedBy: row.triaged_by,
+    triageNotes: row.triage_notes,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
 
 export class PostgresPaeRepository implements PaeRepository {
   constructor(private readonly pool: Pool) {}
@@ -340,6 +389,17 @@ export class PostgresPaeRepository implements PaeRepository {
     return res.rows[0] ? mapRequerimiento(res.rows[0]) : null;
   }
 
+  async findRequerimientoByCaeReportId(caeReportId: string): Promise<PaeRequerimiento | null> {
+    if (!caeReportId) {
+      return null;
+    }
+    const res = await this.pool.query(
+      `SELECT ${REQ_COLS} FROM public.pae_requerimientos WHERE cae_report_id = $1`,
+      [caeReportId]
+    );
+    return res.rows[0] ? mapRequerimiento(res.rows[0]) : null;
+  }
+
   async findRequerimientoById(id: string): Promise<PaeRequerimiento | null> {
     const res = await this.pool.query(
       `SELECT ${REQ_COLS} FROM public.pae_requerimientos WHERE id = $1`,
@@ -504,5 +564,153 @@ export class PostgresPaeRepository implements PaeRepository {
     }
 
     return { created, runs };
+  }
+
+  // ── Control social CAE ──
+
+  async createCaeCommittee(input: PaeCaeCommitteeInput): Promise<PaeCaeCommittee> {
+    const res = await this.pool.query(
+      `INSERT INTO public.pae_cae_committees
+         (tenant_id, institution_id, committee_name, contact_email, contact_phone)
+       VALUES ($1,$2,$3,$4,$5)
+       RETURNING ${COMMITTEE_COLS}`,
+      [input.tenantId, input.institutionId, input.committeeName ?? null, input.contactEmail ?? null, input.contactPhone ?? null]
+    );
+    return mapCommittee(res.rows[0]);
+  }
+
+  async rotateCaeCommitteeToken(id: string): Promise<PaeCaeCommittee | null> {
+    const res = await this.pool.query(
+      `UPDATE public.pae_cae_committees
+          SET token = gen_random_uuid(), updated_at = NOW()
+        WHERE id = $1
+        RETURNING ${COMMITTEE_COLS}`,
+      [id]
+    );
+    return res.rows[0] ? mapCommittee(res.rows[0]) : null;
+  }
+
+  async listCaeCommittees(tenantIds: string[]): Promise<PaeCaeCommittee[]> {
+    const res = await this.pool.query(
+      `SELECT ${COMMITTEE_COLS} FROM public.pae_cae_committees
+        WHERE tenant_id = ANY($1::uuid[])
+        ORDER BY created_at DESC`,
+      [tenantIds]
+    );
+    return res.rows.map(mapCommittee);
+  }
+
+  async findCaeCommitteeByToken(token: string): Promise<PaeCaeCommittee | null> {
+    const res = await this.pool.query(
+      `SELECT ${COMMITTEE_COLS} FROM public.pae_cae_committees WHERE token = $1 AND is_active`,
+      [token]
+    );
+    return res.rows[0] ? mapCommittee(res.rows[0]) : null;
+  }
+
+  async getPublicCaeForm(
+    token: string
+  ): Promise<{ committeeId: string; tenantId: string; schoolName: string; municipality: string } | null> {
+    const res = await this.pool.query<{
+      committee_id: string;
+      tenant_id: string;
+      school_name: string;
+      municipality: string;
+    }>(
+      `SELECT c.id AS committee_id, c.tenant_id,
+              COALESCE(i.name, c.committee_name, 'Colegio') AS school_name,
+              COALESCE(i.municipality_name, t.name, '') AS municipality
+         FROM public.pae_cae_committees c
+         LEFT JOIN public.institutions i ON i.id = c.institution_id
+         LEFT JOIN public.tenants t ON t.id = c.tenant_id
+        WHERE c.token = $1 AND c.is_active`,
+      [token]
+    );
+    const row = res.rows[0];
+    return row
+      ? { committeeId: row.committee_id, tenantId: row.tenant_id, schoolName: row.school_name, municipality: row.municipality }
+      : null;
+  }
+
+  async createCaeReport(input: PaeCaeReportInput): Promise<PaeCaeReport> {
+    const res = await this.pool.query(
+      `INSERT INTO public.pae_cae_reports
+         (committee_id, tenant_id, reporter_name, reporter_role, reporter_contact,
+          category, description, evidence_urls, occurred_on, client_ip)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::date,$10::inet)
+       RETURNING ${CAE_REPORT_COLS}`,
+      [
+        input.committeeId,
+        input.tenantId,
+        input.reporterName ?? null,
+        input.reporterRole ?? null,
+        input.reporterContact ?? null,
+        input.category,
+        input.description,
+        input.evidenceUrls ?? [],
+        input.occurredOn ?? null,
+        input.clientIp ?? null
+      ]
+    );
+    return mapCaeReport(res.rows[0]);
+  }
+
+  async findCaeReportById(id: string): Promise<PaeCaeReport | null> {
+    const res = await this.pool.query(
+      `SELECT ${CAE_REPORT_COLS} FROM public.pae_cae_reports WHERE id = $1`,
+      [id]
+    );
+    return res.rows[0] ? mapCaeReport(res.rows[0]) : null;
+  }
+
+  async listCaeReports(filter: {
+    tenantIds?: string[];
+    status?: string;
+    limit: number;
+    offset: number;
+  }): Promise<{ data: PaeCaeReport[]; total: number }> {
+    const conditions: string[] = ["1=1"];
+    const values: unknown[] = [];
+    let i = 1;
+    if (filter.tenantIds && filter.tenantIds.length > 0) {
+      conditions.push(`tenant_id = ANY($${i++}::uuid[])`);
+      values.push(filter.tenantIds);
+    }
+    if (filter.status) {
+      conditions.push(`status = $${i++}`);
+      values.push(filter.status);
+    }
+    const where = `WHERE ${conditions.join(" AND ")}`;
+    const totalRes = await this.pool.query<{ count: string }>(
+      `SELECT COUNT(*) FROM public.pae_cae_reports ${where}`,
+      values
+    );
+    const dataRes = await this.pool.query(
+      `SELECT ${CAE_REPORT_COLS} FROM public.pae_cae_reports ${where}
+        ORDER BY created_at DESC LIMIT $${i++} OFFSET $${i++}`,
+      [...values, filter.limit, filter.offset]
+    );
+    return { data: dataRes.rows.map(mapCaeReport), total: parseInt(totalRes.rows[0].count, 10) };
+  }
+
+  async linkCaeReportRequerimiento(reportId: string, requerimientoId: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE public.pae_cae_reports SET requerimiento_id = $2, status = 'derivado', updated_at = NOW() WHERE id = $1`,
+      [reportId, requerimientoId]
+    );
+  }
+
+  async triageCaeReport(
+    id: string,
+    data: { status: CaeReportStatus; triageNotes: string | null; triagedBy: string | null }
+  ): Promise<PaeCaeReport | null> {
+    const res = await this.pool.query(
+      `UPDATE public.pae_cae_reports
+          SET status = $2, triage_notes = COALESCE($3, triage_notes), triaged_by = COALESCE($4, triaged_by), updated_at = NOW()
+        WHERE id = $1
+        RETURNING ${CAE_REPORT_COLS}`,
+      [id, data.status, data.triageNotes, data.triagedBy]
+    );
+    return res.rows[0] ? mapCaeReport(res.rows[0]) : null;
   }
 }

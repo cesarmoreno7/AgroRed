@@ -62,6 +62,8 @@ export async function buildApp(
   app.use(globalRateLimiter);
   app.use("/api/v1/users/login", authRateLimiter);
   app.use("/api/v1/users/register", authRateLimiter);
+  // Tokenized public CAE report form — throttle abuse on the unauthenticated endpoint.
+  app.use("/api/v1/pae/cae/public", authRateLimiter);
   app.use(correlationIdMiddleware);
   app.use(requestLoggerMiddleware);
   app.use(traceabilityMiddleware);
