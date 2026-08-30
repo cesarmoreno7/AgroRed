@@ -19,6 +19,7 @@ import type {
   PaeCaeReportInput,
   CaeReportStatus
 } from "../../domain/entities/PaeCae.js";
+import type { PaeSanction, PaeSanctionInput } from "../../domain/entities/PaeSanction.js";
 import { PAE_THRESHOLD_KEYS, type PaeThresholds } from "../../domain/checklist/paeChecklistTemplate.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -125,6 +126,33 @@ function mapCommittee(row: any): PaeCaeCommittee {
     contactEmail: row.contact_email,
     contactPhone: row.contact_phone,
     isActive: row.is_active,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+const SANCTION_COLS = `id, operator_id, tenant_id, requerimiento_id, sanction_type, amount, currency, status,
+  requested_by_tenant_id, requested_by_user, applied_by_user, justification, resolution_doc_url,
+  requested_at, applied_at, firm_at, created_at, updated_at`;
+
+function mapSanction(row: any): PaeSanction {
+  return {
+    id: row.id,
+    operatorId: row.operator_id,
+    tenantId: row.tenant_id,
+    requerimientoId: row.requerimiento_id,
+    sanctionType: row.sanction_type,
+    amount: row.amount !== null ? Number(row.amount) : null,
+    currency: row.currency,
+    status: row.status,
+    requestedByTenantId: row.requested_by_tenant_id,
+    requestedByUser: row.requested_by_user,
+    appliedByUser: row.applied_by_user,
+    justification: row.justification,
+    resolutionDocUrl: row.resolution_doc_url,
+    requestedAt: row.requested_at,
+    appliedAt: row.applied_at,
+    firmAt: row.firm_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -712,5 +740,96 @@ export class PostgresPaeRepository implements PaeRepository {
       [id, data.status, data.triageNotes, data.triagedBy]
     );
     return res.rows[0] ? mapCaeReport(res.rows[0]) : null;
+  }
+
+  // ── Sanciones ──
+
+  async createSanction(input: PaeSanctionInput): Promise<PaeSanction> {
+    const requested = Boolean(input.requestedByTenantId);
+    const res = await this.pool.query(
+      `INSERT INTO public.pae_sanctions
+         (operator_id, tenant_id, requerimiento_id, sanction_type, amount, status,
+          requested_by_tenant_id, requested_by_user, justification, requested_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, CASE WHEN $6 = 'requerida' THEN NOW() ELSE NULL END)
+       RETURNING ${SANCTION_COLS}`,
+      [
+        input.operatorId,
+        input.tenantId,
+        input.requerimientoId ?? null,
+        input.sanctionType,
+        input.amount ?? null,
+        requested ? "requerida" : "propuesta",
+        input.requestedByTenantId ?? null,
+        input.requestedByUser ?? null,
+        input.justification
+      ]
+    );
+    return mapSanction(res.rows[0]);
+  }
+
+  async findSanctionById(id: string): Promise<PaeSanction | null> {
+    const res = await this.pool.query(`SELECT ${SANCTION_COLS} FROM public.pae_sanctions WHERE id = $1`, [id]);
+    return res.rows[0] ? mapSanction(res.rows[0]) : null;
+  }
+
+  async listSanctions(filter: {
+    tenantIds?: string[];
+    status?: string;
+    operatorId?: string;
+    limit: number;
+    offset: number;
+  }): Promise<{ data: PaeSanction[]; total: number }> {
+    const conditions: string[] = ["1=1"];
+    const values: unknown[] = [];
+    let i = 1;
+    if (filter.tenantIds && filter.tenantIds.length > 0) {
+      conditions.push(`tenant_id = ANY($${i++}::uuid[])`);
+      values.push(filter.tenantIds);
+    }
+    if (filter.status) {
+      conditions.push(`status = $${i++}`);
+      values.push(filter.status);
+    }
+    if (filter.operatorId) {
+      conditions.push(`operator_id = $${i++}`);
+      values.push(filter.operatorId);
+    }
+    const where = `WHERE ${conditions.join(" AND ")}`;
+    const totalRes = await this.pool.query<{ count: string }>(
+      `SELECT COUNT(*) FROM public.pae_sanctions ${where}`,
+      values
+    );
+    const dataRes = await this.pool.query(
+      `SELECT ${SANCTION_COLS} FROM public.pae_sanctions ${where}
+        ORDER BY created_at DESC LIMIT $${i++} OFFSET $${i++}`,
+      [...values, filter.limit, filter.offset]
+    );
+    return { data: dataRes.rows.map(mapSanction), total: parseInt(totalRes.rows[0].count, 10) };
+  }
+
+  async applySanction(
+    id: string,
+    data: { appliedByUser: string | null; resolutionDocUrl: string | null }
+  ): Promise<PaeSanction | null> {
+    const res = await this.pool.query(
+      `UPDATE public.pae_sanctions
+          SET status = 'aplicada', applied_at = NOW(), applied_by_user = $2,
+              resolution_doc_url = COALESCE($3, resolution_doc_url), updated_at = NOW()
+        WHERE id = $1 AND status IN ('propuesta','requerida')
+        RETURNING ${SANCTION_COLS}`,
+      [id, data.appliedByUser, data.resolutionDocUrl]
+    );
+    return res.rows[0] ? mapSanction(res.rows[0]) : null;
+  }
+
+  async updateSanctionStatus(id: string, status: "en_firme" | "archivada"): Promise<PaeSanction | null> {
+    const res = await this.pool.query(
+      `UPDATE public.pae_sanctions
+          SET status = $2, firm_at = CASE WHEN $2 = 'en_firme' THEN NOW() ELSE firm_at END, updated_at = NOW()
+        WHERE id = $1
+        RETURNING ${SANCTION_COLS}`,
+      [id, status]
+    );
+    return res.rows[0] ? mapSanction(res.rows[0]) : null;
   }
 }

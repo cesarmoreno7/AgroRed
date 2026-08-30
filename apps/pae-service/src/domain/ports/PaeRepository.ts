@@ -8,6 +8,7 @@ import type {
   PaeCaeReportInput,
   CaeReportStatus
 } from "../entities/PaeCae.js";
+import type { PaeSanction, PaeSanctionInput } from "../entities/PaeSanction.js";
 import type { PaeThresholds } from "../checklist/paeChecklistTemplate.js";
 
 export interface PaeInspectionListFilter {
@@ -102,6 +103,13 @@ export interface PaeRepository {
   listCaeReports(filter: { tenantIds?: string[]; status?: string; limit: number; offset: number }): Promise<{ data: PaeCaeReport[]; total: number }>;
   linkCaeReportRequerimiento(reportId: string, requerimientoId: string): Promise<void>;
   triageCaeReport(id: string, data: { status: CaeReportStatus; triageNotes: string | null; triagedBy: string | null }): Promise<PaeCaeReport | null>;
+
+  // ── Sanciones (Fase 6) ──
+  createSanction(input: PaeSanctionInput): Promise<PaeSanction>;
+  findSanctionById(id: string): Promise<PaeSanction | null>;
+  listSanctions(filter: { tenantIds?: string[]; status?: string; operatorId?: string; limit: number; offset: number }): Promise<{ data: PaeSanction[]; total: number }>;
+  applySanction(id: string, data: { appliedByUser: string | null; resolutionDocUrl: string | null }): Promise<PaeSanction | null>;
+  updateSanctionStatus(id: string, status: "en_firme" | "archivada"): Promise<PaeSanction | null>;
 }
 
 export interface PaeRequerimientoListFilter {

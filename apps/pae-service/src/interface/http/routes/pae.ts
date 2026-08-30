@@ -550,5 +550,118 @@ export function createPaeRouter(deps: PaeRouterDeps): Router {
     })
   );
 
+  // ══════════════ Sanciones ══════════════
+  router.post(
+    "/api/v1/pae/sanctions",
+    asyncHandler(async (req, res) => {
+      const schema = z.object({
+        operatorId: z.string().uuid(),
+        requerimientoId: z.string().uuid().optional(),
+        sanctionType: z.enum(["amonestacion", "multa", "caducidad"]),
+        amount: z.number().nonnegative().optional(),
+        justification: z.string().min(10)
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return sendError(res, 400, "INVALID_PAYLOAD", parsed.error.issues[0]?.message ?? "Payload inválido.");
+      }
+      const operator = await deps.repository.findOperatorById(parsed.data.operatorId);
+      if (!operator || !assertTenantInOversight(req, operator.tenantId)) {
+        return sendError(res, 404, "RESOURCE_NOT_FOUND", "Operador no encontrado.");
+      }
+      const role = (req.headers["x-user-role"] as string) ?? "";
+      const isSupervisor = role === "supervisor_departamental";
+      const sanction = await deps.repository.createSanction({
+        operatorId: operator.id,
+        tenantId: operator.tenantId, // la alcaldía contratante
+        requerimientoId: parsed.data.requerimientoId ?? null,
+        sanctionType: parsed.data.sanctionType,
+        amount: parsed.data.amount ?? null,
+        justification: parsed.data.justification,
+        // Gobernación EXIGE (status='requerida'); la alcaldía PROPONE (status='propuesta').
+        requestedByTenantId: isSupervisor ? getTenantId(req) ?? null : null,
+        requestedByUser: isSupervisor ? (req.headers["x-user-id"] as string) ?? null : null
+      });
+      await deps.auditLogger?.({
+        tenantId: operator.tenantId,
+        serviceName: "pae-service",
+        entityName: "pae_sanctions",
+        entityId: sanction.id,
+        actionName: isSupervisor ? "sanction.required" : "sanction.proposed",
+        actorId: (req.headers["x-user-id"] as string) ?? null,
+        payload: { type: sanction.sanctionType, status: sanction.status }
+      });
+      return sendSuccess(res, sanction, 201);
+    })
+  );
+
+  router.get(
+    "/api/v1/pae/sanctions",
+    asyncHandler(async (req, res) => {
+      const scope = listTenantIds(req);
+      if (!scope.ok) {
+        return sendError(res, 404, "RESOURCE_NOT_FOUND", "Recurso no encontrado.");
+      }
+      const page = Math.max(1, Number(req.query.page ?? 1));
+      const limit = Math.min(100, Math.max(1, Number(req.query.limit ?? 20)));
+      const { data, total } = await deps.repository.listSanctions({
+        tenantIds: scope.tenantIds,
+        status: typeof req.query.status === "string" ? req.query.status : undefined,
+        operatorId: typeof req.query.operatorId === "string" ? req.query.operatorId : undefined,
+        limit,
+        offset: (page - 1) * limit
+      });
+      return sendPaginatedSuccess(res, data, { total, page, limit });
+    })
+  );
+
+  // Solo la alcaldía dueña del contrato aplica la sanción.
+  router.patch(
+    "/api/v1/pae/sanctions/:id/apply",
+    asyncHandler(async (req, res) => {
+      const sanction = await deps.repository.findSanctionById(String(req.params.id));
+      if (!sanction) {
+        return sendError(res, 404, "RESOURCE_NOT_FOUND", "Sanción no encontrada.");
+      }
+      const role = (req.headers["x-user-role"] as string) ?? "";
+      if (role !== "admin_municipal" || getTenantId(req) !== sanction.tenantId) {
+        return sendError(res, 403, "TENANT_NOT_ALLOWED", "Solo la alcaldía contratante puede aplicar la sanción.");
+      }
+      const schema = z.object({ resolutionDocUrl: z.string().url().optional() });
+      const parsed = schema.safeParse(req.body ?? {});
+      const updated = await deps.repository.applySanction(String(req.params.id), {
+        appliedByUser: (req.headers["x-user-id"] as string) ?? null,
+        resolutionDocUrl: parsed.success ? parsed.data.resolutionDocUrl ?? null : null
+      });
+      await deps.auditLogger?.({
+        tenantId: sanction.tenantId,
+        serviceName: "pae-service",
+        entityName: "pae_sanctions",
+        entityId: sanction.id,
+        actionName: "sanction.applied",
+        actorId: (req.headers["x-user-id"] as string) ?? null,
+        payload: { type: sanction.sanctionType }
+      });
+      return sendSuccess(res, updated);
+    })
+  );
+
+  router.patch(
+    "/api/v1/pae/sanctions/:id/status",
+    asyncHandler(async (req, res) => {
+      const sanction = await deps.repository.findSanctionById(String(req.params.id));
+      if (!sanction || !assertTenantInOversight(req, sanction.tenantId)) {
+        return sendError(res, 404, "RESOURCE_NOT_FOUND", "Sanción no encontrada.");
+      }
+      const schema = z.object({ status: z.enum(["en_firme", "archivada"]) });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return sendError(res, 400, "INVALID_PAYLOAD", "Payload inválido.");
+      }
+      const updated = await deps.repository.updateSanctionStatus(String(req.params.id), parsed.data.status);
+      return sendSuccess(res, updated);
+    })
+  );
+
   return router;
 }

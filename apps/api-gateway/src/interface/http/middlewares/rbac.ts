@@ -110,7 +110,7 @@ const ROUTE_POLICIES: RoutePolicy[] = [
   { method: "POST",  pathPrefix: "/api/v1/pae/audits",                                allowedRoles: ["supervisor_departamental"] },
   { method: "PATCH", pathPrefix: "/api/v1/pae/requerimientos/:id/respond",           allowedRoles: ["admin_municipal"] },
   { method: "POST",  pathPrefix: "/api/v1/pae/requerimientos/:id/escalate-to-sanction", allowedRoles: ["supervisor_departamental"] },
-  { method: "POST",  pathPrefix: "/api/v1/pae/sanctions/:id/apply",                  allowedRoles: ["admin_municipal"] }
+  { method: "PATCH", pathPrefix: "/api/v1/pae/sanctions/:id/apply",                  allowedRoles: ["admin_municipal"] }
 ];
 
 // --- SUPERADMIN "Vision de Dios" (Bug #9) ---

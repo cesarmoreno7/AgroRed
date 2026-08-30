@@ -35,7 +35,18 @@ function buildSystemPrompt(): string {
     "   - status: 'scheduled', 'completed', 'cancelled'\n" +
     "8. public.logistics_orders (id UUID, tenant_id UUID, status VARCHAR, total_weight_kg NUMERIC, distance_km NUMERIC, duration_min NUMERIC)\n" +
     "9. public.incidents (id UUID, tenant_id UUID, title VARCHAR, status VARCHAR, priority VARCHAR, priority_score NUMERIC)\n" +
-    "10. public.auctions (id UUID, title VARCHAR, base_price NUMERIC, reserve_price NUMERIC, status VARCHAR, starts_at TIMESTAMP, ends_at TIMESTAMP)\n\n" +
+    "10. public.auctions (id UUID, title VARCHAR, base_price NUMERIC, reserve_price NUMERIC, status VARCHAR, starts_at TIMESTAMP, ends_at TIMESTAMP)\n" +
+    "11. public.institutional_alerts (id UUID, tenant_id UUID, alert_type VARCHAR, severity VARCHAR, title VARCHAR, is_acknowledged BOOLEAN, created_at TIMESTAMP)\n" +
+    "12. public.coordination_tasks (id UUID, tenant_id UUID, actor_type VARCHAR, status VARCHAR, priority VARCHAR, due_date DATE)\n" +
+    "13. public.tenant_oversight (id UUID, supervisor_tenant_id UUID, child_tenant_id UUID, oversight_type VARCHAR, is_active BOOLEAN) -- Gobernación → municipios que supervisa\n" +
+    "14. public.pae_operators (id UUID, tenant_id UUID, legal_name VARCHAR, nit VARCHAR, contract_number VARCHAR, status VARCHAR)\n" +
+    "15. public.pae_inspections (id UUID, tenant_id UUID, operator_id UUID, institution_id UUID, inspection_kind VARCHAR, result VARCHAR, portion_weight_g NUMERIC, temperature_c NUMERIC, hygiene_score INT, inspected_at TIMESTAMP)\n" +
+    "    - result: 'conforme', 'conforme_con_observaciones', 'no_conforme', 'pendiente'\n" +
+    "16. public.pae_requerimientos (id UUID, tenant_id UUID, source_type VARCHAR, operator_id UUID, severity VARCHAR, status VARCHAR, escalation_level INT, due_date TIMESTAMP, responded_at TIMESTAMP, closed_at TIMESTAMP)\n" +
+    "    - status: 'abierto','notificado','en_respuesta','subsanado','incumplido','escalado_sancion','archivado'\n" +
+    "17. public.pae_cae_reports (id UUID, committee_id UUID, tenant_id UUID, category VARCHAR, status VARCHAR, requerimiento_id UUID, created_at TIMESTAMP) -- reportes ciudadanos (Comité de Alimentación Escolar)\n" +
+    "18. public.pae_sanctions (id UUID, operator_id UUID, tenant_id UUID, sanction_type VARCHAR, amount NUMERIC, status VARCHAR, applied_at TIMESTAMP)\n" +
+    "    - sanction_type: 'amonestacion','multa','caducidad'; status: 'propuesta','requerida','aplicada','en_firme','archivada'\n\n" +
     "Reglas de Respuesta:\n" +
     "- Si la pregunta se puede responder mediante base de datos, genera tu [SQL]...[/SQL] y espera a que el backend retorne la respuesta.\n" +
     "- Responde con lenguaje profesional, empático y en español.\n" +
