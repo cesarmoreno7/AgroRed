@@ -12,6 +12,7 @@ interface UserRow {
   password_hash: string;
   contact_phone: string | null;
   created_at: Date;
+  expires_at: Date | null;
 }
 
 export class PostgresUserRepository implements UserRepository {
@@ -29,7 +30,7 @@ export class PostgresUserRepository implements UserRepository {
 
   async findById(id: string): Promise<User | null> {
     const result = await this.pool.query<UserRow>(
-      `SELECT id, tenant_id, email, full_name, role, password_hash, contact_phone, created_at
+      `SELECT id, tenant_id, email, full_name, role, password_hash, contact_phone, created_at, expires_at
        FROM public.users
        WHERE id = $1 AND deleted_at IS NULL`,
       [id]
@@ -39,7 +40,7 @@ export class PostgresUserRepository implements UserRepository {
 
   async findByEmail(email: string): Promise<User | null> {
     const result = await this.pool.query<UserRow>(
-      `SELECT id, tenant_id, email, full_name, role, password_hash, contact_phone, created_at
+      `SELECT id, tenant_id, email, full_name, role, password_hash, contact_phone, created_at, expires_at
        FROM public.users
        WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL`,
       [email.trim().toLowerCase()]
@@ -57,7 +58,7 @@ export class PostgresUserRepository implements UserRepository {
     const total = parseInt(countResult.rows[0].count, 10);
 
     const result = await this.pool.query<UserRow>(
-      `SELECT id, tenant_id, email, full_name, role, password_hash, contact_phone, created_at
+      `SELECT id, tenant_id, email, full_name, role, password_hash, contact_phone, created_at, expires_at
        FROM public.users
        WHERE deleted_at IS NULL AND ($1::uuid IS NULL OR tenant_id = $1)
        ORDER BY created_at DESC
@@ -114,7 +115,8 @@ export class PostgresUserRepository implements UserRepository {
       role: row.role,
       passwordHash: row.password_hash,
       contactPhone: row.contact_phone,
-      createdAt: row.created_at
+      createdAt: row.created_at,
+      expiresAt: row.expires_at ?? null
     });
   }
 }

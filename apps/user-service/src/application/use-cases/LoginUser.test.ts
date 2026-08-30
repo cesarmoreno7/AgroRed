@@ -1,5 +1,7 @@
+import bcrypt from "bcrypt";
 import { LoginUser } from "./LoginUser.js";
 import { RegisterUser } from "./RegisterUser.js";
+import { User } from "../../domain/entities/User.js";
 import { InMemoryUserRepository } from "../../infrastructure/repositories/InMemoryUserRepository.js";
 
 describe("LoginUser use-case", () => {
@@ -56,5 +58,40 @@ describe("LoginUser use-case", () => {
     const result = await loginUser.execute({ email: "  ALICE@EXAMPLE.COM  ", password });
     expect(result.token).toBeDefined();
     expect(result.modules).toContain("producer-service");
+  });
+
+  it("throws ACCESS_EXPIRED when the account expiry is in the past", async () => {
+    await repository.save(
+      new User({
+        id: "u-expired",
+        tenantId: "t-1",
+        email: "demo.expired@agrored.co",
+        fullName: "Demo Expirado",
+        role: "PRODUCER",
+        passwordHash: await bcrypt.hash(password, 10),
+        expiresAt: new Date(Date.now() - 60_000)
+      })
+    );
+
+    await expect(
+      loginUser.execute({ email: "demo.expired@agrored.co", password })
+    ).rejects.toThrow("ACCESS_EXPIRED");
+  });
+
+  it("allows login when the account expiry is still in the future", async () => {
+    await repository.save(
+      new User({
+        id: "u-valid",
+        tenantId: "t-1",
+        email: "demo.valid@agrored.co",
+        fullName: "Demo Vigente",
+        role: "PRODUCER",
+        passwordHash: await bcrypt.hash(password, 10),
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      })
+    );
+
+    const result = await loginUser.execute({ email: "demo.valid@agrored.co", password });
+    expect(result.token).toBeDefined();
   });
 });
