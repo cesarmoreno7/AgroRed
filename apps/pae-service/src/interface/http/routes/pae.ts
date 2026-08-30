@@ -9,11 +9,14 @@ import type { PaeRepository } from "../../../domain/ports/PaeRepository.js";
 import type { AuditLogger } from "../../../shared/audit.js";
 import { RegisterInspection, TargetTenantNotAllowedError } from "../../../application/use-cases/RegisterInspection.js";
 import { classifyInspection } from "../../../application/use-cases/classifyInspection.js";
+import { EscalateFinding, type EscalationSink } from "../../../application/use-cases/EscalateFinding.js";
 import { INSPECTION_KINDS } from "../../../domain/value-objects/InspectionResult.js";
 import { asyncHandler, sendError, sendPaginatedSuccess, sendSuccess } from "../response.js";
 
 export interface PaeRouterDeps {
   repository: PaeRepository;
+  /** Escritura en institutional_alerts / coordination_tasks / notifications (glue Fase 2). */
+  escalation?: EscalationSink;
   auditLogger?: AuditLogger;
 }
 
@@ -78,6 +81,9 @@ const classifySchema = inspectionSchema.partial().omit({ targetTenantId: true })
 export function createPaeRouter(deps: PaeRouterDeps): Router {
   const router = Router();
   const registerInspection = new RegisterInspection({ repository: deps.repository });
+  const escalateFinding = deps.escalation
+    ? new EscalateFinding({ repository: deps.repository, escalation: deps.escalation })
+    : undefined;
 
   // ── Panel / índice ──
   router.get(
@@ -189,7 +195,29 @@ export function createPaeRouter(deps: PaeRouterDeps): Router {
           actorId: (req.headers["x-user-id"] as string) ?? null,
           payload: { result: inspection.result, kind: inspection.inspectionKind }
         });
-        return sendSuccess(res, inspection, 201);
+
+        // Fase 2: hallazgo no conforme → requerimiento a la alcaldía + alerta + tarea.
+        let requerimiento = null;
+        if (inspection.result === "no_conforme" && escalateFinding) {
+          requerimiento = await escalateFinding.fromInspection(inspection, {
+            sourceType: "inspection",
+            createdByTenantId: getTenantId(req) ?? null,
+            createdByRole: (req.headers["x-user-role"] as string) ?? null
+          });
+          if (requerimiento) {
+            await deps.auditLogger?.({
+              tenantId: inspection.tenantId,
+              serviceName: "pae-service",
+              entityName: "pae_requerimientos",
+              entityId: requerimiento.id,
+              actionName: "requerimiento.created",
+              actorId: (req.headers["x-user-id"] as string) ?? null,
+              payload: { source: "inspection", inspectionId: inspection.id, severity: requerimiento.severity }
+            });
+          }
+        }
+
+        return sendSuccess(res, { ...inspection, requerimiento }, 201);
       } catch (error) {
         if (error instanceof TargetTenantNotAllowedError) {
           return sendError(res, 403, "TENANT_NOT_ALLOWED", "El municipio no está bajo su supervisión.");
@@ -252,6 +280,113 @@ export function createPaeRouter(deps: PaeRouterDeps): Router {
         parsed.data.notes ?? null,
         parsed.data.evidenceUrls ?? null
       );
+      return sendSuccess(res, updated);
+    })
+  );
+
+  // ── Requerimientos ──
+  router.get(
+    "/api/v1/pae/requerimientos",
+    asyncHandler(async (req, res) => {
+      const scope = listTenantIds(req);
+      if (!scope.ok) {
+        return sendError(res, 404, "RESOURCE_NOT_FOUND", "Recurso no encontrado.");
+      }
+      const page = Math.max(1, Number(req.query.page ?? 1));
+      const limit = Math.min(100, Math.max(1, Number(req.query.limit ?? 20)));
+      const { data, total } = await deps.repository.listRequerimientos({
+        tenantIds: scope.tenantIds,
+        status: typeof req.query.status === "string" ? req.query.status : undefined,
+        operatorId: typeof req.query.operatorId === "string" ? req.query.operatorId : undefined,
+        limit,
+        offset: (page - 1) * limit
+      });
+      return sendPaginatedSuccess(res, data, { total, page, limit });
+    })
+  );
+
+  router.get(
+    "/api/v1/pae/requerimientos/:id",
+    asyncHandler(async (req, res) => {
+      const r = await deps.repository.findRequerimientoById(String(req.params.id));
+      if (!r || !assertTenantInOversight(req, r.tenantId)) {
+        return sendError(res, 404, "RESOURCE_NOT_FOUND", "Requerimiento no encontrado.");
+      }
+      return sendSuccess(res, r);
+    })
+  );
+
+  // La alcaldía responde el requerimiento.
+  router.patch(
+    "/api/v1/pae/requerimientos/:id/respond",
+    asyncHandler(async (req, res) => {
+      const r = await deps.repository.findRequerimientoById(String(req.params.id));
+      if (!r || !assertTenantInOversight(req, r.tenantId)) {
+        return sendError(res, 404, "RESOURCE_NOT_FOUND", "Requerimiento no encontrado.");
+      }
+      const schema = z.object({
+        responseNotes: z.string().min(1),
+        status: z.enum(["en_respuesta", "subsanado"]).default("en_respuesta")
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return sendError(res, 400, "INVALID_PAYLOAD", parsed.error.issues[0]?.message ?? "Payload inválido.");
+      }
+      const updated = await deps.repository.updateRequerimientoResponse(String(req.params.id), {
+        status: parsed.data.status,
+        responseNotes: parsed.data.responseNotes
+      });
+      if (updated?.status === "subsanado" && updated.coordinationTaskId) {
+        await deps.escalation?.completeCoordinationTask?.(updated.coordinationTaskId);
+      }
+      await deps.auditLogger?.({
+        tenantId: r.tenantId,
+        serviceName: "pae-service",
+        entityName: "pae_requerimientos",
+        entityId: r.id,
+        actionName: "requerimiento.responded",
+        actorId: (req.headers["x-user-id"] as string) ?? null,
+        payload: { status: parsed.data.status }
+      });
+      return sendSuccess(res, updated);
+    })
+  );
+
+  router.patch(
+    "/api/v1/pae/requerimientos/:id/close",
+    asyncHandler(async (req, res) => {
+      const r = await deps.repository.findRequerimientoById(String(req.params.id));
+      if (!r || !assertTenantInOversight(req, r.tenantId)) {
+        return sendError(res, 404, "RESOURCE_NOT_FOUND", "Requerimiento no encontrado.");
+      }
+      const schema = z.object({ status: z.enum(["subsanado", "archivado"]).default("archivado") });
+      const parsed = schema.safeParse(req.body ?? {});
+      const updated = await deps.repository.closeRequerimiento(
+        String(req.params.id),
+        parsed.success ? parsed.data.status : "archivado"
+      );
+      return sendSuccess(res, updated);
+    })
+  );
+
+  // Gobernación exige a la alcaldía escalar a sanción.
+  router.post(
+    "/api/v1/pae/requerimientos/:id/escalate-to-sanction",
+    asyncHandler(async (req, res) => {
+      const r = await deps.repository.findRequerimientoById(String(req.params.id));
+      if (!r || !assertTenantInOversight(req, r.tenantId)) {
+        return sendError(res, 404, "RESOURCE_NOT_FOUND", "Requerimiento no encontrado.");
+      }
+      const updated = await deps.repository.escalateRequerimientoToSanction(String(req.params.id));
+      await deps.auditLogger?.({
+        tenantId: r.tenantId,
+        serviceName: "pae-service",
+        entityName: "pae_requerimientos",
+        entityId: r.id,
+        actionName: "requerimiento.escalated_to_sanction",
+        actorId: (req.headers["x-user-id"] as string) ?? null,
+        payload: {}
+      });
       return sendSuccess(res, updated);
     })
   );

@@ -2,10 +2,16 @@ import type { Pool } from "pg";
 import type {
   PaeInspectionListFilter,
   PaeInspectionRecord,
-  PaeRepository
+  PaeRepository,
+  PaeRequerimientoListFilter
 } from "../../domain/ports/PaeRepository.js";
 import type { PaeInspection } from "../../domain/entities/PaeInspection.js";
 import type { PaeOperator, PaeOperatorInput } from "../../domain/entities/PaeOperator.js";
+import type {
+  PaeRequerimiento,
+  PaeRequerimientoInput,
+  RequerimientoStatus
+} from "../../domain/entities/PaeRequerimiento.js";
 import { PAE_THRESHOLD_KEYS, type PaeThresholds } from "../../domain/checklist/paeChecklistTemplate.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -62,6 +68,40 @@ function mapInspection(row: any): PaeInspection {
     updatedAt: row.updated_at
   };
 }
+
+function mapRequerimiento(row: any): PaeRequerimiento {
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    sourceType: row.source_type,
+    inspectionId: row.inspection_id,
+    caeReportId: row.cae_report_id,
+    operatorId: row.operator_id,
+    title: row.title,
+    description: row.description,
+    legalBasis: row.legal_basis,
+    severity: row.severity,
+    status: row.status,
+    escalationLevel: Number(row.escalation_level),
+    slaHours: Number(row.sla_hours),
+    dueDate: row.due_date,
+    firstNotifiedAt: row.first_notified_at,
+    respondedAt: row.responded_at,
+    responseNotes: row.response_notes,
+    closedAt: row.closed_at,
+    institutionalAlertId: row.institutional_alert_id,
+    coordinationTaskId: row.coordination_task_id,
+    createdByTenantId: row.created_by_tenant_id,
+    createdByRole: row.created_by_role,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+const REQ_COLS = `id, tenant_id, source_type, inspection_id, cae_report_id, operator_id, title, description,
+  legal_basis, severity, status, escalation_level, sla_hours, due_date, first_notified_at,
+  responded_at, response_notes, closed_at, institutional_alert_id, coordination_task_id,
+  created_by_tenant_id, created_by_role, created_at, updated_at`;
 
 export class PostgresPaeRepository implements PaeRepository {
   constructor(private readonly pool: Pool) {}
@@ -250,5 +290,173 @@ export class PostgresPaeRepository implements PaeRepository {
       [id, notes, evidenceUrls]
     );
     return res.rows[0] ? mapInspection(res.rows[0]) : null;
+  }
+
+  // ── Requerimientos ──
+
+  async createRequerimiento(input: PaeRequerimientoInput, dueDate: string): Promise<PaeRequerimiento> {
+    const res = await this.pool.query(
+      `INSERT INTO public.pae_requerimientos
+         (tenant_id, source_type, inspection_id, cae_report_id, operator_id, title, description,
+          legal_basis, severity, sla_hours, due_date, created_by_tenant_id, created_by_role)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::timestamptz,$12,$13)
+       ON CONFLICT ON CONSTRAINT uq_pae_requerimientos_inspection DO NOTHING
+       RETURNING ${REQ_COLS}`,
+      [
+        input.tenantId,
+        input.sourceType,
+        input.inspectionId ?? null,
+        input.caeReportId ?? null,
+        input.operatorId ?? null,
+        input.title,
+        input.description,
+        input.legalBasis ?? null,
+        input.severity,
+        input.slaHours,
+        dueDate,
+        input.createdByTenantId ?? null,
+        input.createdByRole ?? null
+      ]
+    );
+    if (res.rows[0]) {
+      return mapRequerimiento(res.rows[0]);
+    }
+    // ON CONFLICT DO NOTHING → ya existía; devolver el existente.
+    const existing = await this.findRequerimientoByInspectionId(input.inspectionId ?? "");
+    if (!existing) {
+      throw new Error("REQUERIMIENTO_CREATE_FAILED");
+    }
+    return existing;
+  }
+
+  async findRequerimientoByInspectionId(inspectionId: string): Promise<PaeRequerimiento | null> {
+    if (!inspectionId) {
+      return null;
+    }
+    const res = await this.pool.query(
+      `SELECT ${REQ_COLS} FROM public.pae_requerimientos WHERE inspection_id = $1`,
+      [inspectionId]
+    );
+    return res.rows[0] ? mapRequerimiento(res.rows[0]) : null;
+  }
+
+  async findRequerimientoById(id: string): Promise<PaeRequerimiento | null> {
+    const res = await this.pool.query(
+      `SELECT ${REQ_COLS} FROM public.pae_requerimientos WHERE id = $1`,
+      [id]
+    );
+    return res.rows[0] ? mapRequerimiento(res.rows[0]) : null;
+  }
+
+  async listRequerimientos(
+    filter: PaeRequerimientoListFilter
+  ): Promise<{ data: PaeRequerimiento[]; total: number }> {
+    const conditions: string[] = ["1=1"];
+    const values: unknown[] = [];
+    let i = 1;
+    if (filter.tenantIds && filter.tenantIds.length > 0) {
+      conditions.push(`tenant_id = ANY($${i++}::uuid[])`);
+      values.push(filter.tenantIds);
+    }
+    if (filter.status) {
+      conditions.push(`status = $${i++}`);
+      values.push(filter.status);
+    }
+    if (filter.operatorId) {
+      conditions.push(`operator_id = $${i++}`);
+      values.push(filter.operatorId);
+    }
+    const where = `WHERE ${conditions.join(" AND ")}`;
+    const totalRes = await this.pool.query<{ count: string }>(
+      `SELECT COUNT(*) FROM public.pae_requerimientos ${where}`,
+      values
+    );
+    const dataRes = await this.pool.query(
+      `SELECT ${REQ_COLS} FROM public.pae_requerimientos ${where}
+        ORDER BY created_at DESC LIMIT $${i++} OFFSET $${i++}`,
+      [...values, filter.limit, filter.offset]
+    );
+    return {
+      data: dataRes.rows.map(mapRequerimiento),
+      total: parseInt(totalRes.rows[0].count, 10)
+    };
+  }
+
+  async backfillRequerimientoLinks(
+    id: string,
+    links: { institutionalAlertId?: string | null; coordinationTaskId?: string | null; firstNotifiedAt?: string | null }
+  ): Promise<void> {
+    await this.pool.query(
+      `UPDATE public.pae_requerimientos
+          SET institutional_alert_id = COALESCE($2, institutional_alert_id),
+              coordination_task_id   = COALESCE($3, coordination_task_id),
+              first_notified_at      = COALESCE($4::timestamptz, first_notified_at),
+              status = CASE WHEN status = 'abierto' THEN 'notificado' ELSE status END,
+              updated_at = NOW()
+        WHERE id = $1`,
+      [id, links.institutionalAlertId ?? null, links.coordinationTaskId ?? null, links.firstNotifiedAt ?? null]
+    );
+  }
+
+  async updateRequerimientoResponse(
+    id: string,
+    data: { status: RequerimientoStatus; responseNotes: string | null }
+  ): Promise<PaeRequerimiento | null> {
+    const res = await this.pool.query(
+      `UPDATE public.pae_requerimientos
+          SET status = $2,
+              response_notes = COALESCE($3, response_notes),
+              responded_at = COALESCE(responded_at, NOW()),
+              closed_at = CASE WHEN $2 = 'subsanado' THEN NOW() ELSE closed_at END,
+              updated_at = NOW()
+        WHERE id = $1
+        RETURNING ${REQ_COLS}`,
+      [id, data.status, data.responseNotes]
+    );
+    return res.rows[0] ? mapRequerimiento(res.rows[0]) : null;
+  }
+
+  async closeRequerimiento(id: string, status: "subsanado" | "archivado"): Promise<PaeRequerimiento | null> {
+    const res = await this.pool.query(
+      `UPDATE public.pae_requerimientos
+          SET status = $2, closed_at = NOW(), updated_at = NOW()
+        WHERE id = $1
+        RETURNING ${REQ_COLS}`,
+      [id, status]
+    );
+    return res.rows[0] ? mapRequerimiento(res.rows[0]) : null;
+  }
+
+  async escalateRequerimientoToSanction(id: string): Promise<PaeRequerimiento | null> {
+    const res = await this.pool.query(
+      `UPDATE public.pae_requerimientos
+          SET status = 'escalado_sancion', updated_at = NOW()
+        WHERE id = $1
+        RETURNING ${REQ_COLS}`,
+      [id]
+    );
+    return res.rows[0] ? mapRequerimiento(res.rows[0]) : null;
+  }
+
+  async listOverdueRequerimientos(): Promise<PaeRequerimiento[]> {
+    const res = await this.pool.query(
+      `SELECT ${REQ_COLS} FROM public.pae_requerimientos
+        WHERE status IN ('abierto','notificado','en_respuesta')
+          AND responded_at IS NULL
+          AND due_date < NOW()`
+    );
+    return res.rows.map(mapRequerimiento);
+  }
+
+  async bumpRequerimientoEscalation(
+    id: string,
+    data: { escalationLevel: number; status: RequerimientoStatus; dueDate: string }
+  ): Promise<void> {
+    await this.pool.query(
+      `UPDATE public.pae_requerimientos
+          SET escalation_level = $2, status = $3, due_date = $4::timestamptz, updated_at = NOW()
+        WHERE id = $1`,
+      [id, data.escalationLevel, data.status, data.dueDate]
+    );
   }
 }

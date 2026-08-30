@@ -114,6 +114,7 @@ import { createDeliveriesRouter } from "../../../../../delivery-service/src/inte
 
 // ── PAE oversight service (Supervisión del Programa de Alimentación Escolar) ──
 import { PostgresPaeRepository } from "../../../../../pae-service/src/infrastructure/repositories/PostgresPaeRepository.js";
+import { PaeEscalationRepository } from "../../../../../pae-service/src/infrastructure/repositories/PaeEscalationRepository.js";
 import { createPaeRouter } from "../../../../../pae-service/src/interface/http/routes/pae.js";
 import { createAuditLogger as createPaeAuditLogger } from "../../../../../pae-service/src/shared/audit.js";
 
@@ -412,7 +413,11 @@ export async function registerMonolithRouters(
   app.use(createDeliveriesRouter(pool));
 
   // PAE oversight (inspecciones, requerimientos, sanciones, reportes CAE)
-  app.use(createPaeRouter({ repository: new PostgresPaeRepository(pool), auditLogger: createPaeAuditLogger(pool) }));
+  app.use(createPaeRouter({
+    repository: new PostgresPaeRepository(pool),
+    escalation: new PaeEscalationRepository(pool),
+    auditLogger: createPaeAuditLogger(pool)
+  }));
 
   logInfo("monolith.routers.registered", { services: 18 });
 

@@ -1,5 +1,6 @@
 import type { PaeInspection } from "../entities/PaeInspection.js";
 import type { PaeOperator, PaeOperatorInput } from "../entities/PaeOperator.js";
+import type { PaeRequerimiento, PaeRequerimientoInput, RequerimientoStatus } from "../entities/PaeRequerimiento.js";
 import type { PaeThresholds } from "../checklist/paeChecklistTemplate.js";
 
 export interface PaeInspectionListFilter {
@@ -55,4 +56,35 @@ export interface PaeRepository {
   listInspections(filter: PaeInspectionListFilter): Promise<{ data: PaeInspection[]; total: number }>;
   findInspectionById(id: string): Promise<PaeInspection | null>;
   updateInspectionNotes(id: string, notes: string | null, evidenceUrls: string[] | null): Promise<PaeInspection | null>;
+
+  // ── Requerimientos (Fase 2) ──
+  createRequerimiento(input: PaeRequerimientoInput, dueDate: string): Promise<PaeRequerimiento>;
+  findRequerimientoByInspectionId(inspectionId: string): Promise<PaeRequerimiento | null>;
+  findRequerimientoById(id: string): Promise<PaeRequerimiento | null>;
+  listRequerimientos(filter: PaeRequerimientoListFilter): Promise<{ data: PaeRequerimiento[]; total: number }>;
+  backfillRequerimientoLinks(
+    id: string,
+    links: { institutionalAlertId?: string | null; coordinationTaskId?: string | null; firstNotifiedAt?: string | null }
+  ): Promise<void>;
+  updateRequerimientoResponse(
+    id: string,
+    data: { status: RequerimientoStatus; responseNotes: string | null }
+  ): Promise<PaeRequerimiento | null>;
+  closeRequerimiento(id: string, status: "subsanado" | "archivado"): Promise<PaeRequerimiento | null>;
+  escalateRequerimientoToSanction(id: string): Promise<PaeRequerimiento | null>;
+
+  // ── Sweep de vencidos (Fase 3) ──
+  listOverdueRequerimientos(): Promise<PaeRequerimiento[]>;
+  bumpRequerimientoEscalation(
+    id: string,
+    data: { escalationLevel: number; status: RequerimientoStatus; dueDate: string }
+  ): Promise<void>;
+}
+
+export interface PaeRequerimientoListFilter {
+  tenantIds?: string[];
+  status?: string;
+  operatorId?: string;
+  limit: number;
+  offset: number;
 }
