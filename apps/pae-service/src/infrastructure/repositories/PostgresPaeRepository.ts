@@ -459,4 +459,50 @@ export class PostgresPaeRepository implements PaeRepository {
       [id, data.escalationLevel, data.status, data.dueDate]
     );
   }
+
+  async sampleRandomAudits(perSupervisor: number): Promise<{ created: number; runs: number }> {
+    const supervisors = await this.pool.query<{ supervisor_tenant_id: string; children: string[] }>(
+      `SELECT supervisor_tenant_id, array_agg(child_tenant_id) AS children
+         FROM public.tenant_oversight
+        WHERE is_active
+        GROUP BY supervisor_tenant_id`
+    );
+
+    let created = 0;
+    let runs = 0;
+
+    for (const sup of supervisors.rows) {
+      const inserted = await this.pool.query<{ id: string; tenant_id: string }>(
+        `INSERT INTO public.pae_inspections
+           (tenant_id, institution_id, food_program_id, inspection_kind, status, result,
+            inspected_at, inspector_tenant_id, inspector_role)
+         SELECT i.tenant_id, i.id, fp.id, 'auditoria_aleatoria', 'programada', 'pendiente',
+                NOW(), $1, 'supervisor_departamental'
+           FROM public.institutions i
+           JOIN public.food_programs fp
+             ON fp.tenant_id = i.tenant_id
+            AND fp.program_type = 'programa_escolar'
+            AND fp.deleted_at IS NULL
+          WHERE i.tenant_id = ANY($2::uuid[])
+            AND i.deleted_at IS NULL
+            AND i.status = 'active'
+          ORDER BY random()
+          LIMIT $3
+         RETURNING id, tenant_id`,
+        [sup.supervisor_tenant_id, sup.children, perSupervisor]
+      );
+
+      if (inserted.rowCount && inserted.rowCount > 0) {
+        created += inserted.rowCount;
+        runs += 1;
+        await this.pool.query(
+          `INSERT INTO public.pae_audit_runs (supervisor_tenant_id, sample, created_count)
+           VALUES ($1, $2::jsonb, $3)`,
+          [sup.supervisor_tenant_id, JSON.stringify(inserted.rows), inserted.rowCount]
+        );
+      }
+    }
+
+    return { created, runs };
+  }
 }

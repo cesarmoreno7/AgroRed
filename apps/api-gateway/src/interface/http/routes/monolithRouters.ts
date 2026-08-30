@@ -115,6 +115,7 @@ import { createDeliveriesRouter } from "../../../../../delivery-service/src/inte
 // ── PAE oversight service (Supervisión del Programa de Alimentación Escolar) ──
 import { PostgresPaeRepository } from "../../../../../pae-service/src/infrastructure/repositories/PostgresPaeRepository.js";
 import { PaeEscalationRepository } from "../../../../../pae-service/src/infrastructure/repositories/PaeEscalationRepository.js";
+import { RunOverdueRequerimientoSweep } from "../../../../../pae-service/src/application/use-cases/RunOverdueRequerimientoSweep.js";
 import { createPaeRouter } from "../../../../../pae-service/src/interface/http/routes/pae.js";
 import { createAuditLogger as createPaeAuditLogger } from "../../../../../pae-service/src/shared/audit.js";
 
@@ -272,11 +273,20 @@ export async function registerMonolithRouters(
       const qRedis = createRedisConnection({ url: env.REDIS_URL, maxRetriesPerRequest: null });
       const wRedis = createRedisConnection({ url: env.REDIS_URL, maxRetriesPerRequest: null });
       const automQueue = createAutomationQueue(qRedis);
+      const paeRepoForSweeps = new PostgresPaeRepository(pool);
+      const paeOverdueSweep = new RunOverdueRequerimientoSweep({
+        repository: paeRepoForSweeps,
+        escalation: new PaeEscalationRepository(pool)
+      });
       const automWorker = createAutomationWorker({
         redis: wRedis,
         repository: new PostgresAutomationRepository(pool),
         actionEngine: new ActionExecutionEngine(pool, notificationSendersForQueue),
-        iratAlertChecker: new PostgresInstitutionalRepository(pool)
+        iratAlertChecker: new PostgresInstitutionalRepository(pool),
+        paeSweeper: {
+          runOverdueRequerimientoSweep: () => paeOverdueSweep.execute(),
+          sampleRandomAudits: () => paeRepoForSweeps.sampleRandomAudits(3)
+        }
       });
       await automQueue.waitUntilReady();
       await automWorker.waitUntilReady();

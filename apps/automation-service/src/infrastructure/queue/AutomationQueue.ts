@@ -14,6 +14,10 @@ const SYSTEM_WIDE_TENANT_KEY = "system";
 /** BullMQ job name registered by ScheduledFlows.ts for the hourly IRAT threshold sweep. */
 const IRAT_ALERT_CHECK_JOB_NAME = "irat-alert-check";
 
+/** PAE oversight scheduled jobs (ScheduledFlows.ts). */
+const PAE_OVERDUE_SWEEP_JOB_NAME = "pae-requerimiento-overdue-sweep";
+const PAE_RANDOM_AUDIT_JOB_NAME = "pae-random-audit-sampling";
+
 export interface AutomationJobData {
   tenantId: string;
   triggerSource: AutomationTriggerSource;
@@ -29,6 +33,14 @@ export interface IratAlertChecker {
   generateLey2046Alerts(tenantId: string): Promise<unknown[]>;
 }
 
+/** Minimal contract for the PAE oversight scheduled sweeps — implemented in pae-service. */
+export interface PaeSweeper {
+  /** Requerimientos vencidos → sube nivel de escalamiento + re-notifica. */
+  runOverdueRequerimientoSweep(): Promise<unknown>;
+  /** Muestreo aleatorio de auditorías de la Gobernación → stubs de pae_inspections. */
+  sampleRandomAudits(): Promise<unknown>;
+}
+
 export interface AutomationQueueDeps {
   redis: Redis;
   repository: AutomationRepository;
@@ -36,6 +48,8 @@ export interface AutomationQueueDeps {
   /** When provided, the "irat-alert-check" scheduled job runs a real IRAT threshold check
    *  instead of the generic offer/demand heuristic — see ScheduledFlows.ts for the schedule. */
   iratAlertChecker?: IratAlertChecker;
+  /** When provided, the PAE oversight scheduled jobs run their real sweeps. */
+  paeSweeper?: PaeSweeper;
 }
 
 /**
@@ -82,6 +96,17 @@ export function createAutomationWorker(deps: AutomationQueueDeps): Worker {
           }
 
           return { fanOut: true, iratCheck: true, tenantCount: tenantIds.length, results };
+        }
+
+        // PAE oversight sweeps query their own tables (pae_requerimientos / tenant_oversight),
+        // so they don't fan out per tenant — run once and return.
+        if (job.name === PAE_OVERDUE_SWEEP_JOB_NAME && deps.paeSweeper) {
+          const out = await deps.paeSweeper.runOverdueRequerimientoSweep();
+          return { paeOverdueSweep: true, result: out };
+        }
+        if (job.name === PAE_RANDOM_AUDIT_JOB_NAME && deps.paeSweeper) {
+          const out = await deps.paeSweeper.sampleRandomAudits();
+          return { paeRandomAudit: true, result: out };
         }
 
         for (const tenantId of tenantIds) {

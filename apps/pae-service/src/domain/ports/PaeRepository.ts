@@ -73,12 +73,14 @@ export interface PaeRepository {
   closeRequerimiento(id: string, status: "subsanado" | "archivado"): Promise<PaeRequerimiento | null>;
   escalateRequerimientoToSanction(id: string): Promise<PaeRequerimiento | null>;
 
-  // ── Sweep de vencidos (Fase 3) ──
+  // ── Sweep de vencidos + muestreo de auditorías (Fase 3) ──
   listOverdueRequerimientos(): Promise<PaeRequerimiento[]>;
   bumpRequerimientoEscalation(
     id: string,
     data: { escalationLevel: number; status: RequerimientoStatus; dueDate: string }
   ): Promise<void>;
+  /** Crea stubs de pae_inspections (auditoria_aleatoria) para colegios de los municipios supervisados. */
+  sampleRandomAudits(perSupervisor: number): Promise<{ created: number; runs: number }>;
 }
 
 export interface PaeRequerimientoListFilter {
