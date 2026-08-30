@@ -63,6 +63,7 @@
     "migrate": "npx tsx scripts/migrate.ts",
     "seed": "npx tsx scripts/seed.ts",
     "seed:roles": "npx tsx scripts/seed_expanded.ts",
+    "seed:demo": "npx tsx scripts/seed_demo.ts",
     "test:smoke:roles": "jest tests/integration/role-access-matrix-gateway.test.ts tests/integration/password-recovery-gateway-flow.test.ts tests/integration/seed-expanded-login.test.ts",
     "test:coverage": "jest --coverage",
     "test:ci": "jest --coverage --ci --runInBand",

@@ -111,6 +111,10 @@ export function createUsersRouter(deps: UsersRouterDeps): Router {
         return sendError(res, 401, "INVALID_CREDENTIALS", "Credenciales invalidas.");
       }
 
+      if (error instanceof Error && error.message === "ACCESS_EXPIRED") {
+        return sendError(res, 403, "ACCESS_EXPIRED", "El acceso vencio. Solicite una renovacion.");
+      }
+
       return sendError(res, 500, "LOGIN_FAILED", "No fue posible iniciar sesion.");
     }
   }));

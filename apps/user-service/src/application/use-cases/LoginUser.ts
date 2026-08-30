@@ -34,6 +34,10 @@ export class LoginUser {
       throw new Error("INVALID_CREDENTIALS");
     }
 
+    if (user.isExpired()) {
+      throw new Error("ACCESS_EXPIRED");
+    }
+
     const token = jwt.sign(
       {
         sub: user.id,
