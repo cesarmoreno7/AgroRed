@@ -60,6 +60,7 @@
     "clean": "npx rimraf apps/*/dist apps/*/tsconfig.tsbuildinfo coverage",
     "build:monolith": "npm --workspace @agrored/api-gateway run build",
     "start:monolith": "npm --workspace @agrored/api-gateway run start",
+    "start": "npm run start:monolith",
     "migrate": "npx tsx scripts/migrate.ts",
     "seed": "npx tsx scripts/seed.ts",
     "seed:roles": "npx tsx scripts/seed_expanded.ts",

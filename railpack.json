@@ -1,0 +1,20 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "provider": "node",
+  "packages": {
+    "node": "22"
+  },
+  "steps": {
+    "install": {
+      "commands": ["npm install --include=dev"]
+    },
+    "build": {
+      "inputs": [{ "step": "install" }],
+      "commands": ["npm run build:monolith"]
+    }
+  },
+  "deploy": {
+    "startCommand": "npm run start:monolith",
+    "inputs": [{ "step": "build", "include": ["."] }]
+  }
+}
