@@ -86,7 +86,7 @@ const MENU_GROUPS: MenuGroup[] = [
       { to: "/alerts",        icon: "🚨", label: "Alertas IRAT",          module: "analytics-service" },
       { to: "/ml",            icon: "🤖", label: "Apoyo a Decisión",      module: "ml-service" },
       { to: "/ai-copilot",    icon: "✨", label: "Copiloto IA",           module: "user-service" },
-      { to: "/madurez",       icon: "🎯", label: "Mapa de Madurez" },
+      // "Mapa de Madurez" oculto del menú (la ruta /madurez sigue accesible por URL directa).
     ],
   },
   {

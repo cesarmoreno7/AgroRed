@@ -369,10 +369,11 @@ export function TerritorialPage() {
           boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
         }}>
           <MapContainer center={[5.5, -75.0]} zoom={7} style={{ height: "100%", width: "100%" }} zoomControl>
-            {/* Tile claro CARTO Voyager — colores vibrantes, sin exceso de oscuridad */}
+            {/* Tiles OpenStreetMap — sin API key (CARTO ahora exige token y estampa
+                "API KEY REQUIRED" sobre las teselas anónimas). */}
             <TileLayer
-              attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
-              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
 
             <FitBounds producers={showProducers ? producers : []} demands={showClients ? demands : []} />
